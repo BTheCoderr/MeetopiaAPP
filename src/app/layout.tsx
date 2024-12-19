@@ -1,10 +1,5 @@
-import { Inter } from 'next/font/google'
-import { Providers } from '@/components/Providers'
+import { UserProvider } from '../context/UserContext'
 import './globals.css'
-import { ThemeProvider } from '@/components/ThemeProvider'
-import { UserProvider } from '@/context/UserContext'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
@@ -13,15 +8,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <title>MEETOPIA</title>
-        <meta name="description" content="Your perfect meeting place" />
-      </head>
-      <body className={inter.className}>
+      <body>
         <UserProvider>
-          <ThemeProvider>
-            <Providers>{children}</Providers>
-          </ThemeProvider>
+          {children}
         </UserProvider>
       </body>
     </html>

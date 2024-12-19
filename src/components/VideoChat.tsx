@@ -1,73 +1,34 @@
 'use client'
 
-import React, { useRef, useState, useEffect } from 'react'
-import { WebRTCService } from '../lib/services/webRTCService'
-
-const VideoChat: React.FC = () => {
-  const [isConnected, setIsConnected] = useState<boolean>(false)
-  const [isClient, setIsClient] = useState<boolean>(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isClient) return
-
-    const webRTC = new WebRTCService()
-    let stream: MediaStream | null = null
-
-    const initStream = async () => {
-      try {
-        stream = await webRTC.startLocalStream()
-        if (videoRef.current && stream) {
-          videoRef.current.srcObject = stream
-          setIsConnected(true)
-        }
-      } catch (error) {
-        console.error('Failed to start video stream:', error)
-      }
-    }
-
-    initStream()
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop())
-      }
-    }
-  }, [isClient])
-
-  if (!isClient) return null
-
+export default function VideoChat() {
   return (
-    <div className="flex flex-col items-center p-4">
-      <video 
-        ref={videoRef} 
-        autoPlay 
-        playsInline
-        muted 
-        className="w-full max-w-2xl rounded-lg shadow-lg" 
-      />
-      <div className="chat-controls mt-4 space-x-4">
-        <button 
-          onClick={() => {}} 
-          className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
-          disabled={!isConnected}
-        >
-          Next
-        </button>
-        <button 
-          onClick={() => {}} 
-          className="px-4 py-2 bg-red-500 text-white rounded disabled:opacity-50"
-          disabled={!isConnected}
-        >
-          Disconnect
-        </button>
+    <div className="flex flex-col h-screen bg-white">
+      <div className="flex-1 flex">
+        {/* Local video */}
+        <div className="w-1/2 p-4">
+          <div className="relative h-full">
+            {/* Video element will go here */}
+            <div className="absolute bottom-4 left-4 space-x-2">
+              <button className="bg-gray-200 p-2 rounded-full">Mute</button>
+              <button className="bg-gray-200 p-2 rounded-full">Stop Video</button>
+              <button className="bg-blue-500 text-white p-2 rounded-full">Next Person</button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Partner video */}
+        <div className="w-1/2 p-4">
+          <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+            <p className="text-gray-500">Waiting for partner...</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="p-4 flex justify-center space-x-4">
+        <button className="bg-blue-500 text-white px-6 py-2 rounded-lg">NEXT PERSON</button>
+        <button className="bg-red-500 text-white px-6 py-2 rounded-lg">LEAVE CHAT</button>
       </div>
     </div>
   )
-}
-
-export default VideoChat 
+} 
