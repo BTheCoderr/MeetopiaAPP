@@ -1,101 +1,124 @@
-import Image from "next/image";
+'use client'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useUser } from '@/context/UserContext'
+
+interface FeedItem {
+  id: string
+  username: string
+  status: string
+  isOnline: boolean
+  lastActive: string
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { user } = useUser()
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([
+    {
+      id: '1',
+      username: 'Alice',
+      status: 'Looking to chat!',
+      isOnline: true,
+      lastActive: 'now'
+    },
+    {
+      id: '2',
+      username: 'Bob',
+      status: 'Available for video chat',
+      isOnline: true,
+      lastActive: '2m ago'
+    },
+  ])
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">Welcome to ChatApp</h1>
+          <div className="space-x-4">
+            <Link
+              href="/auth/signin"
+              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/auth/signup"
+              className="inline-block px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Sign Up
+            </Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Chat Options</h1>
+        <div className="flex items-center space-x-4">
+          <span>🪙 {user.coins} coins</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <Link href="/chat/text" className="block h-full">
+          <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow h-full flex flex-col justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-2">💬 Text Chat</h2>
+              <p className="text-gray-600">Start a text-based conversation</p>
+            </div>
+            <p className="mt-4 text-sm text-blue-600">1 coin per message</p>
+          </div>
+        </Link>
+
+        <Link href="/chat/video" className="block h-full">
+          <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow h-full flex flex-col justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-2">📹 Video Chat</h2>
+              <p className="text-gray-600">Start a video conversation</p>
+            </div>
+            <p className="mt-4 text-sm text-blue-600">10 coins per minute</p>
+          </div>
+        </Link>
+
+        <Link href="/chat/combined" className="block h-full">
+          <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow h-full flex flex-col justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-2">🤝 Combined Chat</h2>
+              <p className="text-gray-600">Text and video in one chat</p>
+            </div>
+            <p className="mt-4 text-sm text-blue-600">Varies by usage</p>
+          </div>
+        </Link>
+      </div>
+
+      <h2 className="text-2xl font-bold mb-4">Live Feed</h2>
+      <div className="space-y-4">
+        {feedItems.map((item) => (
+          <div
+            key={item.id}
+            className="p-4 bg-white rounded-lg shadow-md flex items-center justify-between"
+          >
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="font-bold">{item.username}</span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    item.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                  }`}
+                />
+              </div>
+              <p className="text-gray-600">{item.status}</p>
+            </div>
+            <div className="text-sm text-gray-500">
+              Active: {item.lastActive}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
+  )
 }

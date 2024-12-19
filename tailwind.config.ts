@@ -11,8 +11,11 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        "card-bg": "var(--card-bg)",
+        "card-text": "var(--card-text)",
       },
     },
   },
+  darkMode: 'class',
   plugins: [],
 } satisfies Config;
