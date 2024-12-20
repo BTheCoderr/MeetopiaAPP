@@ -1,12 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000']
-    }
-  },
+  output: 'standalone',
+  poweredByHeader: false,
+  reactStrictMode: true,
   webpack: (config) => {
-    config.experiments = { ...config.experiments, topLevelAwait: true }
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      net: false,
+      dns: false,
+      tls: false,
+      fs: false,
+      'utf-8-validate': false,
+      'bufferutil': false
+    }
     return config
   }
 }

@@ -1,6 +1,6 @@
 import { Server as NetServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
-import { NextApiResponse } from 'next'
+import { io } from 'socket.io-client'
 
 export const initSocketServer = (server: NetServer) => {
   const io = new SocketIOServer(server)
@@ -39,4 +39,6 @@ export const initSocketServer = (server: NetServer) => {
   })
 
   return io
-} 
+}
+
+export const socket = io('your-signaling-server-url') 

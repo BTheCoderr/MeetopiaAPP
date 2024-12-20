@@ -1,142 +1,31 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
-import { io, Socket } from 'socket.io-client'
-import { WebRTCService } from '../../lib/webrtc'
-import ChatBox from '../Chat/ChatBox'
+import { useUser } from '../../context/UserContext'
+import { LoadingSpinner } from '../ui/LoadingSpinner'
+import { ErrorMessage } from '../ui/ErrorMessage'
 
-export interface RoomProps {
-  roomId: string
+interface RoomProps {
+  type: 'text' | 'combined'
 }
 
-const Room = ({ roomId }: RoomProps) => {
-  const [messages, setMessages] = useState<string[]>([])
-  const localVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const webrtcRef = useRef<WebRTCService | null>(null)
-  const socketRef = useRef<Socket | null>(null)
-  const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOff, setIsVideoOff] = useState(false)
-  const [tempUserId, setTempUserId] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string>('')
+export function Room({ type }: RoomProps) {
+  const { user } = useUser()
 
-  useEffect(() => {
-    const initializeRoom = async () => {
-      try {
-        setIsLoading(true)
-        const socket = io('http://localhost:3000', {
-          transports: ['websocket'],
-          upgrade: false
-        })
-        socketRef.current = socket
-        webrtcRef.current = new WebRTCService(socket)
-
-        const stream = await webrtcRef.current.startLocalStream()
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream
-        }
-
-        if (!tempUserId) {
-          setTempUserId(`user_${Date.now()}`)
-        }
-
-        socket.emit('join-room', {
-          roomId,
-          userId: tempUserId
-        })
-
-        socket.on('user-connected', (userId: string) => {
-          console.log('User connected:', userId)
-          webrtcRef.current?.createOffer()
-        })
-
-        socket.on('user-disconnected', (userId: string) => {
-          console.log('User disconnected:', userId)
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = null
-          }
-        })
-
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to access camera')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    initializeRoom()
-  }, [roomId, tempUserId])
-
-  const toggleMute = () => {
-    const stream = localVideoRef.current?.srcObject as MediaStream
-    if (stream) {
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled
-      })
-      setIsMuted(!isMuted)
-    }
-  }
-
-  const toggleVideo = () => {
-    const stream = localVideoRef.current?.srcObject as MediaStream
-    if (stream) {
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled
-      })
-      setIsVideoOff(!isVideoOff)
-    }
+  if (!user) {
+    return <ErrorMessage message="Please sign in to access chat" />
   }
 
   return (
-    <div className="flex gap-4 p-4">
-      <div className="w-2/3">
-        {isLoading && <div>Setting up your camera...</div>}
-        {error && <div className="text-red-500">{error}</div>}
-        {!isLoading && !error && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="relative">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full rounded-lg"
-              />
-              <div className="absolute bottom-4 left-4 flex gap-2">
-                <button
-                  onClick={toggleMute}
-                  className={`p-2 rounded ${isMuted ? 'bg-red-500' : 'bg-gray-500'}`}
-                >
-                  {isMuted ? 'Unmute' : 'Mute'}
-                </button>
-                <button
-                  onClick={toggleVideo}
-                  className={`p-2 rounded ${isVideoOff ? 'bg-red-500' : 'bg-gray-500'}`}
-                >
-                  {isVideoOff ? 'Turn On Video' : 'Turn Off Video'}
-                </button>
-              </div>
-            </div>
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full rounded-lg"
-            />
-          </div>
-        )}
-      </div>
-      <div className="w-1/3">
-        {socketRef.current && (
-          <ChatBox 
-            socket={socketRef.current} 
-            roomId={roomId} 
-            userId={tempUserId} 
-          />
-        )}
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">
+          {type === 'text' ? 'Text Chat' : 'Combined Chat'}
+        </h1>
+        {/* Add your chat implementation here */}
+        <div className="p-4 text-center">
+          <LoadingSpinner />
+          <p className="mt-2">Setting up {type} chat...</p>
+        </div>
       </div>
     </div>
   )
-}
-
-export default Room 
+} 

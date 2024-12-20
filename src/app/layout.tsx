@@ -1,5 +1,6 @@
 import { UserProvider } from '../context/UserContext'
 import './globals.css'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export default function RootLayout({
   children,
@@ -9,9 +10,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <UserProvider>
-          {children}
-        </UserProvider>
+        <ErrorBoundary>
+          <UserProvider>
+            {children}
+          </UserProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )
