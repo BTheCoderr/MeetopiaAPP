@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
-import Link from 'next/link'
+import ChatMenu from '@/components/ChatMenu'
 
 let socket: Socket | null = null
 
@@ -16,10 +16,22 @@ export default function CombinedChatPage() {
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [isRemoteMuted, setIsRemoteMuted] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const { peerConnection } = usePeerConnection(stream)
+
+  // Add click handler to close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isMenuOpen && !(event.target as Element).closest('.menu-container')) {
+        setIsMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [isMenuOpen])
 
   // Media stream setup
   useEffect(() => {
@@ -304,14 +316,8 @@ export default function CombinedChatPage() {
       const audioTrack = remoteStream.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
+        setIsRemoteMuted(!isRemoteMuted);
       }
-    }
-  }
-
-  const toggleRemoteMute = () => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.muted = !remoteVideoRef.current.muted
-      setIsRemoteMuted(!isRemoteMuted)
     }
   }
 
@@ -325,14 +331,12 @@ export default function CombinedChatPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 border-b bg-white">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="text-gray-600 hover:text-gray-800">
-            ����
-          </Link>
-          <h1 className="text-xl font-bold">
+    <div className="min-h-screen bg-white p-4 md:p-8">
+      {/* Header with Back Button, Logo, and Connection Status */}
+      <div className="flex items-center justify-between mb-4 md:mb-8">
+        <div className="flex items-center gap-2 md:gap-4">
+          <ChatMenu onLeaveChat={handleLeaveChat} />
+          <h1 className="text-xl md:text-2xl font-bold">
             <span className="text-blue-500">Meet</span>
             <span className="text-gray-700">opia</span>
           </h1>
@@ -345,181 +349,153 @@ export default function CombinedChatPage() {
         </div>
       </div>
 
-      {/* Videos Section */}
-      <div className="flex gap-2 p-2 bg-white">
-        {/* Local Video */}
-        <div className="relative w-1/2 aspect-video bg-gray-900 rounded-lg overflow-hidden">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
-            <div className="flex items-center justify-center gap-2 p-2">
-              <button
-                onClick={toggleLocalMute}
-                className={`p-2 text-xs border-2 rounded-full transition-colors ${
-                  isMuted 
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-white/50 text-white hover:bg-white/10'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z M7 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5V4z"/>
-                </svg>
-              </button>
-              <button
-                onClick={toggleLocalCamera}
-                className={`p-2 text-xs border-2 rounded-full transition-colors ${
-                  isCameraOff 
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-white/50 text-white hover:bg-white/10'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M0 5a2 2 0 0 1 2-2h7.5a2 2 0 0 1 1.983 1.738l3.11-1.382A1 1 0 0 1 16 4.269v7.462a1 1 0 0 1-1.406.913l-3.111-1.382A2 2 0 0 1 9.5 13H2a2 2 0 0 1-2-2V5zm11.5 5.175 3.5 1.556V4.269l-3.5 1.556v4.35zM2 4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h7.5a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H2z"/>
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  if (localVideoRef.current) {
-                    localVideoRef.current.muted = !localVideoRef.current.muted;
-                  }
-                }}
-                className="p-2 text-xs border-2 border-white/50 text-white hover:bg-white/10 rounded-full transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                  <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
-                  <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
-                </svg>
-              </button>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto">
+        {/* Videos Section */}
+        <div className="grid grid-cols-2 gap-0 mb-4">
+          {/* Local Video */}
+          <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+            <div className="relative h-[480px] bg-gray-900 rounded-lg overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
+                <div className="flex items-center justify-center gap-2 p-2">
+                  <button
+                    onClick={toggleLocalMute}
+                    className={`p-2 text-xs border-2 rounded-full transition-colors ${
+                      isMuted 
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isMuted ? '🔇' : '🔊'}
+                  </button>
+                  <button
+                    onClick={toggleLocalCamera}
+                    className={`p-2 text-xs border-2 rounded-full transition-colors ${
+                      isCameraOff 
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isCameraOff ? '⏸️' : '📹'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Remote Video */}
+          <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+            <div className="relative h-[480px] bg-gray-900 rounded-lg overflow-hidden">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ display: remoteStream ? 'block' : 'none' }}
+              />
+              {!remoteStream && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                  Waiting for meeter...
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
+                <div className="flex items-center justify-center gap-2 p-2">
+                  <button
+                    onClick={toggleRemoteAudio}
+                    className={`p-2 text-xs border-2 rounded-full transition-colors ${
+                      isRemoteMuted
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isRemoteMuted ? '🔇' : '🎤'}
+                  </button>
+                  <button
+                    onClick={toggleRemoteVideo}
+                    className={`p-2 text-xs border-2 rounded-full transition-colors ${
+                      !remoteStream?.getVideoTracks()[0]?.enabled
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {!remoteStream?.getVideoTracks()[0]?.enabled ? '⏸️' : '📹'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Remote Video */}
-        <div className="relative w-1/2 aspect-video bg-gray-900 rounded-lg overflow-hidden">
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-            style={{ display: remoteStream ? 'block' : 'none' }}
-          />
-          {!remoteStream && (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-              Waiting for meeter...
-            </div>
-          )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
-            <div className="flex items-center justify-center gap-2 p-2">
-              <button
-                onClick={toggleRemoteAudio}
-                className={`p-2 text-xs border-2 rounded-full transition-colors ${
-                  remoteStream?.getAudioTracks()[0]?.enabled === false
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-white/50 text-white hover:bg-white/10'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z M7 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5V4z"/>
-                </svg>
-              </button>
-              <button
-                onClick={toggleRemoteVideo}
-                className={`p-2 text-xs border-2 rounded-full transition-colors ${
-                  remoteStream?.getVideoTracks()[0]?.enabled === false
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-white/50 text-white hover:bg-white/10'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M0 5a2 2 0 0 1 2-2h7.5a2 2 0 0 1 1.983 1.738l3.11-1.382A1 1 0 0 1 16 4.269v7.462a1 1 0 0 1-1.406.913l-3.111-1.382A2 2 0 0 1 9.5 13H2a2 2 0 0 1-2-2V5zm11.5 5.175 3.5 1.556V4.269l-3.5 1.556v4.35zM2 4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h7.5a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H2z"/>
-                </svg>
-              </button>
-              <button
-                onClick={toggleRemoteMute}
-                className={`p-2 text-xs border-2 rounded-full transition-colors ${
-                  isRemoteMuted 
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-white/50 text-white hover:bg-white/10'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                  <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
-                  <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
-                </svg>
-              </button>
+        {/* Chat Section */}
+        <div className="border rounded-lg shadow-sm bg-white">
+          <div className="text-center p-1 border-b border-gray-100">
+            <h2 className="text-base font-medium">💬 Chat</h2>
+          </div>
+          
+          <div className="h-[150px] p-2 flex flex-col">
+            <div className="flex-1 overflow-y-auto space-y-1.5">
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`p-1.5 rounded-lg max-w-[80%] text-xs ${
+                    msg.isSelf
+                      ? 'ml-auto bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Chat Section */}
-      <div className="flex-1 bg-white p-4 flex flex-col">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`p-2 rounded-lg max-w-[80%] ${
-                msg.isSelf
-                  ? 'ml-auto bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-800'
-              }`}
-            >
-              {msg.text}
-            </div>
-          ))}
+          <div className="p-1.5 border-t border-gray-100">
+            <form onSubmit={handleSendMessage} className="flex gap-1.5">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 px-2.5 py-1.5 text-xs rounded-full border border-gray-300 focus:outline-none focus:border-blue-400"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-full hover:bg-blue-600"
+              >
+                Send
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* Message Input */}
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <input
-            type="text"
-            value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600"
+        {/* Bottom Controls */}
+        <div className="flex flex-wrap justify-center gap-1.5 mt-3">
+          <button 
+            onClick={handleStartCall}
+            className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs"
           >
-            Send
+            ▶️ START
           </button>
-        </form>
-      </div>
-
-      {/* Bottom Controls with matching outline styles */}
-      <div className="p-3 flex justify-center gap-3 bg-white border-t">
-        <button
-          onClick={handleStartCall}
-          className="px-6 py-1.5 border-2 border-green-500 text-green-500 text-sm rounded-full 
-          hover:bg-green-500 hover:text-white transition-colors"
-        >
-          START CALL
-        </button>
-
-        <button
-          onClick={handleNextPerson}
-          className="px-6 py-1.5 border-2 border-blue-500 text-blue-500 text-sm rounded-full 
-          hover:bg-blue-500 hover:text-white transition-colors"
-        >
-          NEXT PERSON
-        </button>
-
-        <button
-          onClick={handleLeaveChat}
-          className="px-6 py-1.5 border-2 border-red-500 text-red-500 text-sm rounded-full 
-          hover:bg-red-500 hover:text-white transition-colors"
-        >
-          LEAVE CHAT
-        </button>
+          <button 
+            onClick={handleNextPerson}
+            className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-xs"
+          >
+            ⏭️ NEXT
+          </button>
+          <button 
+            onClick={handleLeaveChat}
+            className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs"
+          >
+            ⏹️ LEAVE
+          </button>
+        </div>
       </div>
     </div>
   )
