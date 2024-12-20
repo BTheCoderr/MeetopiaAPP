@@ -91,6 +91,101 @@ export default function VideoChatPage() {
     }
   }, [peerConnection, currentPeer])
 
+  // Socket event handlers - dependent on peer connection and stream
+  useEffect(() => {
+    const currentSocket = socket
+    if (!currentSocket || !peerConnection || !stream) return
+
+    // Wait for peer connection to be stable before adding tracks
+    if (peerConnection.signalingState === 'stable') {
+      const senders = peerConnection.getSenders()
+      if (senders.length === 0) {
+        stream.getTracks().forEach(track => {
+          console.log('Adding track to peer connection:', track.kind)
+          try {
+            peerConnection.addTrack(track, stream)
+          } catch (err) {
+            console.warn('Error adding track:', err)
+          }
+        })
+      }
+    }
+
+    const handleUserFound = async ({ partnerId }: { partnerId: string }) => {
+      console.log('Found peer:', partnerId)
+      setCurrentPeer(partnerId)
+      
+      if (partnerId > (currentSocket?.id || '')) {
+        try {
+          console.log('Creating and sending offer...')
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+          })
+          await peerConnection.setLocalDescription(offer)
+          console.log('Sending offer to peer:', partnerId)
+          currentSocket.emit('call-user', { offer, to: partnerId })
+        } catch (err) {
+          console.error('Error creating offer:', err)
+        }
+      }
+    }
+
+    const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit, from: string }) => {
+      try {
+        console.log('Received offer from:', from)
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        const answer = await peerConnection.createAnswer()
+        await peerConnection.setLocalDescription(answer)
+        currentSocket.emit('make-answer', { answer, to: from })
+      } catch (err) {
+        console.error('Error handling call:', err)
+      }
+    }
+
+    const handleAnswerMade = async ({ answer, from }: { answer: RTCSessionDescriptionInit, from: string }) => {
+      try {
+        console.log('Received answer from:', from)
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+      } catch (err) {
+        console.error('Error handling answer:', err)
+      }
+    }
+
+    const handleIceCandidate = ({ candidate, from }: { candidate: RTCIceCandidate, from: string }) => {
+      try {
+        console.log('Received ICE candidate from:', from)
+        if (peerConnection.remoteDescription) {
+          peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+        } else {
+          console.log('Skipping ICE candidate - no remote description yet')
+        }
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err)
+      }
+    }
+
+    const handlePeerLeft = () => {
+      console.log('Peer left')
+      setCurrentPeer(null)
+      setRemoteStream(null)
+    }
+
+    currentSocket.on('user-found', handleUserFound)
+    currentSocket.on('call-made', handleCallMade)
+    currentSocket.on('answer-made', handleAnswerMade)
+    currentSocket.on('ice-candidate', handleIceCandidate)
+    currentSocket.on('peer-left', handlePeerLeft)
+
+    return () => {
+      currentSocket.off('user-found', handleUserFound)
+      currentSocket.off('call-made', handleCallMade)
+      currentSocket.off('answer-made', handleAnswerMade)
+      currentSocket.off('ice-candidate', handleIceCandidate)
+      currentSocket.off('peer-left', handlePeerLeft)
+    }
+  }, [peerConnection, stream])
+
   const handleStartCall = () => {
     console.log('Start Call clicked')
     if (!socket?.connected) {
