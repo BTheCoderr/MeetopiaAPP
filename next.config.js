@@ -14,7 +14,17 @@ const nextConfig = {
       'bufferutil': false
     }
     return config
-  }
+  },
+  // Add experimental features for better CSS handling
+  experimental: {
+    optimizeCss: true,
+    forceSwcTransforms: true
+  },
+  // Ensure CSS modules work correctly
+  cssModules: true,
+  // Add Render-specific settings
+  distDir: '.next',
+  generateEtags: false
 }
 
 module.exports = nextConfig

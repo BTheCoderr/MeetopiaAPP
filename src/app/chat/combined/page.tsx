@@ -70,7 +70,7 @@ export default function CombinedChatPage() {
     if (socket) return
 
     console.log('Setting up socket connection...')
-    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'https://meetopia-signaling.onrender.com', {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
