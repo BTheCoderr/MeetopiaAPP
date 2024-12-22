@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "rm -rf dist && tsc -p tsconfig.server.json && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
-    "start": "node dist/server/index.js",
+    "start": "node --experimental-specifier-resolution=node dist/server/index.js",
     "prod": "npm run build && npm start",
-    "signal": "node dist/server/index.js",
+    "signal": "node --experimental-specifier-resolution=node dist/server/index.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

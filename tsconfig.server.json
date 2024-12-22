@@ -1,13 +1,13 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "dist",
     "noEmit": false,
     "jsx": "react",
-    "moduleResolution": "node",
     "esModuleInterop": true,
-    "target": "ES2015",
+    "target": "ES2022",
     "sourceMap": true,
     "allowJs": true,
     "checkJs": false
