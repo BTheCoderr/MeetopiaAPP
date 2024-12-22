@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
-    "start": "concurrently \"next start\" \"tsx server/index.ts\"",
+    "start": "node server/index.js",
     "prod": "npm run build && npm start",
-    "signal": "tsx server/index.ts",
+    "signal": "node server/index.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
