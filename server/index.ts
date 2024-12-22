@@ -14,10 +14,17 @@ dotenv.config()
 const app = express()
 
 // Enhanced CORS configuration
-const PORT = process.env.PORT || process.env.SIGNAL_PORT || 3001
-const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : ['http://localhost:3000']
+const PORT = process.env.PORT || 3000
+const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+  'https://meetopia-app.vercel.app',
+  'https://meetopia-signaling.onrender.com',
+  'http://localhost:3000'
+]
 
-console.log('Allowed Origins:', CORS_ORIGINS)
+console.log('Server starting with configuration:')
+console.log('PORT:', PORT)
+console.log('CORS_ORIGINS:', CORS_ORIGINS)
+console.log('NODE_ENV:', process.env.NODE_ENV)
 
 // Create HTTP server first
 const httpServer = createServer(app)
@@ -152,6 +159,7 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`)
+  console.log('Server URL:', process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`)
 })
 
 // Enhanced error handling
