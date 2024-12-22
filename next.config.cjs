@@ -22,4 +22,4 @@ const nextConfig = {
   generateEtags: false
 }
 
-module.exports = nextConfig
+export default nextConfig

@@ -2,20 +2,72 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+// Get directory name in ES modules
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
+
+// Enhanced CORS configuration
+const PORT = process.env.PORT || process.env.SIGNAL_PORT || 3001
+const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : ['http://localhost:3000']
+
+console.log('Allowed Origins:', CORS_ORIGINS)
+
+// Create HTTP server first
 const httpServer = createServer(app)
+
+// Socket.IO setup with enhanced configuration
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: CORS_ORIGINS,
+    methods: ["GET", "POST"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  connectTimeout: 45000
+})
+
+// Add CORS middleware for Express
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  next()
+})
+
+// Debug endpoint
+app.get('/debug-env', (_req, res) => {
+  res.json({
+    allowedOrigins: CORS_ORIGINS,
+    environment: process.env.NODE_ENV,
+    port: PORT,
+    currentTime: new Date().toISOString()
+  })
+})
+
+// Add connection logging
+io.engine.on("connection_error", (err) => {
+  console.log('Connection Error:', err)
+})
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')))
+
+// Root route now serves index.html
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
 
 // Track connected clients
@@ -98,16 +150,15 @@ io.on('connection', (socket) => {
   })
 })
 
-const PORT = process.env.PORT || 3001
 httpServer.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`)
 })
 
-// Add this after app initialization
-app.get('/debug-env', (_req, res) => {
-  res.json({
-    cors: process.env.CORS_ORIGIN,
-    nodeEnv: process.env.NODE_ENV,
-    port: process.env.PORT
-  })
+// Enhanced error handling
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
 })
