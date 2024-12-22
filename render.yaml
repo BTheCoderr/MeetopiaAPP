@@ -2,7 +2,7 @@ services:
   - type: web
     name: meetopia-signaling
     env: node
-    buildCommand: npm install && npm run build && tsc -p tsconfig.server.json
+    buildCommand: npm install && npm run build
     startCommand: npm run signal
     envVars:
       - key: NODE_ENV

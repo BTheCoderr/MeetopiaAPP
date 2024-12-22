@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
-    "start": "node server/index.js",
+    "build": "tsc -p tsconfig.server.json && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "start": "node dist/server/index.js",
     "prod": "npm run build && npm start",
-    "signal": "node server/index.js",
+    "signal": "node dist/server/index.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
