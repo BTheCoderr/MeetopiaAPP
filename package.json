@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "build": "tsc && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
     "start": "concurrently \"next start\" \"tsx server/index.ts\"",
     "prod": "npm run build && npm start",
     "signal": "tsx server/index.ts",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@auth/core": "^0.34.2",
     "@vercel/speed-insights": "^1.1.0",
+    "autoprefixer": "^10.4.20",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
@@ -25,6 +26,7 @@
     "mongoose": "^8.9.1",
     "next": "^14.0.0",
     "next-auth": "^4.24.11",
+    "postcss": "^8.4.49",
     "postcss-loader": "^7.3.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -32,16 +34,14 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "style-loader": "^3.3.3",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.4.49",
-    "autoprefixer": "^10.4.20"
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^5.0.0",
     "@types/node": "^20.17.10",
-    "@types/react": "^18.2.0",
+    "@types/react": "^18.3.18",
     "@types/react-dom": "^18.2.0",
     "@types/simple-peer": "^9.11.8",
     "concurrently": "^9.1.0",
