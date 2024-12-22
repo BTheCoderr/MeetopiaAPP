@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsc -p tsconfig.server.json && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "build": "next build && tsc -p tsconfig.server.json && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
     "start": "node dist/server/index.js",
     "prod": "npm run build && npm start",
     "signal": "node dist/server/index.js",

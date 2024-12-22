@@ -4,7 +4,10 @@
     "module": "CommonJS",
     "outDir": "dist",
     "noEmit": false,
-    "jsx": "react"
+    "jsx": "react",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "target": "ES2015"
   },
   "include": ["server/**/*.ts"]
 } 
