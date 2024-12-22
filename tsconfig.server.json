@@ -7,7 +7,11 @@
     "jsx": "react",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "target": "ES2015"
+    "target": "ES2015",
+    "sourceMap": true,
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["server/**/*.ts"]
+  "include": ["server/**/*.ts"],
+  "exclude": ["node_modules"]
 } 
