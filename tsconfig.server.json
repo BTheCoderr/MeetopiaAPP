@@ -10,8 +10,9 @@
     "target": "ES2022",
     "sourceMap": true,
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "rootDir": "."
   },
-  "include": ["server/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["server/**/*"],
+  "exclude": ["node_modules", ".next", "dist"]
 } 
