@@ -2,8 +2,8 @@ services:
   - type: web
     name: meetopia-signaling
     env: node
-    buildCommand: npm install && npm run build && cp -r server/public dist/server/
-    startCommand: npm run signal
+    buildCommand: npm install && npm run build
+    startCommand: node dist/server/index.js
     envVars:
       - key: NODE_ENV
         value: production
