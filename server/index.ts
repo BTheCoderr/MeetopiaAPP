@@ -115,23 +115,27 @@ io.on('connection', (socket) => {
     console.log('\n=== Finding Video Match ===')
     console.log('Request from:', socket.id)
     
-    // Remove from waiting lists and any existing connections
-    videoWaitingUsers.delete(socket.id)
-    waitingUsers.delete(socket.id)
+    // Clean up existing connection first
     const currentPeer = activeConnections.get(socket.id)
-    
     if (currentPeer) {
+      console.log('Cleaning up existing connection with:', currentPeer)
       // Notify current peer they're being moved to next
       io.to(String(currentPeer)).emit('move-to-next')
+      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
       
+      // Clean up both users
       activeConnections.delete(currentPeer)
       activeConnections.delete(socket.id)
       videoStreams.delete(socket.id)
       videoStreams.delete(currentPeer)
-      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
+      videoWaitingUsers.delete(socket.id)
+      videoWaitingUsers.delete(currentPeer)
       
-      // Add the peer back to waiting list
-      videoWaitingUsers.add(currentPeer)
+      // Add the peer back to waiting list if they weren't the one who clicked next
+      if (currentPeer) {
+        console.log('Adding previous peer back to waiting list:', currentPeer)
+        videoWaitingUsers.add(currentPeer)
+      }
     }
     
     // Find an available user who:
@@ -146,15 +150,21 @@ io.on('connection', (socket) => {
              userIP !== currentIP
     })
     
+    console.log('Available users:', availableUsers)
     const nextUser = availableUsers[0]
     
     if (nextUser) {
       console.log('Video match found! Connecting:', socket.id, 'with', nextUser)
       videoWaitingUsers.delete(nextUser)
+      videoWaitingUsers.delete(socket.id)
       
       // Record the connection
       activeConnections.set(socket.id, nextUser)
       activeConnections.set(nextUser, socket.id)
+      
+      // Reset video streams for new connection
+      videoStreams.delete(socket.id)
+      videoStreams.delete(nextUser)
       
       // Tell both users about each other and initiate video
       socket.emit('video-user-found', { partnerId: nextUser })
@@ -162,6 +172,7 @@ io.on('connection', (socket) => {
     } else {
       console.log('No video match found. Adding to video waiting list:', socket.id)
       videoWaitingUsers.add(socket.id)
+      socket.emit('waiting-for-match')
     }
     
     debugState()
@@ -170,20 +181,24 @@ io.on('connection', (socket) => {
   socket.on('video-ready', () => {
     console.log('\n=== Video Ready ===')
     console.log('User ready for video:', socket.id)
-    videoStreams.set(socket.id, true)
     
     const peerId = activeConnections.get(socket.id)
-    if (peerId) {
-      console.log('Checking if peer is ready for video:', peerId)
-      if (videoStreams.get(peerId)) {
-        // Both peers are ready for video
-        console.log('Both peers ready, initiating video chat')
-        socket.emit('start-video-chat', { peerId })
-        io.to(String(peerId)).emit('start-video-chat', { peerId: socket.id })
-      } else {
-        console.log('Waiting for peer to be ready')
-        io.to(String(peerId)).emit('peer-video-ready', { peerId: socket.id })
-      }
+    if (!peerId) {
+      console.log('No peer found for video ready signal')
+      return
+    }
+    
+    videoStreams.set(socket.id, true)
+    console.log('Checking if peer is ready for video:', peerId)
+    
+    if (videoStreams.get(peerId)) {
+      // Both peers are ready for video
+      console.log('Both peers ready, initiating video chat')
+      socket.emit('start-video-chat', { peerId })
+      io.to(String(peerId)).emit('start-video-chat', { peerId: socket.id })
+    } else {
+      console.log('Waiting for peer to be ready')
+      io.to(String(peerId)).emit('peer-video-ready', { peerId: socket.id })
     }
   })
 
