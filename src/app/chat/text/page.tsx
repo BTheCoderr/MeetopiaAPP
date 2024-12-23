@@ -7,7 +7,7 @@ interface Message {
   id: string;
   text: string;
   isSelf: boolean;
-  status: 'sending' | 'sent' | 'delivered' | 'failed';
+  status: 'sending' | 'sent' | 'delivered' | 'failed' | 'queued';
   timestamp: number;
 }
 
@@ -23,7 +23,7 @@ export default function TextChatPage() {
   useEffect(() => {
     if (!hasStarted) return // Don't connect until user starts chat
 
-    const socketUrl = 'https://meetopia-signaling.onrender.com'
+    const socketUrl = 'http://localhost:3001'
 
     socket = io(socketUrl, {
       transports: ['websocket'],

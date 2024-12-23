@@ -6,7 +6,7 @@ interface Message {
   id: string;
   text: string;
   isSelf: boolean;
-  status: 'sending' | 'sent' | 'delivered' | 'failed';
+  status: 'sending' | 'sent' | 'delivered' | 'failed' | 'queued';
   timestamp: number;
 }
 
