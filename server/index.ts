@@ -82,6 +82,7 @@ const waitingUsers = new Set()
 const activeConnections = new Map() // Track who is connected to whom
 const videoStreams = new Map() // Track active video streams
 const videoWaitingUsers = new Set() // Track users waiting for video matches
+const userIPs = new Map() // Track user IPs to prevent self-matching
 
 // Debug function with enhanced information
 const debugState = () => {
@@ -97,10 +98,16 @@ const debugState = () => {
 io.on('connection', (socket) => {
   console.log('\n=== New Connection ===')
   console.log('Client connected:', socket.id)
+  
+  // Store client IP
+  const clientIP = socket.handshake.address
+  userIPs.set(socket.id, clientIP)
+  
   connectedClients.set(socket.id, {
     socket,
     status: 'available',
-    lastActivity: Date.now()
+    lastActivity: Date.now(),
+    ip: clientIP
   })
   debugState()
 
@@ -121,10 +128,17 @@ io.on('connection', (socket) => {
       io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
     }
     
-    // Find an available user who isn't the requester and isn't in an active connection
-    const availableUsers = Array.from(videoWaitingUsers).filter(userId => 
-      userId !== socket.id && !activeConnections.has(userId)
-    )
+    // Find an available user who:
+    // 1. Isn't the requester
+    // 2. Isn't in an active connection
+    // 3. Isn't from the same IP (to prevent self-matching)
+    const currentIP = userIPs.get(socket.id)
+    const availableUsers = Array.from(videoWaitingUsers).filter(userId => {
+      const userIP = userIPs.get(userId)
+      return userId !== socket.id && 
+             !activeConnections.has(userId) && 
+             userIP !== currentIP
+    })
     
     const nextUser = availableUsers[0]
     
@@ -194,6 +208,7 @@ io.on('connection', (socket) => {
     videoWaitingUsers.delete(socket.id)
     connectedClients.delete(socket.id)
     videoStreams.delete(socket.id)
+    userIPs.delete(socket.id)
     
     // Notify peer if they were in an active connection
     const peerId = activeConnections.get(socket.id)
