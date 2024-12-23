@@ -81,12 +81,14 @@ const connectedClients = new Map()
 const waitingUsers = new Set()
 const activeConnections = new Map() // Track who is connected to whom
 const videoStreams = new Map() // Track active video streams
+const videoWaitingUsers = new Set() // Track users waiting for video matches
 
 // Debug function with enhanced information
 const debugState = () => {
   console.log('\n=== Current State ===')
   console.log('Connected clients:', Array.from(connectedClients.keys()))
   console.log('Waiting users:', Array.from(waitingUsers))
+  console.log('Video waiting users:', Array.from(videoWaitingUsers))
   console.log('Active connections:', Array.from(activeConnections.entries()))
   console.log('Active video streams:', Array.from(videoStreams.keys()))
   console.log('==================\n')
@@ -102,6 +104,49 @@ io.on('connection', (socket) => {
   })
   debugState()
 
+  socket.on('find-video-user', () => {
+    console.log('\n=== Finding Video Match ===')
+    console.log('Request from:', socket.id)
+    
+    // Remove from waiting lists and any existing connections
+    videoWaitingUsers.delete(socket.id)
+    waitingUsers.delete(socket.id)
+    const currentPeer = activeConnections.get(socket.id)
+    
+    if (currentPeer) {
+      activeConnections.delete(currentPeer)
+      activeConnections.delete(socket.id)
+      videoStreams.delete(socket.id)
+      videoStreams.delete(currentPeer)
+      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
+    }
+    
+    // Find an available user who isn't the requester and isn't in an active connection
+    const availableUsers = Array.from(videoWaitingUsers).filter(userId => 
+      userId !== socket.id && !activeConnections.has(userId)
+    )
+    
+    const nextUser = availableUsers[0]
+    
+    if (nextUser) {
+      console.log('Video match found! Connecting:', socket.id, 'with', nextUser)
+      videoWaitingUsers.delete(nextUser)
+      
+      // Record the connection
+      activeConnections.set(socket.id, nextUser)
+      activeConnections.set(nextUser, socket.id)
+      
+      // Tell both users about each other and initiate video
+      socket.emit('video-user-found', { partnerId: nextUser })
+      io.to(String(nextUser)).emit('video-user-found', { partnerId: socket.id })
+    } else {
+      console.log('No video match found. Adding to video waiting list:', socket.id)
+      videoWaitingUsers.add(socket.id)
+    }
+    
+    debugState()
+  })
+
   socket.on('video-ready', () => {
     console.log('\n=== Video Ready ===')
     console.log('User ready for video:', socket.id)
@@ -113,13 +158,53 @@ io.on('connection', (socket) => {
       if (videoStreams.get(peerId)) {
         // Both peers are ready for video
         console.log('Both peers ready, initiating video chat')
-        io.to(socket.id).emit('start-video-chat', { peerId })
+        socket.emit('start-video-chat', { peerId })
         io.to(String(peerId)).emit('start-video-chat', { peerId: socket.id })
       } else {
         console.log('Waiting for peer to be ready')
         io.to(String(peerId)).emit('peer-video-ready', { peerId: socket.id })
       }
     }
+  })
+
+  socket.on('leave-video', () => {
+    console.log('\n=== Leave Video ===')
+    console.log('User leaving video:', socket.id)
+    
+    videoWaitingUsers.delete(socket.id)
+    videoStreams.delete(socket.id)
+    const peerId = activeConnections.get(socket.id)
+    
+    if (peerId) {
+      activeConnections.delete(peerId)
+      activeConnections.delete(socket.id)
+      videoStreams.delete(peerId)
+      io.to(String(peerId)).emit('peer-left', { peerId: socket.id })
+    }
+    
+    debugState()
+  })
+
+  socket.on('disconnect', () => {
+    console.log('\n=== Disconnection ===')
+    console.log('Client disconnected:', socket.id)
+    
+    // Clean up all references
+    waitingUsers.delete(socket.id)
+    videoWaitingUsers.delete(socket.id)
+    connectedClients.delete(socket.id)
+    videoStreams.delete(socket.id)
+    
+    // Notify peer if they were in an active connection
+    const peerId = activeConnections.get(socket.id)
+    if (peerId) {
+      io.to(String(peerId)).emit('peer-left', { peerId: socket.id })
+      activeConnections.delete(peerId)
+      activeConnections.delete(socket.id)
+      videoStreams.delete(peerId)
+    }
+    
+    debugState()
   })
 
   socket.on('video-offer', ({ offer, to }) => {
@@ -177,26 +262,6 @@ io.on('connection', (socket) => {
     if (peerId) {
       io.to(peerId).emit('peer-video-stopped', { peerId: socket.id })
     }
-  })
-
-  socket.on('disconnect', () => {
-    console.log('\n=== Disconnection ===')
-    console.log('Client disconnected:', socket.id)
-    
-    // Clean up all references
-    waitingUsers.delete(socket.id)
-    connectedClients.delete(socket.id)
-    videoStreams.delete(socket.id)
-    
-    // Notify peer if they were in an active connection
-    const peerId = activeConnections.get(socket.id)
-    if (peerId) {
-      io.to(String(peerId)).emit('peer-left', { peerId: socket.id })
-      activeConnections.delete(peerId)
-      activeConnections.delete(socket.id)
-    }
-    
-    debugState()
   })
 
   socket.on('find-next-user', () => {
