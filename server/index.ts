@@ -80,6 +80,7 @@ app.get('/', (_req, res) => {
 const connectedClients = new Map()
 const waitingUsers = new Set()
 const activeConnections = new Map() // Track who is connected to whom
+const videoStreams = new Map() // Track active video streams
 
 // Debug function with enhanced information
 const debugState = () => {
@@ -87,6 +88,7 @@ const debugState = () => {
   console.log('Connected clients:', Array.from(connectedClients.keys()))
   console.log('Waiting users:', Array.from(waitingUsers))
   console.log('Active connections:', Array.from(activeConnections.entries()))
+  console.log('Active video streams:', Array.from(videoStreams.keys()))
   console.log('==================\n')
 }
 
@@ -100,6 +102,69 @@ io.on('connection', (socket) => {
   })
   debugState()
 
+  socket.on('video-ready', () => {
+    console.log('\n=== Video Ready ===')
+    console.log('User ready for video:', socket.id)
+    videoStreams.set(socket.id, true)
+    
+    const peerId = activeConnections.get(socket.id)
+    if (peerId && videoStreams.get(peerId)) {
+      // Both peers are ready for video
+      io.to(socket.id).emit('start-video-chat', { peerId })
+      io.to(peerId).emit('start-video-chat', { peerId: socket.id })
+    }
+  })
+
+  socket.on('video-offer', ({ offer, to }) => {
+    console.log('\n=== Video Offer ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid video offer, forwarding')
+      io.to(String(to)).emit('video-offer-received', {
+        offer,
+        from: socket.id
+      })
+    }
+  })
+
+  socket.on('video-answer', ({ answer, to }) => {
+    console.log('\n=== Video Answer ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid video answer, forwarding')
+      io.to(String(to)).emit('video-answer-received', {
+        answer,
+        from: socket.id
+      })
+    }
+  })
+
+  socket.on('video-ice-candidate', ({ candidate, to }) => {
+    console.log('\n=== Video ICE Candidate ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid video ICE candidate, forwarding')
+      io.to(String(to)).emit('video-ice-candidate', {
+        candidate,
+        from: socket.id
+      })
+    }
+  })
+
+  socket.on('stop-video', () => {
+    console.log('\n=== Stop Video ===')
+    console.log('User stopping video:', socket.id)
+    
+    videoStreams.delete(socket.id)
+    const peerId = activeConnections.get(socket.id)
+    if (peerId) {
+      io.to(peerId).emit('peer-video-stopped', { peerId: socket.id })
+    }
+  })
+
   socket.on('disconnect', () => {
     console.log('\n=== Disconnection ===')
     console.log('Client disconnected:', socket.id)
@@ -107,11 +172,12 @@ io.on('connection', (socket) => {
     // Clean up all references
     waitingUsers.delete(socket.id)
     connectedClients.delete(socket.id)
+    videoStreams.delete(socket.id)
     
     // Notify peer if they were in an active connection
     const peerId = activeConnections.get(socket.id)
     if (peerId) {
-      io.to(peerId).emit('peer-left', { peerId: socket.id })
+      io.to(String(peerId)).emit('peer-left', { peerId: socket.id })
       activeConnections.delete(peerId)
       activeConnections.delete(socket.id)
     }
@@ -149,7 +215,7 @@ io.on('connection', (socket) => {
       
       // Tell both users about each other
       socket.emit('user-found', { partnerId: nextUser })
-      io.to(nextUser).emit('user-found', { partnerId: socket.id })
+      io.to(String(nextUser)).emit('user-found', { partnerId: socket.id })
     } else {
       console.log('No match found. Adding to waiting list:', socket.id)
       waitingUsers.add(socket.id)
