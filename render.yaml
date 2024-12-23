@@ -11,4 +11,5 @@ services:
         value: 3000
       - key: CORS_ORIGINS
         value: https://meetopia-app.vercel.app,https://meetopia-signaling.onrender.com
+    healthCheckPath: /debug-env
     autoDeploy: true 
