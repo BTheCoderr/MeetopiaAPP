@@ -3,16 +3,11 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import dotenv from 'dotenv'
 import path from 'path'
-import { fileURLToPath } from 'url'
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
-
-// Get directory name in a way that works in both ESM and CommonJS
-const currentDir = path.dirname(fileURLToPath(import.meta.url))
-const publicPath = path.join(currentDir, '..', '..', 'server', 'public')
 
 // Enhanced CORS configuration
 const PORT = process.env.PORT || 3000
@@ -26,6 +21,7 @@ console.log('Server starting with configuration:')
 console.log('PORT:', PORT)
 console.log('CORS_ORIGINS:', CORS_ORIGINS)
 console.log('NODE_ENV:', process.env.NODE_ENV)
+console.log('Current directory:', __dirname)
 
 // Create HTTP server first
 const httpServer = createServer(app)
@@ -61,7 +57,8 @@ app.get('/debug-env', (_req, res) => {
     allowedOrigins: CORS_ORIGINS,
     environment: process.env.NODE_ENV,
     port: PORT,
-    currentTime: new Date().toISOString()
+    currentTime: new Date().toISOString(),
+    currentDir: __dirname
   })
 })
 
@@ -71,6 +68,7 @@ io.engine.on("connection_error", (err) => {
 })
 
 // Serve static files from public directory
+const publicPath = path.join(__dirname, 'public')
 app.use(express.static(publicPath))
 
 // Root route now serves index.html
