@@ -18,7 +18,7 @@ const app = express()
 const PORT = process.env.PORT || 3000
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
   'https://meetopia-app.vercel.app',
-  'https://meetopia-signaling.onrender.com',
+  'https://meetopia-production.up.railway.app',
   'http://localhost:3000'
 ]
 
@@ -26,6 +26,7 @@ console.log('Server starting with configuration:')
 console.log('PORT:', PORT)
 console.log('CORS_ORIGINS:', CORS_ORIGINS)
 console.log('NODE_ENV:', process.env.NODE_ENV)
+console.log('RAILWAY_STATIC_URL:', process.env.RAILWAY_STATIC_URL)
 
 // Create HTTP server first
 const httpServer = createServer(app)
@@ -61,6 +62,7 @@ app.get('/debug-env', (_req, res) => {
     allowedOrigins: CORS_ORIGINS,
     environment: process.env.NODE_ENV,
     port: PORT,
+    railwayUrl: process.env.RAILWAY_STATIC_URL,
     currentTime: new Date().toISOString()
   })
 })
@@ -160,7 +162,7 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`)
-  console.log('Server URL:', process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`)
+  console.log('Server URL:', process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`)
 })
 
 // Enhanced error handling
