@@ -121,11 +121,17 @@ io.on('connection', (socket) => {
     const currentPeer = activeConnections.get(socket.id)
     
     if (currentPeer) {
+      // Notify current peer they're being moved to next
+      io.to(String(currentPeer)).emit('move-to-next')
+      
       activeConnections.delete(currentPeer)
       activeConnections.delete(socket.id)
       videoStreams.delete(socket.id)
       videoStreams.delete(currentPeer)
       io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
+      
+      // Add the peer back to waiting list
+      videoWaitingUsers.add(currentPeer)
     }
     
     // Find an available user who:
@@ -287,9 +293,15 @@ io.on('connection', (socket) => {
     waitingUsers.delete(socket.id)
     const currentPeer = activeConnections.get(socket.id)
     if (currentPeer) {
+      // Notify current peer they're being moved to next
+      io.to(String(currentPeer)).emit('move-to-next')
+      
       activeConnections.delete(currentPeer)
       activeConnections.delete(socket.id)
-      io.to(currentPeer).emit('peer-left', { peerId: socket.id })
+      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
+      
+      // Add the peer back to waiting list
+      waitingUsers.add(currentPeer)
     }
     
     // Find an available user who isn't the requester and isn't in an active connection
