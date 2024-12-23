@@ -12,4 +12,8 @@ services:
       - key: CORS_ORIGINS
         value: https://meetopia-app.vercel.app,https://meetopia-signaling.onrender.com
     healthCheckPath: /debug-env
-    autoDeploy: true 
+    autoDeploy: true
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1 
