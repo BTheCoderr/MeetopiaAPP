@@ -95,6 +95,9 @@ const debugState = () => {
   console.log('==================\n')
 }
 
+// Keep track of user pairs
+const userPairs = new Map<string, string>()
+
 io.on('connection', (socket) => {
   console.log('\n=== New Connection ===')
   console.log('Client connected:', socket.id)
@@ -301,48 +304,28 @@ io.on('connection', (socket) => {
   })
 
   socket.on('find-next-user', () => {
-    console.log('\n=== Finding Match ===')
-    console.log('Request from:', socket.id)
-    
-    // Remove from waiting and any existing connections
-    waitingUsers.delete(socket.id)
-    const currentPeer = activeConnections.get(socket.id)
-    if (currentPeer) {
-      // Notify current peer they're being moved to next
-      io.to(String(currentPeer)).emit('move-to-next')
-      
-      activeConnections.delete(currentPeer)
-      activeConnections.delete(socket.id)
-      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
-      
-      // Add the peer back to waiting list
-      waitingUsers.add(currentPeer)
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair) {
+      // Notify the current pair that we're moving on
+      io.to(currentPair).emit('partner-next')
+      // Clear the current pairing
+      userPairs.delete(socket.id)
+      userPairs.delete(currentPair)
     }
+
+    // Find a new user who is also looking
+    const waitingUsers = Array.from(io.sockets.sockets.values())
+      .filter(s => s.id !== socket.id && !userPairs.has(s.id))
     
-    // Find an available user who isn't the requester and isn't in an active connection
-    const availableUsers = Array.from(waitingUsers).filter(userId => 
-      userId !== socket.id && !activeConnections.has(userId)
-    )
-    
-    const nextUser = availableUsers[0]
-    
-    if (nextUser) {
-      console.log('Match found! Connecting:', socket.id, 'with', nextUser)
-      waitingUsers.delete(nextUser)
-      
-      // Record the connection
-      activeConnections.set(socket.id, nextUser)
-      activeConnections.set(nextUser, socket.id)
-      
-      // Tell both users about each other
-      socket.emit('user-found', { partnerId: nextUser })
-      io.to(String(nextUser)).emit('user-found', { partnerId: socket.id })
-    } else {
-      console.log('No match found. Adding to waiting list:', socket.id)
-      waitingUsers.add(socket.id)
+    if (waitingUsers.length > 0) {
+      const randomUser = waitingUsers[Math.floor(Math.random() * waitingUsers.length)]
+      // Store the pairing
+      userPairs.set(socket.id, randomUser.id)
+      userPairs.set(randomUser.id, socket.id)
+      // Notify both users
+      io.to(socket.id).emit('user-found', { partnerId: randomUser.id })
+      io.to(randomUser.id).emit('user-found', { partnerId: socket.id })
     }
-    
-    debugState()
   })
 
   socket.on('call-user', ({ offer, to }) => {
@@ -385,19 +368,75 @@ io.on('connection', (socket) => {
   })
 
   socket.on('leave-chat', () => {
-    console.log('\n=== Leave Chat ===')
-    console.log('User leaving:', socket.id)
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair) {
+      // Notify the partner that we're leaving
+      io.to(currentPair).emit('partner-left')
+      // Clear the pairing
+      userPairs.delete(socket.id)
+      userPairs.delete(currentPair)
+    }
+  })
+
+  // Add message handling
+  socket.on('chat-message', ({ message, to, messageId }) => {
+    console.log('\n=== Chat Message ===')
+    console.log('From:', socket.id)
+    console.log('To:', to)
+    console.log('Message:', message)
     
-    waitingUsers.delete(socket.id)
-    const peerId = activeConnections.get(socket.id)
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair) {
+      // Send to paired user
+      io.to(currentPair).emit('chat-message', {
+        message,
+        from: socket.id,
+        messageId
+      })
+      // Confirm delivery to sender
+      socket.emit('message-delivered', { messageId })
+    } else {
+      // If no pair, message is queued (handled client-side)
+      socket.emit('message-queued', { messageId })
+    }
+  })
+
+  // Add connection quality monitoring
+  socket.on('connection-stats', ({ stats, to }) => {
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair === to) {
+      io.to(to).emit('connection-stats', {
+        stats,
+        from: socket.id
+      })
+    }
+  })
+
+  // Enhanced error handling
+  socket.on('error', (error) => {
+    console.error('\n=== Socket Error ===')
+    console.error('Client:', socket.id)
+    console.error('Error:', error)
     
-    if (peerId) {
-      activeConnections.delete(peerId)
-      activeConnections.delete(socket.id)
-      io.to(peerId).emit('peer-left', { peerId: socket.id })
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair) {
+      io.to(currentPair).emit('peer-error', {
+        error: 'Your partner encountered an error. Attempting to reconnect...'
+      })
     }
     
-    debugState()
+    // Attempt to reconnect the user
+    socket.emit('reconnect-attempt')
+  })
+
+  // Add connection quality events
+  socket.on('poor-connection', () => {
+    const currentPair = userPairs.get(socket.id)
+    if (currentPair) {
+      io.to(currentPair).emit('peer-connection-poor', {
+        message: 'Your partner is experiencing connection issues...'
+      })
+    }
   })
 })
 
