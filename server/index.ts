@@ -108,10 +108,17 @@ io.on('connection', (socket) => {
     videoStreams.set(socket.id, true)
     
     const peerId = activeConnections.get(socket.id)
-    if (peerId && videoStreams.get(peerId)) {
-      // Both peers are ready for video
-      io.to(socket.id).emit('start-video-chat', { peerId })
-      io.to(peerId).emit('start-video-chat', { peerId: socket.id })
+    if (peerId) {
+      console.log('Checking if peer is ready for video:', peerId)
+      if (videoStreams.get(peerId)) {
+        // Both peers are ready for video
+        console.log('Both peers ready, initiating video chat')
+        io.to(socket.id).emit('start-video-chat', { peerId })
+        io.to(String(peerId)).emit('start-video-chat', { peerId: socket.id })
+      } else {
+        console.log('Waiting for peer to be ready')
+        io.to(String(peerId)).emit('peer-video-ready', { peerId: socket.id })
+      }
     }
   })
 
@@ -119,12 +126,15 @@ io.on('connection', (socket) => {
     console.log('\n=== Video Offer ===')
     console.log('From:', socket.id, 'To:', to)
     
-    if (to && activeConnections.get(socket.id) === to) {
+    if (to && activeConnections.get(socket.id) === to && videoStreams.get(to)) {
       console.log('Valid video offer, forwarding')
       io.to(String(to)).emit('video-offer-received', {
         offer,
         from: socket.id
       })
+    } else {
+      console.log('Invalid video offer - peer not ready or not matched')
+      socket.emit('video-error', { message: 'Peer not ready for video' })
     }
   })
 
@@ -132,12 +142,14 @@ io.on('connection', (socket) => {
     console.log('\n=== Video Answer ===')
     console.log('From:', socket.id, 'To:', to)
     
-    if (to && activeConnections.get(socket.id) === to) {
+    if (to && activeConnections.get(socket.id) === to && videoStreams.get(to)) {
       console.log('Valid video answer, forwarding')
       io.to(String(to)).emit('video-answer-received', {
         answer,
         from: socket.id
       })
+    } else {
+      console.log('Invalid video answer - peer not ready or not matched')
     }
   })
 
@@ -145,12 +157,14 @@ io.on('connection', (socket) => {
     console.log('\n=== Video ICE Candidate ===')
     console.log('From:', socket.id, 'To:', to)
     
-    if (to && activeConnections.get(socket.id) === to) {
+    if (to && activeConnections.get(socket.id) === to && videoStreams.get(to)) {
       console.log('Valid video ICE candidate, forwarding')
       io.to(String(to)).emit('video-ice-candidate', {
         candidate,
         from: socket.id
       })
+    } else {
+      console.log('Invalid ICE candidate - peer not ready or not matched')
     }
   })
 
