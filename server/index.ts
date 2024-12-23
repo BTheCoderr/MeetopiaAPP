@@ -76,28 +76,46 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(publicPath, 'index.html'))
 })
 
-// Track connected clients
+// Track connected clients and their status
 const connectedClients = new Map()
 const waitingUsers = new Set()
+const activeConnections = new Map() // Track who is connected to whom
 
-// Debug function
+// Debug function with enhanced information
 const debugState = () => {
-  console.log('Current state:')
+  console.log('\n=== Current State ===')
   console.log('Connected clients:', Array.from(connectedClients.keys()))
   console.log('Waiting users:', Array.from(waitingUsers))
+  console.log('Active connections:', Array.from(activeConnections.entries()))
+  console.log('==================\n')
 }
 
 io.on('connection', (socket) => {
   console.log('\n=== New Connection ===')
   console.log('Client connected:', socket.id)
-  connectedClients.set(socket.id, socket)
+  connectedClients.set(socket.id, {
+    socket,
+    status: 'available',
+    lastActivity: Date.now()
+  })
   debugState()
 
   socket.on('disconnect', () => {
     console.log('\n=== Disconnection ===')
     console.log('Client disconnected:', socket.id)
-    connectedClients.delete(socket.id)
+    
+    // Clean up all references
     waitingUsers.delete(socket.id)
+    connectedClients.delete(socket.id)
+    
+    // Notify peer if they were in an active connection
+    const peerId = activeConnections.get(socket.id)
+    if (peerId) {
+      io.to(peerId).emit('peer-left', { peerId: socket.id })
+      activeConnections.delete(peerId)
+      activeConnections.delete(socket.id)
+    }
+    
     debugState()
   })
 
@@ -105,19 +123,33 @@ io.on('connection', (socket) => {
     console.log('\n=== Finding Match ===')
     console.log('Request from:', socket.id)
     
-    // Remove from waiting if they were waiting
+    // Remove from waiting and any existing connections
     waitingUsers.delete(socket.id)
+    const currentPeer = activeConnections.get(socket.id)
+    if (currentPeer) {
+      activeConnections.delete(currentPeer)
+      activeConnections.delete(socket.id)
+      io.to(currentPeer).emit('peer-left', { peerId: socket.id })
+    }
     
-    // Find a waiting user
-    const nextUser = Array.from(waitingUsers)[0]
+    // Find an available user who isn't the requester and isn't in an active connection
+    const availableUsers = Array.from(waitingUsers).filter(userId => 
+      userId !== socket.id && !activeConnections.has(userId)
+    )
+    
+    const nextUser = availableUsers[0]
     
     if (nextUser) {
       console.log('Match found! Connecting:', socket.id, 'with', nextUser)
       waitingUsers.delete(nextUser)
       
+      // Record the connection
+      activeConnections.set(socket.id, nextUser)
+      activeConnections.set(nextUser, socket.id)
+      
       // Tell both users about each other
       socket.emit('user-found', { partnerId: nextUser })
-      io.to(String(nextUser)).emit('user-found', { partnerId: socket.id })
+      io.to(nextUser).emit('user-found', { partnerId: socket.id })
     } else {
       console.log('No match found. Adding to waiting list:', socket.id)
       waitingUsers.add(socket.id)
@@ -127,32 +159,58 @@ io.on('connection', (socket) => {
   })
 
   socket.on('call-user', ({ offer, to }) => {
-    console.log('Call request from:', socket.id, 'to:', to)
-    if (to) {
-      io.to(String(to)).emit('call-made', { 
+    console.log('\n=== Call Request ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid call request, forwarding offer')
+      io.to(to).emit('call-made', { 
         offer, 
         from: socket.id 
       })
+    } else {
+      console.log('Invalid call request - users not properly matched')
     }
   })
 
   socket.on('make-answer', ({ answer, to }) => {
-    io.to(to).emit('answer-made', { answer, from: socket.id })
+    console.log('\n=== Answer Made ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid answer, forwarding')
+      io.to(to).emit('answer-made', { answer, from: socket.id })
+    } else {
+      console.log('Invalid answer - users not properly matched')
+    }
   })
 
   socket.on('ice-candidate', ({ candidate, to }) => {
-    console.log('Forwarding ICE candidate to:', to)
-    io.to(String(to)).emit('ice-candidate', { candidate, from: socket.id })
+    console.log('\n=== ICE Candidate ===')
+    console.log('From:', socket.id, 'To:', to)
+    
+    if (to && activeConnections.get(socket.id) === to) {
+      console.log('Valid ICE candidate, forwarding')
+      io.to(to).emit('ice-candidate', { candidate, from: socket.id })
+    } else {
+      console.log('Invalid ICE candidate - users not properly matched')
+    }
   })
 
   socket.on('leave-chat', () => {
+    console.log('\n=== Leave Chat ===')
+    console.log('User leaving:', socket.id)
+    
     waitingUsers.delete(socket.id)
-    // Notify any connected peer
-    Array.from(connectedClients.keys()).forEach(clientId => {
-      if (clientId !== socket.id) {
-        io.to(clientId).emit('peer-left', { peerId: socket.id })
-      }
-    })
+    const peerId = activeConnections.get(socket.id)
+    
+    if (peerId) {
+      activeConnections.delete(peerId)
+      activeConnections.delete(socket.id)
+      io.to(peerId).emit('peer-left', { peerId: socket.id })
+    }
+    
+    debugState()
   })
 })
 
