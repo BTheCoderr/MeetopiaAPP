@@ -1,44 +1,48 @@
 import { NextResponse } from 'next/server'
-import { connectDB } from '../../../../lib/db/mongodb'
-import { UserModel } from '../../../../lib/db/models/User'
-import { hashPassword } from '../../../../lib/auth'
+import bcrypt from 'bcryptjs'
+import { prisma } from '@/lib/prisma'
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { email, password } = await request.json()
-
-    // Connect to database
-    await connectDB()
+    const { username, email, password } = await req.json()
 
     // Check if user already exists
-    const existingUser = await UserModel.findOne({ email })
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { username }
+        ]
+      }
+    })
+
     if (existingUser) {
       return NextResponse.json(
-        { error: 'Email already registered' },
+        { error: 'User already exists' },
         { status: 400 }
       )
     }
 
     // Hash password
-    const hashedPassword = await hashPassword(password)
+    const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
-    const user = await UserModel.create({
-      email,
-      password: hashedPassword
-    })
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email
+    // Create new user
+    const user = await prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword
       }
     })
+
+    return NextResponse.json(
+      { message: 'User created successfully', user: { id: user.id, username: user.username, email: user.email } },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Signup error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error creating user' },
       { status: 500 }
     )
   }
