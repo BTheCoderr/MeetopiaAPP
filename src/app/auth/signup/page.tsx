@@ -4,14 +4,17 @@ import Link from 'next/link'
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -24,16 +27,20 @@ export default function SignUpPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, username, password })
       })
 
       if (!res.ok) {
-        const error = await res.text()
-        throw new Error(error || 'Failed to sign up')
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to sign up')
       }
 
-      // Redirect to sign in page on success
-      window.location.href = '/auth/signin'
+      setSuccess(`Account created successfully for ${username}! Redirecting to login...`)
+      
+      // Wait 2 seconds before redirecting
+      setTimeout(() => {
+        window.location.href = '/auth/signin'
+      }, 2000)
     } catch (err: any) {
       setError(err.message || 'Failed to sign up')
     } finally {
@@ -62,6 +69,13 @@ export default function SignUpPage() {
           </div>
         )}
 
+        {/* Success Message */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+            {success}
+          </div>
+        )}
+
         {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -77,6 +91,21 @@ export default function SignUpPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>

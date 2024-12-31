@@ -7,18 +7,24 @@ export async function POST(req: Request) {
     const { username, email, password } = await req.json()
 
     // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          { username }
-        ]
-      }
+    const existingEmail = await prisma.user.findUnique({
+      where: { email }
     })
 
-    if (existingUser) {
+    const existingUsername = await prisma.user.findUnique({
+      where: { username }
+    })
+
+    if (existingEmail) {
       return NextResponse.json(
-        { error: 'User already exists' },
+        { error: 'An account with this email already exists. Please try signing in or use a different email.' },
+        { status: 400 }
+      )
+    }
+
+    if (existingUsername) {
+      return NextResponse.json(
+        { error: 'This username is already taken. Please choose a different username.' },
         { status: 400 }
       )
     }
@@ -42,7 +48,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Signup error:', error)
     return NextResponse.json(
-      { error: 'Error creating user' },
+      { error: 'Error creating user. Please try again later.' },
       { status: 500 }
     )
   }
