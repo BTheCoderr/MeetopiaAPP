@@ -1,125 +1,107 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
-import ChatLayout from '@/components/ChatLayout'
-import ConnectionStatus from '@/components/ConnectionStatus'
-import VideoIcon from '@/components/VideoIcon'
+import { usePeerConnection } from '@/hooks/usePeerConnection'
+import ChatMenu from '@/components/ChatMenu'
+import ReportModal from '@/components/ReportModal'
+import { useReporting } from '@/hooks/useReporting'
 
 let socket: Socket | null = null
-let peerConnection: RTCPeerConnection | null = null
-
-const createPeerConnection = () => {
-  const configuration = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-    ]
-  }
-  return new RTCPeerConnection(configuration)
-}
-
-// Helper function to get the correct socket URL
-const getSocketUrl = () => {
-  // In production, use the deployed signaling server URL
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://meetopia-signaling.onrender.com'
-  }
-  // In development, use localhost
-  return 'http://localhost:3001'
-}
 
 export default function VideoChatPage() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [isWaiting, setIsWaiting] = useState(false)
-  const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'disconnected'>('disconnected')
-  const [connectionError, setConnectionError] = useState<string>()
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [connectionStats, setConnectionStats] = useState<{
-    latency?: number
-    packetLoss?: number
-    bandwidth?: number
-  }>()
+  const [isSocketConnected, setIsSocketConnected] = useState(false)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const [currentPeer, setCurrentPeer] = useState<string | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [isMuted, setIsMuted] = useState(false)
+  const [isCameraOff, setIsCameraOff] = useState(false)
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [buttonCooldown, setButtonCooldown] = useState(false)
+  const [permissionStatus, setPermissionStatus] = useState<{
+    camera: 'granted' | 'denied' | 'pending';
+    microphone: 'granted' | 'denied' | 'pending';
+  }>({
+    camera: 'pending',
+    microphone: 'pending'
+  })
+
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const [stream, setStream] = useState<MediaStream | null>(null)
+  const { peerConnection } = usePeerConnection(stream)
+  const {
+    isReportModalOpen,
+    handleReport,
+    openReportModal,
+    closeReportModal
+  } = useReporting()
 
-  const setupPeerConnection = (stream: MediaStream) => {
-    if (peerConnection) {
-      peerConnection.close()
-    }
-    peerConnection = createPeerConnection()
-
-    // Add local stream tracks to peer connection
-    stream.getTracks().forEach(track => {
-      if (peerConnection && stream) {
-        peerConnection.addTrack(track, stream)
-      }
-    })
-
-    // Handle incoming remote stream
-    peerConnection.ontrack = (event) => {
-      console.log('Received remote track:', event.track.kind)
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0]
-      }
-    }
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log('Sending ICE candidate')
-        socket?.emit('video-ice-candidate', {
-          candidate: event.candidate,
-          to: socket?.id
+  // Media stream setup
+  useEffect(() => {
+    let currentStream: MediaStream | null = null;
+    
+    async function setupMedia() {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         })
+
+        setPermissionStatus({
+          camera: 'granted',
+          microphone: 'granted'
+        })
+
+        currentStream = mediaStream
+        setStream(mediaStream)
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = mediaStream
+        }
+      } catch (err: any) {
+        console.error('Error accessing media devices:', err)
+        if (err.name === 'NotAllowedError') {
+          setPermissionStatus({
+            camera: 'denied',
+            microphone: 'denied'
+          })
+          setError(
+            'Camera or microphone access denied. ' +
+            'Please allow access in your browser settings and refresh the page.'
+          )
+        } else {
+          setError(
+            'Failed to access camera/microphone. ' +
+            'Please check your device connections and try again.'
+          )
+        }
       }
     }
 
-    // Monitor connection quality
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', peerConnection?.iceConnectionState)
-      switch (peerConnection?.iceConnectionState) {
-        case 'checking':
-          setConnectionQuality('poor')
-          setIsConnecting(true)
-          break
-        case 'connected':
-          setConnectionQuality('excellent')
-          setIsConnecting(false)
-          break
-        case 'completed':
-          setConnectionQuality('excellent')
-          setIsConnecting(false)
-          break
-        case 'failed':
-          setConnectionQuality('disconnected')
-          setConnectionError('Connection failed. Please try again.')
-          setIsConnecting(false)
-          break
-        case 'disconnected':
-          setConnectionQuality('poor')
-          break
-        case 'closed':
-          setConnectionQuality('disconnected')
-          break
+    setupMedia()
+
+    return () => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop())
+        currentStream = null
       }
     }
-
-    return peerConnection
-  }
+  }, [])
 
   // Socket setup
   useEffect(() => {
     if (socket) return
 
-    const socketUrl = getSocketUrl()
-    console.log('Connecting to socket server:', socketUrl)
-    setIsConnecting(true)
-
-    socket = io(socketUrl, {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -127,320 +109,364 @@ export default function VideoChatPage() {
     })
 
     socket.on('connect', () => {
-      console.log('Socket connected:', socket?.id)
-      setConnectionQuality('good')
-      setIsConnecting(false)
-      setConnectionError(undefined)
+      console.log('Socket connected')
+      setIsSocketConnected(true)
+      setError(null)
     })
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error)
-      setConnectionQuality('disconnected')
-      setConnectionError('Failed to connect to server. Please check your internet connection.')
-      setIsConnecting(false)
-    })
-
-    socket.on('video-user-found', async ({ partnerId }) => {
-      console.log('Found video partner:', partnerId)
-      setIsConnected(true)
-      setIsWaiting(false)
-      setConnectionError(undefined)
-      setIsConnecting(true)
-
-      if (stream) {
-        setupPeerConnection(stream)
-        // Create and send offer if we're the initiator
-        if (socket?.id && socket.id > partnerId) {
-          try {
-            const offer = await peerConnection?.createOffer()
-            await peerConnection?.setLocalDescription(offer)
-            socket.emit('video-offer', { offer, to: partnerId })
-          } catch (err) {
-            console.error('Error creating offer:', err)
-            setConnectionError('Failed to establish video connection. Please try again.')
-            setIsConnecting(false)
-          }
-        }
-      }
-    })
-
-    socket.on('video-offer', async ({ offer, from }) => {
-      console.log('Received video offer from:', from)
-      if (stream && peerConnection) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-          const answer = await peerConnection.createAnswer()
-          await peerConnection.setLocalDescription(answer)
-          socket?.emit('video-answer', { answer, to: from })
-        } catch (err) {
-          console.error('Error handling video offer:', err)
-        }
-      }
-    })
-
-    socket.on('video-answer', async ({ answer, from }) => {
-      console.log('Received video answer from:', from)
-      try {
-        await peerConnection?.setRemoteDescription(new RTCSessionDescription(answer))
-      } catch (err) {
-        console.error('Error handling video answer:', err)
-      }
-    })
-
-    socket.on('video-ice-candidate', async ({ candidate, from }) => {
-      console.log('Received ICE candidate from:', from)
-      try {
-        await peerConnection?.addIceCandidate(new RTCIceCandidate(candidate))
-      } catch (err) {
-        console.error('Error adding ICE candidate:', err)
-      }
-    })
-
-    socket.on('waiting-for-match', () => {
-      console.log('Waiting for video match')
-      setIsConnected(false)
-      setIsWaiting(true)
-    })
-
-    socket.on('move-to-next', () => {
-      console.log('Moving to next partner')
-      setIsConnected(false)
-      setIsWaiting(true)
-      cleanupVideoConnection()
-      socket?.emit('find-video-user')
-    })
-
-    socket.on('peer-left', () => {
-      console.log('Partner left')
-      setIsConnected(false)
-      setIsWaiting(false)
-      cleanupVideoConnection()
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected')
+      setIsSocketConnected(false)
+      setCurrentPeer(null)
+      setRemoteStream(null)
+      setIsSearching(false)
+      setError('Connection lost. Attempting to reconnect...')
     })
 
     return () => {
-      cleanupVideoConnection()
       if (socket) {
         socket.disconnect()
         socket = null
       }
     }
-  }, [stream])
-
-  const cleanupVideoConnection = () => {
-    if (remoteVideoRef.current?.srcObject) {
-      const tracks = (remoteVideoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach(track => track.stop())
-      remoteVideoRef.current.srcObject = null
-    }
-    if (peerConnection) {
-      peerConnection.close()
-      peerConnection = null
-    }
-  }
-
-  // Video stream setup
-  useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((mediaStream) => {
-        setStream(mediaStream)
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = mediaStream
-        }
-      })
-      .catch((err) => {
-        console.error('Error accessing media devices:', err)
-      })
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop())
-      }
-      cleanupVideoConnection()
-    }
   }, [])
 
-  const handleStart = () => {
-    setIsWaiting(true)
-    socket?.emit('find-video-user')
+  // Socket event handlers
+  useEffect(() => {
+    if (!socket || !peerConnection || !stream) return
+
+    const handleUserFound = async ({ partnerId }: { partnerId: string }) => {
+      console.log('Found peer:', partnerId)
+      setCurrentPeer(partnerId)
+      setIsSearching(false)
+
+      if (socket && socket.id && partnerId > socket.id) {
+        try {
+          const offer = await peerConnection.createOffer()
+          await peerConnection.setLocalDescription(offer)
+          socket.emit('call-user', { offer, to: partnerId })
+        } catch (err) {
+          console.error('Error creating offer:', err)
+          setError('Failed to establish video connection. Please try again.')
+        }
+      }
+    }
+
+    const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit, from: string }) => {
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        const answer = await peerConnection.createAnswer()
+        await peerConnection.setLocalDescription(answer)
+        if (socket) {
+          socket.emit('make-answer', { answer, to: from })
+        }
+      } catch (err) {
+        console.error('Error handling call:', err)
+      }
+    }
+
+    const handleAnswerMade = async ({ answer, from }: { answer: RTCSessionDescriptionInit, from: string }) => {
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+      } catch (err) {
+        console.error('Error handling answer:', err)
+      }
+    }
+
+    const handleIceCandidate = ({ candidate, from }: { candidate: RTCIceCandidate, from: string }) => {
+      try {
+        if (peerConnection.remoteDescription) {
+          peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+        }
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err)
+      }
+    }
+
+    const handlePeerLeft = () => {
+      console.log('Peer left')
+      setCurrentPeer(null)
+      setRemoteStream(null)
+      setIsSearching(false)
+    }
+
+    socket.on('user-found', handleUserFound)
+    socket.on('call-made', handleCallMade)
+    socket.on('answer-made', handleAnswerMade)
+    socket.on('ice-candidate', handleIceCandidate)
+    socket.on('peer-left', handlePeerLeft)
+
+    return () => {
+      socket?.off('user-found', handleUserFound)
+      socket?.off('call-made', handleCallMade)
+      socket?.off('answer-made', handleAnswerMade)
+      socket?.off('ice-candidate', handleIceCandidate)
+      socket?.off('peer-left', handlePeerLeft)
+    }
+  }, [peerConnection, stream])
+
+  // Track handling
+  useEffect(() => {
+    if (!peerConnection) return
+
+    peerConnection.ontrack = (event) => {
+      console.log('Received remote track:', event.track.kind)
+      setRemoteStream(event.streams[0])
+    }
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate && currentPeer) {
+        socket?.emit('ice-candidate', {
+          candidate: event.candidate,
+          to: currentPeer
+        })
+      }
+    }
+  }, [peerConnection, currentPeer])
+
+  // Video refs setup
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream
+    }
+  }, [remoteStream])
+
+  const startCooldown = () => {
+    setButtonCooldown(true)
+    setTimeout(() => setButtonCooldown(false), 5000)
   }
 
-  const handleNext = () => {
-    cleanupVideoConnection()
-    socket?.emit('find-video-user')
+  const handleStartChat = () => {
+    if (!socket?.connected || !stream || buttonCooldown) return
+    setIsSearching(true)
+    socket.emit('find-user')
+    startCooldown()
   }
 
-  const handleLeave = () => {
-    cleanupVideoConnection()
-    socket?.emit('leave-video')
+  const handleNextPerson = () => {
+    if (!socket?.connected || !stream || buttonCooldown) return
+    setIsSearching(true)
+    socket.emit('find-next-user')
+    startCooldown()
+  }
+
+  const handleLeaveChat = () => {
+    if (!socket?.connected) return
+    socket.emit('leave-chat')
+    setCurrentPeer(null)
+    setRemoteStream(null)
+    setIsSearching(false)
     window.location.href = '/'
   }
 
-  useEffect(() => {
-    if (peerConnection) {
-      let statsInterval: NodeJS.Timeout;
-      // Monitor connection stats
-      statsInterval = setInterval(async () => {
-        if (peerConnection) {
-          try {
-            const stats = await peerConnection.getStats()
-            let totalPacketsLost = 0
-            let totalPackets = 0
-            let currentRoundTripTime = 0
-            let availableOutgoingBitrate = 0
-
-            stats.forEach(report => {
-              if (report.type === 'remote-inbound-rtp') {
-                totalPacketsLost += report.packetsLost || 0
-                totalPackets += report.packetsReceived || 0
-              }
-              if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                currentRoundTripTime = report.currentRoundTripTime * 1000 // Convert to ms
-                availableOutgoingBitrate = report.availableOutgoingBitrate || 0
-              }
-            })
-
-            const packetLoss = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0
-            
-            setConnectionStats({
-              latency: Math.round(currentRoundTripTime),
-              packetLoss: Math.round(packetLoss * 10) / 10,
-              bandwidth: availableOutgoingBitrate
-            })
-
-            // Update connection quality based on stats
-            if (currentRoundTripTime < 100 && packetLoss < 1) {
-              setConnectionQuality('excellent')
-            } else if (currentRoundTripTime < 200 && packetLoss < 5) {
-              setConnectionQuality('good')
-            } else {
-              setConnectionQuality('poor')
-            }
-          } catch (err) {
-            console.error('Error getting connection stats:', err)
-          }
-        }
-      }, 2000)
-
-      return () => clearInterval(statsInterval)
-    }
-  }, [peerConnection])
-
-  // Update connection status when peer connection state changes
-  useEffect(() => {
-    if (peerConnection) {
-      const handleConnectionStateChange = () => {
-        if (peerConnection?.connectionState === 'failed' || peerConnection?.connectionState === 'disconnected' || peerConnection?.connectionState === 'closed') {
-          setConnectionQuality('disconnected')
-          setConnectionError('Connection lost. Please try again.')
-        }
-        setIsConnecting(peerConnection?.connectionState === 'connecting' || peerConnection?.connectionState === 'new')
-      }
-
-      if (peerConnection) {
-        if (peerConnection) {
-          peerConnection.addEventListener('connectionstatechange', handleConnectionStateChange)
-          return () => {
-            if (peerConnection) {
-              peerConnection.removeEventListener('connectionstatechange', handleConnectionStateChange)
-            }
-          }
-        }
+  // Local video controls
+  const toggleLocalCamera = () => {
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsCameraOff(!videoTrack.enabled);
       }
     }
-  }, [peerConnection])
+  }
 
-  const handleRetry = () => {
-    // Add your retry logic here
-    console.log('Retrying connection...')
+  const toggleLocalMute = () => {
+    if (stream) {
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
+    }
+  }
+
+  // Remote video controls
+  const toggleRemoteVideo = () => {
+    if (remoteStream) {
+      const videoTrack = remoteStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+      }
+    }
+  }
+
+  const toggleRemoteAudio = () => {
+    if (remoteStream) {
+      const audioTrack = remoteStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsRemoteMuted(!isRemoteMuted);
+      }
+    }
   }
 
   return (
-    <ChatLayout
-      title="Video Chat"
-      icon={<VideoIcon className="w-5 h-5" />}
-      onStart={handleStart}
-      onNext={handleNext}
-      onLeave={handleLeave}
-    >
-      <div className="relative flex flex-col items-center justify-center w-full h-full">
-        <ConnectionStatus
-          quality={connectionQuality}
-          isConnecting={isConnecting}
-          error={connectionError}
-          stats={connectionStats}
-          onRetry={handleRetry}
-        />
-        
-        {/* Video Chat Area */}
-        <div className="h-[400px] p-4 flex flex-col">
-          <div className="flex-1 grid grid-cols-2 gap-4">
-            {/* Local Video */}
-            <div className="relative">
+    <div className="relative min-h-screen bg-gray-100">
+      {/* Header with Menu, Logo, and Connection Status */}
+      <div className="flex flex-col gap-4 mb-4 md:mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-4">
+            <ChatMenu onLeaveChat={handleLeaveChat} variant="hamburger" />
+            <h1 className="text-xl md:text-2xl font-bold">
+              <span className="text-blue-500">Meet</span>
+              <span className="text-gray-700">opia</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">
+              {isSocketConnected ? 'Connected' : 'Disconnected'}
+            </span>
+            <div className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-600"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Control Buttons */}
+        <div className="flex justify-center gap-2">
+          <button 
+            onClick={handleStartChat}
+            disabled={!isSocketConnected || isSearching || buttonCooldown}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              !isSocketConnected || isSearching || buttonCooldown
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+          >
+            {isSearching ? '🔄 Searching' : buttonCooldown ? '⏳ Wait 5s' : '▶️ START'}
+          </button>
+          <button 
+            onClick={handleNextPerson}
+            disabled={!currentPeer || isSearching}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              !currentPeer || isSearching
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            ⏭️ NEXT
+          </button>
+          <button 
+            onClick={handleLeaveChat}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
+          >
+            ⏹️ LEAVE
+          </button>
+          <button
+            onClick={() => openReportModal(currentPeer || '')}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-yellow-500 hover:bg-yellow-600 text-white"
+          >
+            ⚠️ Report
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto">
+        {/* Videos Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
+          {/* Local Video */}
+          <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+            <div className="relative h-[320px] md:h-[480px] bg-gray-900 rounded-lg overflow-hidden">
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover rounded-lg bg-gray-900"
+                className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                You
-              </div>
-              {isConnecting && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
-                  <div className="text-white flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Connecting...
-                  </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
+                <div className="flex items-center justify-center gap-2 p-2">
+                  <button
+                    onClick={toggleLocalMute}
+                    className={`p-2.5 md:p-2 text-sm md:text-xs border-2 rounded-full transition-colors ${
+                      isMuted 
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isMuted ? '🔇' : '🔊'}
+                  </button>
+                  <button
+                    onClick={toggleLocalCamera}
+                    className={`p-2.5 md:p-2 text-sm md:text-xs border-2 rounded-full transition-colors ${
+                      isCameraOff 
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isCameraOff ? '⏸️' : '📹'}
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
+          </div>
 
-            {/* Remote Video */}
-            <div className="relative">
+          {/* Remote Video */}
+          <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+            <div className="relative h-[320px] md:h-[480px] bg-gray-900 rounded-lg overflow-hidden">
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover rounded-lg bg-gray-900"
+                className="w-full h-full object-cover"
+                style={{ display: remoteStream ? 'block' : 'none' }}
               />
-              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                Partner
+              {!remoteStream && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                  {isSearching ? 'Looking for someone to chat with...' : 'Click START to begin meeting'}
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent">
+                <div className="flex items-center justify-center gap-2 p-2">
+                  <button
+                    onClick={toggleRemoteAudio}
+                    className={`p-2.5 md:p-2 text-sm md:text-xs border-2 rounded-full transition-colors ${
+                      isRemoteMuted
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {isRemoteMuted ? '🔇' : '🎤'}
+                  </button>
+                  <button
+                    onClick={toggleRemoteVideo}
+                    className={`p-2.5 md:p-2 text-sm md:text-xs border-2 rounded-full transition-colors ${
+                      !remoteStream?.getVideoTracks()[0]?.enabled
+                        ? 'border-red-500 bg-red-500 text-white' 
+                        : 'border-white/50 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {!remoteStream?.getVideoTracks()[0]?.enabled ? '⏸️' : '📹'}
+                  </button>
+                </div>
               </div>
-              {!isConnected && (
-                <div className="absolute inset-0 flex items-center justify-center text-white bg-gray-900 bg-opacity-75 rounded-lg">
-                  {isWaiting ? 'Waiting for partner...' : 'Start video chat!'}
-                </div>
-              )}
-              {isConnecting && isConnected && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
-                  <div className="text-white flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Establishing connection...
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Video Controls */}
-          <div className="mt-4 flex justify-center gap-4">
-            <button 
-              className="p-3 bg-gray-200 rounded-full hover:bg-gray-300 disabled:opacity-50"
-              disabled={isConnecting}
-            >
-              🎤
-            </button>
-            <button 
-              className="p-3 bg-gray-200 rounded-full hover:bg-gray-300 disabled:opacity-50"
-              disabled={isConnecting}
-            >
-              📷
-            </button>
           </div>
         </div>
       </div>
-    </ChatLayout>
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={closeReportModal}
+        onSubmit={handleReport}
+        reportedUserId={currentPeer || undefined}
+      />
+    </div>
   )
 }

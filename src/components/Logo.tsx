@@ -1,23 +1,18 @@
 'use client'
 import Link from 'next/link'
 
-export const Logo = () => (
-  <div className="flex items-center space-x-6">
-    <Link href="/" className="font-bold tracking-wider">
-      <span className="text-blue-600">MEET</span>
-      <span className="text-blue-500">OPIA</span>
+interface LogoProps {
+  className?: string
+}
+
+export default function Logo({ className = '' }: LogoProps) {
+  return (
+    <Link 
+      href="/" 
+      className={`block text-2xl font-bold text-center hover:opacity-80 transition-opacity ${className}`}
+    >
+      <span className="text-blue-500">Meet</span>
+      <span className="text-gray-700">opia</span>
     </Link>
-    
-    <nav className="flex space-x-4 text-sm">
-      <Link href="/history" className="text-gray-600 hover:text-blue-500">
-        Match History
-      </Link>
-      <Link href="/friends" className="text-gray-600 hover:text-blue-500">
-        Friends
-      </Link>
-      <Link href="/messages" className="text-gray-600 hover:text-blue-500">
-        Messages
-      </Link>
-    </nav>
-  </div>
-) 
+  )
+} 

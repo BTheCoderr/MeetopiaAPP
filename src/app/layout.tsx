@@ -1,30 +1,37 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from '@/components/Providers'
-import { ThemeProvider } from '@/components/ThemeProvider'
-import ErrorBoundary from '@/components/ErrorBoundary'
-import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const inter = Inter({ subsets: ['latin'] })
 
-interface RootLayoutProps {
-  children: React.ReactNode
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export const metadata: Metadata = {
+  title: 'Meetopia - Connect with People Worldwide',
+  description: 'A platform for meeting and chatting with people from around the world through video, text, or combined chat.',
+  keywords: 'video chat, text chat, meeting people, social platform, anonymous chat',
+  authors: [{ name: 'Meetopia Team' }],
+  robots: 'index, follow',
+  openGraph: {
+    title: 'Meetopia - Connect with People Worldwide',
+    description: 'Meet and chat with people from around the world through video, text, or combined chat.',
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'Meetopia'
+  }
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <ErrorBoundary>
-          <Providers>
-            <ThemeProvider>
-              {children}
-            </ThemeProvider>
-          </Providers>
-        </ErrorBoundary>
-        <SpeedInsights />
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

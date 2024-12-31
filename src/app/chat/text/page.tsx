@@ -1,221 +1,255 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { io, Socket } from 'socket.io-client'
-import ChatLayout from '@/components/ChatLayout'
-
-interface Message {
-  id: string;
-  text: string;
-  isSelf: boolean;
-  status: 'sending' | 'sent' | 'delivered' | 'failed' | 'queued';
-  timestamp: number;
-}
+import ChatMenu from '@/components/ChatMenu'
+import ReportModal from '@/components/ReportModal'
+import { useReporting } from '@/hooks/useReporting'
 
 let socket: Socket | null = null
 
 export default function TextChatPage() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [isWaiting, setIsWaiting] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [isSocketConnected, setIsSocketConnected] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [currentPeer, setCurrentPeer] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Array<{text: string, isSelf: boolean}>>([])
   const [messageInput, setMessageInput] = useState('')
+  const {
+    isReportModalOpen,
+    handleReport,
+    openReportModal,
+    closeReportModal
+  } = useReporting()
 
+  // Socket setup
   useEffect(() => {
-    if (!hasStarted) return // Don't connect until user starts chat
+    if (socket) {
+      console.log('Socket already exists, skipping setup')
+      return
+    }
 
-    const socketUrl = 'http://localhost:3001'
-
-    socket = io(socketUrl, {
+    console.log('Setting up socket connection...')
+    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 10000
     })
 
+    socket = newSocket
+    
     socket.on('connect', () => {
-      console.log('Socket connected:', socket?.id)
-      socket?.emit('find-next-user')
-      setIsWaiting(true)
+      console.log('Socket connected')
+      setIsSocketConnected(true)
+    })
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected')
+      setIsSocketConnected(false)
     })
 
     socket.on('user-found', ({ partnerId }) => {
-      console.log('User found:', partnerId)
-      setIsConnected(true)
-      setIsWaiting(false)
+      console.log('Found peer:', partnerId)
+      setCurrentPeer(partnerId)
+      setIsSearching(false)
     })
 
-    socket.on('chat-message', ({ message, from, messageId }) => {
-      if (!hasStarted) return // Ignore messages if chat hasn't started
-      
-      setMessages(prev => [...prev, {
-        id: messageId || Date.now().toString(),
-        text: message,
-        isSelf: false,
-        status: 'delivered',
-        timestamp: Date.now()
-      }])
+    socket.on('chat-message', ({ message, from }) => {
+      console.log('Received message:', message, 'from:', from)
+      setMessages(prev => [...prev, { text: message, isSelf: false }])
     })
 
-    socket.on('message-delivered', ({ messageId }) => {
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId 
-          ? { ...msg, status: 'delivered' }
-          : msg
-      ))
-    })
-
-    socket.on('partner-left', () => {
-      setIsConnected(false)
-      setIsWaiting(false)
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        text: 'Your chat partner has left.',
-        isSelf: false,
-        status: 'delivered',
-        timestamp: Date.now()
-      }])
-    })
-
-    socket.on('partner-next', () => {
-      setIsConnected(false)
-      setIsWaiting(true)
-      setMessages([])
-      socket?.emit('find-next-user')
+    socket.on('peer-left', () => {
+      console.log('Peer left')
+      setCurrentPeer(null)
+      setIsSearching(false)
     })
 
     return () => {
       if (socket) {
+        console.log('Cleaning up socket connection')
         socket.disconnect()
         socket = null
       }
     }
-  }, [hasStarted]) // Only run when hasStarted changes
+  }, [])
 
-  const handleStart = () => {
-    setHasStarted(true)
-    setIsWaiting(true)
+  const handleStartChat = () => {
+    if (!socket?.connected) {
+      console.error('Socket not connected')
+      return
+    }
+    
+    setIsSearching(true)
+    socket.emit('find-next-user')
+    console.log('Looking for users...')
   }
 
-  const handleNext = () => {
+  const handleNextPerson = () => {
+    setCurrentPeer(null)
     setMessages([])
-    setIsConnected(false)
-    setIsWaiting(true)
-    socket?.emit('find-next-user')
+    
+    if (currentPeer) {
+      socket?.emit('leave-chat')
+    }
+
+    setTimeout(() => {
+      setIsSearching(true)
+      socket?.emit('find-next-user')
+    }, 1000)
   }
 
-  const handleLeave = () => {
-    if (socket) {
-      socket.emit('leave-chat')
-      socket.disconnect()
-      socket = null
+  const handleLeaveChat = () => {
+    setCurrentPeer(null)
+    setMessages([])
+    setIsSearching(false)
+    
+    if (currentPeer) {
+      socket?.emit('leave-chat')
     }
     window.location.href = '/'
   }
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !isConnected || !hasStarted) return
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!messageInput.trim() || !currentPeer) return
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: messageInput,
-      isSelf: true,
-      status: 'sending',
-      timestamp: Date.now()
-    }
-
-    socket?.emit('chat-message', {
-      message: messageInput,
-      to: socket.id,
-      messageId: newMessage.id
-    })
-
-    setMessages(prev => [...prev, newMessage])
+    setMessages(prev => [...prev, { text: messageInput, isSelf: true }])
+    socket?.emit('chat-message', { message: messageInput, to: currentPeer })
     setMessageInput('')
   }
 
   return (
-    <ChatLayout
-      title="Text Chat"
-      icon="💬"
-      onStart={handleStart}
-      onNext={handleNext}
-      onLeave={handleLeave}
-    >
-      <div className="h-[600px] p-4 flex flex-col">
-        {!hasStarted ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-4">Ready to Chat?</h2>
-              <p className="text-gray-600 mb-6">Click Start to begin chatting with someone new!</p>
-              <button
-                onClick={handleStart}
-                className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-              >
-                Start Chatting
-              </button>
-            </div>
+    <div className="min-h-screen bg-white p-4 md:p-8">
+      {/* Header with Menu, Logo, and Connection Status */}
+      <div className="flex flex-col gap-4 mb-4 md:mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-4">
+            <ChatMenu onLeaveChat={handleLeaveChat} />
+            <h1 className="text-xl md:text-2xl font-bold">
+              <span className="text-blue-500">Meet</span>
+              <span className="text-gray-700">opia</span>
+            </h1>
           </div>
-        ) : (
-          <>
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto space-y-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.isSelf ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">
+              {isSocketConnected ? 'Connected' : 'Disconnected'}
+            </span>
+            <div className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          </div>
+        </div>
+
+        {/* Centered control buttons */}
+        <div className="flex justify-center gap-2 mb-4">
+          <button 
+            onClick={handleStartChat}
+            disabled={!isSocketConnected || isSearching}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              !isSocketConnected || isSearching
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+          >
+            {isSearching ? '🔄 Searching' : '▶️ START'}
+          </button>
+          <button 
+            onClick={handleNextPerson}
+            disabled={!currentPeer || isSearching}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              !currentPeer || isSearching
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            ⏭️ NEXT
+          </button>
+          <button 
+            onClick={handleLeaveChat}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
+          >
+            ⏹️ LEAVE
+          </button>
+          <button
+            onClick={() => openReportModal(currentPeer || '')}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-yellow-500 hover:bg-yellow-600 text-white"
+          >
+            ⚠️ Report
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-3xl mx-auto">
+        {/* Chat Section */}
+        <div className="border rounded-lg shadow-sm bg-white">
+          <div className="text-center p-2 border-b border-gray-100">
+            <h2 className="text-lg font-medium">💬 Text Chat</h2>
+          </div>
+          
+          <div className="h-[400px] md:h-[500px] p-4 flex flex-col">
+            {currentPeer ? (
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.isSelf ? 'justify-end' : 'justify-start'}`}
+                  >
                     <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
+                      className={`p-3 rounded-lg max-w-[80%] ${
                         msg.isSelf
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-blue-500 text-white rounded-tr-none'
+                          : 'bg-gray-100 text-gray-800 rounded-tl-none'
                       }`}
                     >
                       {msg.text}
                     </div>
-                    {msg.isSelf && (
-                      <div className="text-xs text-gray-500 mt-1 text-right">
-                        {msg.status === 'sending' && '⌛ Sending...'}
-                        {msg.status === 'sent' && '✓ Sent'}
-                        {msg.status === 'delivered' && '✓✓ Delivered'}
-                        {msg.status === 'failed' && '❌ Failed'}
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
-              {messages.length === 0 && (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
-                  {isWaiting ? 'Waiting for partner...' : 'Start chatting!'}
-                </div>
-              )}
-            </div>
-
-            {/* Message Input */}
-            <div className="mt-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder={isConnected ? "Type a message..." : "Waiting for connection..."}
-                  disabled={!isConnected}
-                  className="flex-1 p-3 rounded-full border border-gray-300 focus:outline-none focus:border-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!isConnected}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  Send
-                </button>
+                ))}
               </div>
-            </div>
-          </>
-        )}
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-500 text-lg">
+                {isSearching ? 'Looking for someone to chat with...' : 'Click START to begin chatting'}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-100">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                placeholder={currentPeer ? "Type a message..." : "Wait for connection to chat..."}
+                disabled={!currentPeer}
+                className={`flex-1 p-3 rounded-full border ${
+                  currentPeer 
+                    ? 'border-gray-300 focus:outline-none focus:border-blue-400' 
+                    : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={!currentPeer}
+                className={`px-6 py-3 rounded-full ${
+                  currentPeer
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                }`}
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-    </ChatLayout>
+
+      {/* Add report modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={closeReportModal}
+        onSubmit={handleReport}
+        reportedUserId={currentPeer || undefined}
+      />
+    </div>
   )
 } 

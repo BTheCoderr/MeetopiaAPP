@@ -1,109 +1,63 @@
-import * as React from 'react'
+'use client'
 import Link from 'next/link'
-import ConnectionStatus from './ConnectionStatus'
+import { usePathname } from 'next/navigation'
 
 interface ChatLayoutProps {
   children: React.ReactNode
-  title: string
-  icon: string | React.ReactElement
-  onStart?: () => void
-  onNext?: () => void
-  onLeave?: () => void
-  showControls?: boolean
-  isConnected?: boolean
-  isWaiting?: boolean
 }
 
-export default function ChatLayout({
-  children,
-  title,
-  icon,
-  onStart,
-  onNext,
-  onLeave,
-  showControls = true,
-  isConnected = false,
-  isWaiting = false
-}: ChatLayoutProps) {
-  const [showNav, setShowNav] = React.useState(false)
+export default function ChatLayout({ children }: ChatLayoutProps) {
+  const pathname = usePathname()
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className="relative z-50">
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              onClick={() => setShowNav(!showNav)}
-            >
-              ←
-            </button>
-            
-            {showNav && (
-              <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[160px]">
-                <Link href="/" className="block px-4 py-2 hover:bg-gray-100 transition-colors">
-                  <span className="text-blue-500 font-bold">Meet</span>
-                  <span className="text-gray-700 font-bold">opia</span>
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <h1 className="text-xl font-bold">
+                  <span className="text-blue-500">Meet</span>
+                  <span className="text-gray-700">opia</span>
+                </h1>
+              </div>
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                <Link
+                  href="/chat/video"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    pathname === '/chat/video'
+                      ? 'border-blue-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Video Chat
                 </Link>
-                <Link href="/chat/text" className="block px-4 py-2 hover:bg-gray-100 transition-colors">
-                  💬 Text Chat
+                <Link
+                  href="/chat/text"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    pathname === '/chat/text'
+                      ? 'border-blue-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Text Chat
                 </Link>
-                <Link href="/chat/video" className="block px-4 py-2 hover:bg-gray-100 transition-colors">
-                  🎥 Video Chat
-                </Link>
-                <Link href="/chat/combined" className="block px-4 py-2 hover:bg-gray-100 transition-colors">
-                  🤝 Combined Chat
+                <Link
+                  href="/chat/combined"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    pathname === '/chat/combined'
+                      ? 'border-blue-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Combined Chat
                 </Link>
               </div>
-            )}
+            </div>
           </div>
-          <h1 className="text-2xl font-bold">
-            <span className="text-blue-500">Meet</span>
-            <span className="text-gray-700">opia</span>
-          </h1>
         </div>
-        <ConnectionStatus />
-      </div>
-
-      {/* Main Container */}
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors">
-        {/* Chat Title */}
-        <div className="text-center p-4 border-b border-gray-100">
-          <h2 className="text-2xl font-semibold flex items-center justify-center gap-2">
-            {icon} {title}
-          </h2>
-        </div>
-
-        {/* Content Area */}
-        <div className="min-h-[400px]">
-          {children}
-        </div>
-
-        {/* Controls */}
-        {showControls && (
-          <div className="p-4 flex justify-center gap-4 border-t border-gray-100">
-            <button 
-              onClick={onStart}
-              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
-              START
-            </button>
-            <button 
-              onClick={onNext}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              NEXT
-            </button>
-            <button 
-              onClick={onLeave}
-              className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              LEAVE
-            </button>
-          </div>
-        )}
-      </div>
+      </nav>
+      <main>{children}</main>
     </div>
   )
 } 
