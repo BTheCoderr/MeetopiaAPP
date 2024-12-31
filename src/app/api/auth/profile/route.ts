@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { connectDB } from '@/lib/db/mongodb'
-import { UserModel } from '@/lib/db/models/User'
 import { getSession } from '@/lib/auth/session'
 import { cookies } from 'next/headers'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
@@ -22,8 +21,10 @@ export async function GET() {
       )
     }
 
-    await connectDB()
-    const user = await UserModel.findOne({ id: session.userId })
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId }
+    })
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -34,7 +35,8 @@ export async function GET() {
     return NextResponse.json({
       id: user.id,
       email: user.email,
-      name: user.name
+      username: user.username,
+      displayName: user.displayName
     })
   } catch (error) {
     console.error('Profile error:', error)
