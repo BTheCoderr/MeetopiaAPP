@@ -50,9 +50,12 @@ export default function VideoChatPage() {
             frameRate: { ideal: 30, max: 30 }
           },
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: { exact: true },
+            noiseSuppression: { exact: true },
+            autoGainControl: { exact: true },
+            sampleRate: 48000,
+            sampleSize: 16,
+            channelCount: 1
           }
         })
 
