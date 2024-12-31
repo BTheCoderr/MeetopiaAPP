@@ -1,0 +1,154 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  username      String    @unique
+  displayName   String?
+  bio           String?
+  interests     String[]
+  isFlagged     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relationships
+  friends       User[]    @relation("UserFriends")
+  friendOf      User[]    @relation("UserFriends")
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  sessions      Session[]
+  reportsSubmitted Report[] @relation("ReportsSubmitted")
+  reportsReceived Report[] @relation("ReportsReceived")
+  feedback      Feedback[]
+  streams         Stream[]
+  streamMessages  StreamMessage[]
+  moderatedStreams StreamModerator[]
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  createdAt   DateTime @default(now())
+  senderId    String
+  receiverId  String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  reportedUserId String
+  reason        String
+  details       String?
+  status        String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  reporter      User     @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  reportedUser  User     @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // connection_issues, audio_video_quality, feature_request, bug_report, other
+  details   String?
+  status    String   @default("NEW") // NEW, REVIEWED, IMPLEMENTED, DISMISSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Stream {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  isLive      Boolean     @default(false)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  settings    StreamSettings?
+  viewers     Int         @default(0)
+  
+  // Relations
+  streamerId  String
+  streamer    User        @relation(fields: [streamerId], references: [id])
+  messages    StreamMessage[]
+  moderators  StreamModerator[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([streamerId])
+}
+
+model StreamSettings {
+  id              String  @id @default(cuid())
+  videoQuality    String  @default("720p") // 480p, 720p, 1080p
+  bitrate         Int     @default(2500)   // kbps
+  frameRate       Int     @default(30)     // fps
+  audioQuality    String  @default("high") // low, medium, high
+  chatEnabled     Boolean @default(true)
+  chatDelay       Int     @default(0)      // seconds
+  
+  // Relations
+  streamId        String  @unique
+  stream          Stream  @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model StreamMessage {
+  id          String   @id @default(cuid())
+  content     String
+  isDeleted   Boolean  @default(false)
+  isModerated Boolean  @default(false)
+  
+  // Relations
+  streamId    String
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+
+  @@index([streamId])
+  @@index([userId])
+}
+
+model StreamModerator {
+  id          String   @id @default(cuid())
+  canBan      Boolean  @default(true)
+  canTimeout   Boolean  @default(true)
+  canDeleteMessages Boolean @default(true)
+  
+  // Relations
+  streamId    String
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([streamId, userId])
+  @@index([streamId])
+  @@index([userId])
+} 
