@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
-import { connectDB } from '@/lib/db/mongodb'
-import { UserModel } from '@/lib/db/models/User'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    await connectDB()
-    const users = await UserModel.find({})
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true
+      }
+    })
     return NextResponse.json(users)
   } catch (error) {
+    console.error('Error fetching users:', error)
     return NextResponse.json(
       { error: 'Failed to fetch users' },
       { status: 500 }
