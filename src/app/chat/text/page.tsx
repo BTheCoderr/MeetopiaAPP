@@ -23,21 +23,15 @@ export default function TextChatPage() {
 
   // Socket setup
   useEffect(() => {
-    if (socket) {
-      console.log('Socket already exists, skipping setup')
-      return
-    }
+    if (socket) return
 
-    console.log('Setting up socket connection...')
-    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002', {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 10000
     })
 
-    socket = newSocket
-    
     socket.on('connect', () => {
       console.log('Socket connected')
       setIsSocketConnected(true)
@@ -46,6 +40,9 @@ export default function TextChatPage() {
     socket.on('disconnect', () => {
       console.log('Socket disconnected')
       setIsSocketConnected(false)
+      setCurrentPeer(null)
+      setIsSearching(false)
+      console.error('Connection lost. Attempting to reconnect...')
     })
 
     socket.on('user-found', ({ partnerId }) => {

@@ -1,37 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meetopia
+
+A modern meeting scheduling and management application built with Next.js that helps teams coordinate and organize their meetings efficiently.
+
+## Features
+
+- Video Chat with camera/mic controls
+- Text Chat with emoji support
+- Combined Chat (Video + Text)
+- User Authentication (Email/Password)
+- Report/Feedback System
+- Real-time Communication using Socket.IO
+- Responsive Design with TailwindCSS
+- MongoDB Database Integration
+- Session Management
+
+## Tech Stack
+
+- Next.js 14
+- TypeScript
+- MongoDB
+- Prisma
+- Socket.IO
+- TailwindCSS
+- bcryptjs for password hashing
+- JWT for session management
+
+## Prerequisites
+
+- Node.js >= 18.18.0
+- MongoDB running locally or a MongoDB Atlas account
+- PostgreSQL for Prisma (optional, if using Prisma features)
 
 ## Getting Started
 
-First, run the development server:
-
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/yourusername/MeetopiaAPP.git
+cd MeetopiaAPP
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+Create a `.env` file in the root directory with the following variables:
+```
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+DATABASE_URL=your_postgresql_url  # Only if using Prisma
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Run database migrations (if using Prisma):
+```bash
+npx prisma generate
+npx prisma migrate dev
+```
 
-## Learn More
+5. Seed the database with a test user:
+```bash
+npm run seed
+```
+This will create a test user with:
+- Email: demo@example.com
+- Password: test123
 
-To learn more about Next.js, take a look at the following resources:
+6. Start the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+7. Open http://localhost:3000 in your browser
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Features in Detail
 
-## Deploy on Vercel
+### Chat Options
+- Video Chat: One-on-one video calls with camera/mic controls
+- Text Chat: Real-time messaging with emoji support
+- Combined Chat: Video calls with text chat functionality
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### User Management
+- Sign Up/Sign In with email and password
+- Session-based authentication
+- Profile management
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# MeetopiaAPP
+### Report System
+- Report inappropriate users
+- Provide feedback for improvements
+- Admin review system for reports
+
+## Deployment
+
+The application can be deployed on platforms like Vercel or Render. Make sure to:
+1. Set up the environment variables in your deployment platform
+2. Configure the build command: `npm run build`
+3. Configure the start command: `npm start`
+4. Set up MongoDB Atlas for the database
+5. Update CORS settings if needed
+
+## Recent Updates
+
+- Added report/feedback system
+- Improved error handling in chat features
+- Fixed authentication issues
+- Added proper TypeScript types
+- Improved MongoDB connection handling
+- Added session management
+- Fixed build and deployment issues
+
+## Known Issues
+
+- Socket.IO requires separate server setup for production
+- Viewport warnings in development (expected behavior)
+- Dynamic server usage with cookies (expected in Next.js 14)
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+## Troubleshooting
+
+If you encounter any issues:
+
+1. Make sure MongoDB is running locally or your MongoDB Atlas connection string is correct
+2. Verify Node.js version is >= 18.18.0
+3. Clear `.next` directory and node_modules if you encounter build issues:
+```bash
+rm -rf .next node_modules
+npm install
+```
+4. Check environment variables are properly set
+5. Make sure all required ports are available (3000 for Next.js, 27017 for MongoDB)

@@ -101,7 +101,7 @@ export default function VideoChatPage() {
   useEffect(() => {
     if (socket) return
 
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002', {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
