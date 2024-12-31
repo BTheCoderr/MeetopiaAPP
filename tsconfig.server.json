@@ -1,19 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "commonjs",
     "outDir": "dist",
     "noEmit": false,
-    "jsx": "react",
-    "esModuleInterop": true,
-    "target": "ES2022",
-    "sourceMap": true,
-    "allowJs": true,
-    "checkJs": false,
-    "rootDir": ".",
-    "types": ["node"]
+    "jsx": "react"
   },
-  "include": ["server/**/*"],
-  "exclude": ["node_modules", ".next", "dist"]
+  "include": ["server/**/*.ts"]
 } 
