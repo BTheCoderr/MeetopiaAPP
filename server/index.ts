@@ -1,13 +1,14 @@
-import * as express from 'express'
+import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import * as dotenv from 'dotenv'
-import * as path from 'path'
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 
 // Load environment variables
 dotenv.config()
 
-const app = express.default()
+const app = express()
 
 // Enhanced CORS configuration
 const PORT = process.env.PORT || 3002
@@ -23,7 +24,7 @@ console.log('Server starting with configuration:')
 console.log('PORT:', PORT)
 console.log('CORS_ORIGINS:', CORS_ORIGINS)
 console.log('NODE_ENV:', process.env.NODE_ENV)
-console.log('Current directory:', __dirname)
+console.log('Current directory:', process.cwd())
 
 // Create HTTP server first
 const httpServer = createServer(app)
