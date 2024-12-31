@@ -278,44 +278,47 @@ export default function VideoChatPage() {
 
   useEffect(() => {
     if (peerConnection) {
+      let statsInterval: NodeJS.Timeout;
       // Monitor connection stats
-      const statsInterval = setInterval(async () => {
-        try {
-          const stats = await peerConnection.getStats()
-          let totalPacketsLost = 0
-          let totalPackets = 0
-          let currentRoundTripTime = 0
-          let availableOutgoingBitrate = 0
+      statsInterval = setInterval(async () => {
+        if (peerConnection) {
+          try {
+            const stats = await peerConnection.getStats()
+            let totalPacketsLost = 0
+            let totalPackets = 0
+            let currentRoundTripTime = 0
+            let availableOutgoingBitrate = 0
 
-          stats.forEach(report => {
-            if (report.type === 'remote-inbound-rtp') {
-              totalPacketsLost += report.packetsLost || 0
-              totalPackets += report.packetsReceived || 0
+            stats.forEach(report => {
+              if (report.type === 'remote-inbound-rtp') {
+                totalPacketsLost += report.packetsLost || 0
+                totalPackets += report.packetsReceived || 0
+              }
+              if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                currentRoundTripTime = report.currentRoundTripTime * 1000 // Convert to ms
+                availableOutgoingBitrate = report.availableOutgoingBitrate || 0
+              }
+            })
+
+            const packetLoss = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0
+            
+            setConnectionStats({
+              latency: Math.round(currentRoundTripTime),
+              packetLoss: Math.round(packetLoss * 10) / 10,
+              bandwidth: availableOutgoingBitrate
+            })
+
+            // Update connection quality based on stats
+            if (currentRoundTripTime < 100 && packetLoss < 1) {
+              setConnectionQuality('excellent')
+            } else if (currentRoundTripTime < 200 && packetLoss < 5) {
+              setConnectionQuality('good')
+            } else {
+              setConnectionQuality('poor')
             }
-            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-              currentRoundTripTime = report.currentRoundTripTime * 1000 // Convert to ms
-              availableOutgoingBitrate = report.availableOutgoingBitrate || 0
-            }
-          })
-
-          const packetLoss = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0
-          
-          setConnectionStats({
-            latency: Math.round(currentRoundTripTime),
-            packetLoss: Math.round(packetLoss * 10) / 10,
-            bandwidth: availableOutgoingBitrate
-          })
-
-          // Update connection quality based on stats
-          if (currentRoundTripTime < 100 && packetLoss < 1) {
-            setConnectionQuality('excellent')
-          } else if (currentRoundTripTime < 200 && packetLoss < 5) {
-            setConnectionQuality('good')
-          } else {
-            setConnectionQuality('poor')
+          } catch (err) {
+            console.error('Error getting connection stats:', err)
           }
-        } catch (err) {
-          console.error('Error getting connection stats:', err)
         }
       }, 2000)
 
@@ -327,20 +330,30 @@ export default function VideoChatPage() {
   useEffect(() => {
     if (peerConnection) {
       const handleConnectionStateChange = () => {
-        const state = peerConnection.connectionState
-        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+        if (peerConnection?.connectionState === 'failed' || peerConnection?.connectionState === 'disconnected' || peerConnection?.connectionState === 'closed') {
           setConnectionQuality('disconnected')
           setConnectionError('Connection lost. Please try again.')
         }
-        setIsConnecting(state === 'connecting' || state === 'new')
+        setIsConnecting(peerConnection?.connectionState === 'connecting' || peerConnection?.connectionState === 'new')
       }
 
-      peerConnection.addEventListener('connectionstatechange', handleConnectionStateChange)
-      return () => {
-        peerConnection.removeEventListener('connectionstatechange', handleConnectionStateChange)
+      if (peerConnection) {
+        if (peerConnection) {
+          peerConnection.addEventListener('connectionstatechange', handleConnectionStateChange)
+          return () => {
+            if (peerConnection) {
+              peerConnection.removeEventListener('connectionstatechange', handleConnectionStateChange)
+            }
+          }
+        }
       }
     }
   }, [peerConnection])
+
+  const handleRetry = () => {
+    // Add your retry logic here
+    console.log('Retrying connection...')
+  }
 
   return (
     <ChatLayout

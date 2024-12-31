@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import ChatLayout from '@/components/ChatLayout'
+import { io, Socket } from 'socket.io-client'
 
 interface Message {
   id: string;
@@ -18,6 +19,16 @@ export default function CombinedChatPage() {
   const [messageQueue, setMessageQueue] = useState<Message[]>([])
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const [socket, setSocket] = useState<Socket | null>(null)
+
+  useEffect(() => {
+    const newSocket = io('http://localhost:3001')
+    setSocket(newSocket)
+    
+    return () => {
+      newSocket.close()
+    }
+  }, [])
 
   useEffect(() => {
     // Initialize local video stream
@@ -89,7 +100,7 @@ export default function CombinedChatPage() {
   useEffect(() => {
     // ... existing socket setup ...
 
-    socket.on('chat-message', ({ message, from }) => {
+    socket?.on('chat-message', ({ message, from }) => {
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         text: message,
@@ -99,7 +110,7 @@ export default function CombinedChatPage() {
       }])
     })
 
-    socket.on('message-delivered', ({ messageId }) => {
+    socket?.on('message-delivered', ({ messageId }) => {
       setMessages(prev => prev.map(msg => 
         msg.id === messageId 
           ? { ...msg, status: 'delivered' }
@@ -107,7 +118,7 @@ export default function CombinedChatPage() {
       ))
     })
 
-    socket.on('video-user-found', async ({ partnerId }) => {
+    socket?.on('video-user-found', async ({ partnerId }) => {
       // ... existing connection logic ...
       
       // Send queued messages

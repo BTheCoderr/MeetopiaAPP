@@ -1,11 +1,11 @@
-import React from 'react'
+import * as React from 'react'
 import Link from 'next/link'
 import ConnectionStatus from './ConnectionStatus'
 
 interface ChatLayoutProps {
   children: React.ReactNode
   title: string
-  icon: string
+  icon: string | React.ReactElement
   onStart?: () => void
   onNext?: () => void
   onLeave?: () => void

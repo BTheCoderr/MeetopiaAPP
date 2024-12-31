@@ -12,10 +12,8 @@
   },
   "dependencies": {
     "@auth/core": "^0.34.2",
+    "@prisma/client": "^6.1.0",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.17.10",
-    "@types/react": "18.2.0",
-    "@types/react-dom": "18.2.0",
     "@vercel/speed-insights": "^1.1.0",
     "autoprefixer": "^10.4.20",
     "aws-sdk": "^2.1692.0",
@@ -45,12 +43,16 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/dotenv": "^8.2.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
     "@types/simple-peer": "^9.11.8",
     "@types/socket.io": "^3.0.2",
     "@types/socket.io-client": "^3.0.0",
     "concurrently": "^9.1.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.1",
+    "prisma": "^6.1.0",
     "tsx": "^4.19.2"
   }
 }
