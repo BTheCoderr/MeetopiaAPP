@@ -6,11 +6,13 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json()
+    console.log('Attempting signin for:', email)
 
     // Find user
     const user = await prisma.user.findUnique({
       where: { email }
     })
+    console.log('User found:', user ? 'yes' : 'no')
 
     if (!user) {
       return NextResponse.json(
@@ -21,6 +23,7 @@ export async function POST(req: Request) {
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password)
+    console.log('Password valid:', isValidPassword)
 
     if (!isValidPassword) {
       return NextResponse.json(
@@ -35,6 +38,7 @@ export async function POST(req: Request) {
       process.env.JWT_SECRET || 'your-fallback-secret',
       { expiresIn: '1d' }
     )
+    console.log('JWT generated successfully')
 
     return NextResponse.json({
       message: 'Login successful',
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Signin error:', error)
     return NextResponse.json(
-      { error: 'Error during signin' },
+      { error: 'Error during signin', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

@@ -1,21 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   webpack: (config) => {
-    config.resolve = {
-      ...config.resolve,
-      fallback: {
-        ...config.resolve.fallback,
-        "mongoose": require.resolve('mongoose'),
-      },
-      alias: {
-        ...config.resolve.alias,
-        '@': require('path').resolve(__dirname, './src'),
-      },
-    }
+    config.externals = [...config.externals]
     return config
   },
   experimental: {
-    serverComponentsExternalPackages: ['mongoose']
+    serverComponentsExternalPackages: []
   }
 }
 

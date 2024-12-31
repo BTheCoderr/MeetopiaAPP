@@ -93,12 +93,12 @@ io.on('connection', (socket) => {
 
   socket.on('make-answer', ({ answer, to }) => {
     console.log('Forwarding call answer to:', to)
-    io.to(to).emit('answer-made', { answer, from: socket.id })
+      io.to(to).emit('answer-made', { answer, from: socket.id })
   })
 
   socket.on('ice-candidate', ({ candidate, to }) => {
     console.log('Forwarding ICE candidate to:', to)
-    io.to(to).emit('ice-candidate', { candidate, from: socket.id })
+      io.to(to).emit('ice-candidate', { candidate, from: socket.id })
   })
 
   // Handle chat messages
