@@ -10,8 +10,9 @@ dotenv.config()
 const app = express.default()
 
 // Enhanced CORS configuration
-const PORT = 3002
+const PORT = process.env.PORT || 3002
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+  'https://meetopia-qpqrimjnj-bthecoders-projects.vercel.app',
   'https://meetopia-app.vercel.app',
   'https://meetopia-signaling.onrender.com',
   'http://localhost:3000',
