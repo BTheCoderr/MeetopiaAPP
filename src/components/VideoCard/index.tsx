@@ -1,20 +1,31 @@
-import React from 'react'
-import type { Video } from '@/lib/models/Video'
+import { Video } from '@/lib/models/Video'
 
 interface VideoCardProps {
   video: Video
-  onLike: (videoId: string) => void
+  onLike: (id: string) => void
 }
 
-const VideoCard = ({ video, onLike }: VideoCardProps) => {
+export default function VideoCard({ video, onLike }: VideoCardProps) {
   return (
     <div className="video-card">
       <video src={video.url} className="w-full" />
-      <div className="video-controls">
-        <button onClick={() => onLike(video.id)}>Like ({video.likes})</button>
+      <div className="p-4">
+        <h3 className="text-lg font-semibold">{video.title}</h3>
+        {video.description && (
+          <p className="text-gray-600 mt-1">{video.description}</p>
+        )}
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-sm text-gray-500">
+            {new Date(video.createdAt).toLocaleDateString()}
+          </span>
+          <button 
+            onClick={() => onLike(video.id)}
+            className="text-blue-500 hover:text-blue-600"
+          >
+            Like
+          </button>
+        </div>
       </div>
     </div>
   )
-}
-
-export default VideoCard 
+} 
