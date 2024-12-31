@@ -9,36 +9,51 @@ export default function HomePage() {
         <span className="text-gray-700">opia</span>
       </h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
-        <Link 
-          href="/chat/text" 
-          className="p-6 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors shadow-sm"
-        >
-          <div className="text-xl mb-2">💬 Text Chat</div>
-          <p className="text-gray-600">
-            Connect through words. Perfect for quick conversations and those who prefer typing.
-          </p>
-        </Link>
+      <div className="max-w-md w-full space-y-6">
+        <p className="text-center text-gray-600 mb-8">
+          Connect with people around the world
+        </p>
 
         <Link 
           href="/chat/video" 
-          className="p-6 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors shadow-sm"
+          className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
         >
-          <div className="text-xl mb-2">🎥 Video Chat</div>
-          <p className="text-gray-600">
-            Face-to-face interactions. Great for more personal connections and meaningful conversations.
-          </p>
+          Start Video Chat as Guest
         </Link>
 
-        <Link 
-          href="/chat/combined" 
-          className="p-6 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors shadow-sm"
-        >
-          <div className="text-xl mb-2">🤝 Combined Chat</div>
-          <p className="text-gray-600">
-            Best of both worlds. Video chat with text messaging for a complete communication experience.
-          </p>
-        </Link>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">or</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <Link 
+            href="/auth/signin" 
+            className="w-full py-3 border-2 border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center"
+          >
+            Sign In
+          </Link>
+          <Link 
+            href="/auth/signup" 
+            className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
+          >
+            Sign Up
+          </Link>
+        </div>
+
+        <div className="mt-8 space-y-2">
+          <h3 className="text-lg font-semibold text-gray-700">Why create an account?</h3>
+          <ul className="space-y-2 text-gray-600">
+            <li>• Access to text chat features</li>
+            <li>• Save favorite chat partners</li>
+            <li>• Create private chat rooms</li>
+            <li>• Enhanced security features</li>
+          </ul>
+        </div>
       </div>
     </div>
   )
