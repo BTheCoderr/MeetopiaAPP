@@ -1,18 +1,13 @@
 import mongoose from 'mongoose'
-import { Report } from '../../types/user'
 
-const reportSchema = new mongoose.Schema<Report>({
-  id: String,
-  reportedUserId: String,
-  reporterId: String,
-  reason: String,
-  details: String,
-  timestamp: Date,
-  status: {
-    type: String,
-    enum: ['pending', 'reviewed', 'resolved'],
-    default: 'pending'
-  }
+const reportSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  reportedUserId: { type: String, required: true },
+  reporterId: { type: String, required: true },
+  reason: { type: String, required: true },
+  details: { type: String },
+  timestamp: { type: Date, default: Date.now },
+  status: { type: String, default: 'pending' }
 })
 
-export const ReportModel = mongoose.models.Report || mongoose.model<Report>('Report', reportSchema) 
+export const ReportModel = mongoose.models.Report || mongoose.model('Report', reportSchema) 

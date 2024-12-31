@@ -1,28 +1,12 @@
 import mongoose from 'mongoose'
-import type { UserProfile } from '../../types/user'
 
-const userSchema = new mongoose.Schema<UserProfile>({
-  id: String,
-  name: String,
-  age: Number,
-  location: String,
-  interests: [String],
-  preferences: {
-    ageRange: [Number],
-    location: String,
-    interests: [String],
-    videoOnly: Boolean
-  },
-  blockedUsers: [String],
-  reports: [{
-    id: String,
-    reportedUserId: String,
-    reporterId: String,
-    reason: String,
-    details: String,
-    timestamp: Date,
-    status: String
-  }]
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  name: { type: String },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 })
 
-export const User = mongoose.models.User || mongoose.model<UserProfile>('User', userSchema) 
+export const UserModel = mongoose.models.User || mongoose.model('User', userSchema) 
