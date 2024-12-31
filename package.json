@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "clean": "rm -rf dist .next",
-    "build": "npm run clean && tsc -p tsconfig.server.json && next build && cp -r server/public dist/server/",
+    "build": "prisma generate && npm run clean && tsc -p tsconfig.server.json && next build && cp -r server/public dist/server/",
     "start": "node dist/server/index.js",
     "signal": "node dist/server/index.js",
     "lint": "next lint"
