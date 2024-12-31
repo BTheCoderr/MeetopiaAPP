@@ -6,11 +6,12 @@
     "dev:next": "next dev",
     "dev:server": "cd server && npm run dev",
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:server\"",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && cd server && tsc && cd .. && next build",
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "signal": "cd server && node dist/index.js"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",
