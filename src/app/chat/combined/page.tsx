@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import ChatLayout from '@/components/ChatLayout'
+import { io, Socket } from 'socket.io-client'
 
 interface Message {
   id: string;
@@ -18,6 +19,34 @@ export default function CombinedChatPage() {
   const [messageQueue, setMessageQueue] = useState<Message[]>([])
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const socketRef = useRef<Socket>()
+
+  useEffect(() => {
+    // Initialize socket connection
+    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket'],
+      autoConnect: true
+    })
+
+    const socket = socketRef.current
+
+    socket.on('connect', () => {
+      console.log('Connected to server')
+      setIsConnected(true)
+    })
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server')
+      setIsConnected(false)
+      setIsWaiting(false)
+    })
+
+    // Clean up socket connection
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
 
   useEffect(() => {
     // Initialize local video stream
@@ -46,21 +75,27 @@ export default function CombinedChatPage() {
   }, [])
 
   const handleStart = () => {
+    if (!socketRef.current) return
     setIsWaiting(true)
-    // Add WebRTC and socket connection logic here
+    socketRef.current.emit('find-video-user')
   }
 
   const handleNext = () => {
-    // Add next person logic here
+    if (!socketRef.current) return
+    setIsWaiting(true)
+    socketRef.current.emit('find-video-user')
   }
 
   const handleLeave = () => {
-    // Add leave chat logic here
+    if (socketRef.current) {
+      socketRef.current.emit('leave-video')
+      socketRef.current.disconnect()
+    }
     window.location.href = '/'
   }
 
   const handleSendMessage = () => {
-    if (!messageInput.trim()) return
+    if (!messageInput.trim() || !socketRef.current) return
     
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -71,9 +106,9 @@ export default function CombinedChatPage() {
     }
 
     if (isConnected) {
-      socket?.emit('chat-message', { 
+      socketRef.current.emit('chat-message', { 
         message: messageInput, 
-        to: socket.id,
+        to: socketRef.current.id,
         messageId: newMessage.id 
       })
       setMessages(prev => [...prev, newMessage])
@@ -87,7 +122,10 @@ export default function CombinedChatPage() {
   }
 
   useEffect(() => {
-    // ... existing socket setup ...
+    if (!socketRef.current) return
+
+    const socket = socketRef.current
+    let peerConnection: RTCPeerConnection | null = null
 
     socket.on('chat-message', ({ message, from }) => {
       setMessages(prev => [...prev, {
@@ -108,8 +146,53 @@ export default function CombinedChatPage() {
     })
 
     socket.on('video-user-found', async ({ partnerId }) => {
-      // ... existing connection logic ...
-      
+      // Create new RTCPeerConnection
+      const configuration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ]
+      }
+      peerConnection = new RTCPeerConnection(configuration)
+
+      // Add local stream
+      if (localVideoRef.current?.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          if (localVideoRef.current?.srcObject) {
+            peerConnection?.addTrack(track, localVideoRef.current.srcObject as MediaStream)
+          }
+        })
+      }
+
+      // Handle incoming stream
+      peerConnection.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0]
+        }
+      }
+
+      // Handle ICE candidates
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('video-ice-candidate', {
+            candidate: event.candidate,
+            to: partnerId
+          })
+        }
+      }
+
+      // Create and send offer
+      try {
+        const offer = await peerConnection.createOffer()
+        await peerConnection.setLocalDescription(offer)
+        socket.emit('video-offer', {
+          offer,
+          to: partnerId
+        })
+      } catch (err) {
+        console.error('Error creating offer:', err)
+      }
+
       // Send queued messages
       messageQueue.forEach(msg => {
         socket?.emit('chat-message', {
@@ -127,7 +210,91 @@ export default function CombinedChatPage() {
           : msg
       ))
     })
-  }, [messageQueue]) // Add messageQueue to dependencies
+
+    // Handle incoming video offer
+    socket.on('video-offer-received', async ({ offer, from }) => {
+      const configuration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ]
+      }
+      peerConnection = new RTCPeerConnection(configuration)
+
+      // Add local stream
+      if (localVideoRef.current?.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          if (localVideoRef.current?.srcObject) {
+            peerConnection?.addTrack(track, localVideoRef.current.srcObject as MediaStream)
+          }
+        })
+      }
+
+      // Handle incoming stream
+      peerConnection.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0]
+        }
+      }
+
+      // Handle ICE candidates
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('video-ice-candidate', {
+            candidate: event.candidate,
+            to: from
+          })
+        }
+      }
+
+      // Set remote description and create answer
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        const answer = await peerConnection.createAnswer()
+        await peerConnection.setLocalDescription(answer)
+        socket.emit('video-answer', {
+          answer,
+          to: from
+        })
+      } catch (err) {
+        console.error('Error creating answer:', err)
+      }
+    })
+
+    // Handle incoming answer
+    socket.on('video-answer-received', async ({ answer, from }) => {
+      try {
+        if (peerConnection) {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+        }
+      } catch (err) {
+        console.error('Error setting remote description:', err)
+      }
+    })
+
+    // Handle incoming ICE candidate
+    socket.on('video-ice-candidate', async ({ candidate, from }) => {
+      try {
+        if (peerConnection) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+        }
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err)
+      }
+    })
+
+    return () => {
+      socket.off('chat-message')
+      socket.off('message-delivered')
+      socket.off('video-user-found')
+      socket.off('video-offer-received')
+      socket.off('video-answer-received')
+      socket.off('video-ice-candidate')
+      if (peerConnection) {
+        peerConnection.close()
+      }
+    }
+  }, [messageQueue])
 
   return (
     <ChatLayout
@@ -138,6 +305,7 @@ export default function CombinedChatPage() {
       onLeave={handleLeave}
       isConnected={isConnected}
       isWaiting={isWaiting}
+      showControls={true}
     >
       <div className="h-[600px] p-4 flex flex-col">
         {/* Video Area */}
@@ -169,20 +337,10 @@ export default function CombinedChatPage() {
             </div>
             {!isConnected && (
               <div className="absolute inset-0 flex items-center justify-center text-white bg-gray-900 bg-opacity-75 rounded-lg">
-                {isWaiting ? 'Waiting for partner...' : 'Start chat!'}
+                {isWaiting ? 'Waiting for meeter...' : 'Start chat!'}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Video Controls */}
-        <div className="mt-4 flex justify-center gap-4">
-          <button className="p-3 bg-gray-200 rounded-full hover:bg-gray-300">
-            🎤
-          </button>
-          <button className="p-3 bg-gray-200 rounded-full hover:bg-gray-300">
-            📷
-          </button>
         </div>
 
         {/* Chat Area */}
@@ -215,11 +373,6 @@ export default function CombinedChatPage() {
                 </div>
               </div>
             ))}
-            {messages.length === 0 && (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
-                {isWaiting ? 'Waiting for partner...' : 'Start chatting!'}
-              </div>
-            )}
           </div>
 
           {/* Message Input */}

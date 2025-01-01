@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "clean": "rm -rf dist .next",
     "build": "npm run clean && tsc -p tsconfig.server.json && next build && cp -r server/public dist/server/",
-    "start": "node dist/server/index.js",
-    "signal": "node dist/server/index.js",
-    "lint": "next lint"
+    "start": "next start",
+    "lint": "next lint",
+    "server": "tsx server/index.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
     "@auth/core": "^0.34.2",

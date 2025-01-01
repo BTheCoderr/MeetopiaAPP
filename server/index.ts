@@ -10,11 +10,11 @@ dotenv.config()
 const app = express()
 
 // Enhanced CORS configuration
-const PORT = process.env.PORT || 3000
+const PORT = process.env.SIGNAL_PORT || 3003
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
   'https://meetopia-app.vercel.app',
   'https://meetopia-signaling.onrender.com',
-  'http://localhost:3000'
+  'http://localhost:3002'
 ]
 
 console.log('Server starting with configuration:')
@@ -123,23 +123,18 @@ io.on('connection', (socket) => {
     if (currentPeer) {
       console.log('Cleaning up existing connection with:', currentPeer)
       // Notify current peer they're being moved to next
-      io.to(String(currentPeer)).emit('move-to-next')
-      io.to(String(currentPeer)).emit('peer-left', { peerId: socket.id })
+      io.to(currentPeer).emit('move-to-next')
+      io.to(currentPeer).emit('peer-left', { peerId: socket.id })
       
       // Clean up both users
       activeConnections.delete(currentPeer)
       activeConnections.delete(socket.id)
       videoStreams.delete(socket.id)
       videoStreams.delete(currentPeer)
-      videoWaitingUsers.delete(socket.id)
-      videoWaitingUsers.delete(currentPeer)
-      
-      // Add the peer back to waiting list if they weren't the one who clicked next
-      if (currentPeer) {
-        console.log('Adding previous peer back to waiting list:', currentPeer)
-        videoWaitingUsers.add(currentPeer)
-      }
     }
+    
+    // Remove from waiting list if already there
+    videoWaitingUsers.delete(socket.id)
     
     // Find an available user who:
     // 1. Isn't the requester
@@ -148,16 +143,20 @@ io.on('connection', (socket) => {
     const currentIP = userIPs.get(socket.id)
     const availableUsers = Array.from(videoWaitingUsers).filter(userId => {
       const userIP = userIPs.get(userId)
+      const userSocket = io.sockets.sockets.get(userId as string)
       return userId !== socket.id && 
              !activeConnections.has(userId) && 
-             userIP !== currentIP
+             userIP !== currentIP &&
+             userSocket?.connected // Make sure the user is still connected
     })
     
     console.log('Available users:', availableUsers)
-    const nextUser = availableUsers[0]
     
-    if (nextUser) {
+    if (availableUsers.length > 0) {
+      const nextUser = availableUsers[0]
       console.log('Video match found! Connecting:', socket.id, 'with', nextUser)
+      
+      // Remove both users from waiting list
       videoWaitingUsers.delete(nextUser)
       videoWaitingUsers.delete(socket.id)
       
@@ -165,11 +164,7 @@ io.on('connection', (socket) => {
       activeConnections.set(socket.id, nextUser)
       activeConnections.set(nextUser, socket.id)
       
-      // Reset video streams for new connection
-      videoStreams.delete(socket.id)
-      videoStreams.delete(nextUser)
-      
-      // Tell both users about each other and initiate video
+      // Tell both users about each other
       socket.emit('video-user-found', { partnerId: nextUser })
       io.to(String(nextUser)).emit('video-user-found', { partnerId: socket.id })
     } else {

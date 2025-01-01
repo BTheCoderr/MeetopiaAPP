@@ -2,16 +2,25 @@ import React from 'react'
 import Link from 'next/link'
 import ConnectionStatus from './ConnectionStatus'
 
+interface ConnectionStats {
+  quality: 'good' | 'fair' | 'poor';
+  latency?: number;
+  packetLoss?: number;
+}
+
 interface ChatLayoutProps {
-  children: React.ReactNode
-  title: string
-  icon: string
-  onStart?: () => void
-  onNext?: () => void
-  onLeave?: () => void
-  showControls?: boolean
-  isConnected?: boolean
-  isWaiting?: boolean
+  children: React.ReactNode;
+  title: string;
+  icon: string;
+  onStart?: () => void;
+  onNext?: () => void;
+  onLeave?: () => void;
+  onRetry?: () => Promise<void>;
+  showControls?: boolean;
+  isConnected?: boolean;
+  isWaiting?: boolean;
+  connectionError?: string | null;
+  connectionStats?: ConnectionStats | null;
 }
 
 export default function ChatLayout({
@@ -21,11 +30,14 @@ export default function ChatLayout({
   onStart,
   onNext,
   onLeave,
+  onRetry,
   showControls = true,
   isConnected = false,
-  isWaiting = false
+  isWaiting = false,
+  connectionError,
+  connectionStats
 }: ChatLayoutProps) {
-  const [showNav, setShowNav] = React.useState(false)
+  const [showNav, setShowNav] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-8">
@@ -63,7 +75,13 @@ export default function ChatLayout({
             <span className="text-gray-700">opia</span>
           </h1>
         </div>
-        <ConnectionStatus />
+        <ConnectionStatus 
+          isConnected={isConnected}
+          isWaiting={isWaiting}
+          error={connectionError}
+          stats={connectionStats}
+          onRetry={onRetry}
+        />
       </div>
 
       {/* Main Container */}
@@ -85,13 +103,19 @@ export default function ChatLayout({
           <div className="p-4 flex justify-center gap-4 border-t border-gray-100">
             <button 
               onClick={onStart}
-              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              disabled={isWaiting}
+              className={`px-6 py-2 bg-green-500 text-white rounded-lg transition-colors ${
+                isWaiting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-600'
+              }`}
             >
-              START
+              {isWaiting ? 'WAITING...' : 'START'}
             </button>
             <button 
               onClick={onNext}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              disabled={!isConnected}
+              className={`px-6 py-2 bg-blue-500 text-white rounded-lg transition-colors ${
+                !isConnected ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+              }`}
             >
               NEXT
             </button>
@@ -105,5 +129,5 @@ export default function ChatLayout({
         )}
       </div>
     </div>
-  )
+  );
 } 

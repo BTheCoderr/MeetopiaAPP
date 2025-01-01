@@ -1,61 +1,67 @@
 'use client'
 import React, { useState } from 'react'
 
-type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'disconnected'
-
 interface ConnectionStats {
-  latency?: number
-  packetLoss?: number
-  bandwidth?: number
+  quality: 'good' | 'fair' | 'poor';
+  latency?: number;
+  packetLoss?: number;
 }
 
 interface ConnectionStatusProps {
-  quality?: ConnectionQuality
-  isConnecting?: boolean
-  error?: string
-  stats?: ConnectionStats
-  onRetry?: () => void
+  isConnected?: boolean;
+  isWaiting?: boolean;
+  error?: string | null;
+  stats?: ConnectionStats | null;
+  onRetry?: () => Promise<void>;
 }
 
 export default function ConnectionStatus({ 
-  quality = 'disconnected',
-  isConnecting = false,
+  isConnected = false,
+  isWaiting = false,
   error,
   stats,
   onRetry
 }: ConnectionStatusProps) {
-  const [showDetails, setShowDetails] = useState(false)
+  const [showDetails, setShowDetails] = useState(false);
 
   const getStatusColor = () => {
-    switch (quality) {
-      case 'excellent':
-        return 'bg-green-500'
+    if (error) return 'bg-red-500';
+    if (isWaiting) return 'bg-yellow-500';
+    if (!isConnected) return 'bg-gray-500';
+    if (!stats) return 'bg-green-500';
+
+    switch (stats.quality) {
       case 'good':
-        return 'bg-yellow-500'
+        return 'bg-green-500';
+      case 'fair':
+        return 'bg-yellow-500';
       case 'poor':
-        return 'bg-orange-500'
-      case 'disconnected':
-        return 'bg-red-500'
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-500';
     }
-  }
+  };
 
   const getStatusText = () => {
-    if (error) return error
-    if (isConnecting) return 'Connecting...'
-    switch (quality) {
-      case 'excellent':
-        return 'Excellent Connection'
+    if (error) return error;
+    if (isWaiting) return 'Waiting for partner...';
+    if (!isConnected) return 'Not connected';
+    if (!stats) return 'Connected';
+
+    switch (stats.quality) {
       case 'good':
-        return 'Good Connection'
+        return 'Good connection';
+      case 'fair':
+        return 'Fair connection';
       case 'poor':
-        return 'Poor Connection'
-      case 'disconnected':
-        return 'Disconnected'
+        return 'Poor connection';
+      default:
+        return 'Connected';
     }
-  }
+  };
 
   const getDetailedStats = () => {
-    if (!stats) return null
+    if (!stats) return null;
     return (
       <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[200px] z-50">
         <div className="text-xs space-y-1">
@@ -75,16 +81,10 @@ export default function ConnectionStatus({
               </span>
             </div>
           )}
-          {stats.bandwidth !== undefined && (
-            <div className="flex justify-between">
-              <span>Bandwidth:</span>
-              <span>{(stats.bandwidth / 1000).toFixed(1)} Mbps</span>
-            </div>
-          )}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="relative flex items-center gap-2">
@@ -93,17 +93,17 @@ export default function ConnectionStatus({
         onClick={() => setShowDetails(!showDetails)}
       >
         <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${
-          isConnecting ? 'animate-pulse' : ''
+          isWaiting ? 'animate-pulse' : ''
         }`} />
         <span className="text-sm text-gray-600">
           {getStatusText()}
         </span>
       </button>
 
-      {error && (
+      {error && onRetry && (
         <button 
           className="text-xs text-blue-500 hover:underline px-2 py-1 rounded-full hover:bg-blue-50 transition-colors"
-          onClick={onRetry || (() => window.location.reload())}
+          onClick={onRetry}
         >
           Try Again
         </button>
@@ -111,5 +111,5 @@ export default function ConnectionStatus({
 
       {showDetails && getDetailedStats()}
     </div>
-  )
+  );
 } 

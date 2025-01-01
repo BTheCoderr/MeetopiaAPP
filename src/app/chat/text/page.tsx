@@ -140,6 +140,10 @@ export default function TextChatPage() {
       onStart={handleStart}
       onNext={handleNext}
       onLeave={handleLeave}
+      isConnected={isConnected}
+      isWaiting={isWaiting}
+      connectionError={null}
+      connectionStats={null}
     >
       <div className="h-[600px] p-4 flex flex-col">
         {!hasStarted ? (
