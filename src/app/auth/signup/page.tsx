@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -21,13 +22,18 @@ export default function SignUpPage() {
       return
     }
 
+    if (!email || !phone) {
+      setError('Both email and phone number are required')
+      return
+    }
+
     setIsLoading(true)
 
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username, password })
+        body: JSON.stringify({ email, phone, username, password })
       })
 
       if (!res.ok) {
@@ -60,6 +66,9 @@ export default function SignUpPage() {
           <h2 className="mt-6 text-2xl font-bold text-gray-900">
             Create your account
           </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Please provide both email and phone number
+          </p>
         </div>
 
         {/* Error Message */}
@@ -81,7 +90,7 @@ export default function SignUpPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Email address <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -95,8 +104,23 @@ export default function SignUpPage() {
               />
             </div>
             <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                Phone number <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
+                Username <span className="text-red-500">*</span>
               </label>
               <input
                 id="username"
@@ -111,7 +135,7 @@ export default function SignUpPage() {
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -126,7 +150,7 @@ export default function SignUpPage() {
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
+                Confirm Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"

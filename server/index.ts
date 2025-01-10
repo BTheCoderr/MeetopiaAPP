@@ -11,13 +11,14 @@ dotenv.config()
 const app = express()
 
 // Enhanced CORS configuration
-const PORT = process.env.PORT || 3003
+const PORT = process.env.PORT || 3004
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
   'https://meetopia-qpqrimjnj-bthecoders-projects.vercel.app',
   'https://meetopia-app.vercel.app',
   'https://meetopia-signaling.onrender.com',
   'http://localhost:3000',
-  'http://localhost:3003'
+  'http://localhost:3001',
+  'http://localhost:3004'
 ] as string[]
 
 console.log('Server starting with configuration:')
@@ -52,6 +53,24 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   next()
+})
+
+// Serve static files from the public directory
+app.use(express.static('public'))
+
+// Root route handler
+app.get('/', (req, res) => {
+  res.sendFile('public/index.html', { root: __dirname })
+})
+
+// Health check endpoint
+app.get('/debug-env', (req, res) => {
+  res.json({
+    status: 'ok',
+    environment: process.env.NODE_ENV,
+    port: PORT,
+    corsOrigins: CORS_ORIGINS
+  })
 })
 
 // Track connected clients and their status

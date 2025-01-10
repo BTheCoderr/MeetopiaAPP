@@ -1,4 +1,5 @@
 'use client'
+
 import { useState, useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
@@ -20,8 +21,8 @@ export default function VideoChatPage() {
   const [error, setError] = useState<string | null>(null)
   const [buttonCooldown, setButtonCooldown] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<{
-    camera: 'granted' | 'denied' | 'pending';
-    microphone: 'granted' | 'denied' | 'pending';
+    camera: 'granted' | 'denied' | 'pending'
+    microphone: 'granted' | 'denied' | 'pending'
   }>({
     camera: 'pending',
     microphone: 'pending'
@@ -39,7 +40,7 @@ export default function VideoChatPage() {
 
   // Media stream setup
   useEffect(() => {
-    let currentStream: MediaStream | null = null;
+    let currentStream: MediaStream | null = null
     
     async function setupMedia() {
       try {
@@ -265,20 +266,20 @@ export default function VideoChatPage() {
   // Local video controls
   const toggleLocalCamera = () => {
     if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
+      const videoTrack = stream.getVideoTracks()[0]
       if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsCameraOff(!videoTrack.enabled);
+        videoTrack.enabled = !videoTrack.enabled
+        setIsCameraOff(!videoTrack.enabled)
       }
     }
   }
 
   const toggleLocalMute = () => {
     if (stream) {
-      const audioTrack = stream.getAudioTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0]
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
+        audioTrack.enabled = !audioTrack.enabled
+        setIsMuted(!audioTrack.enabled)
       }
     }
   }
@@ -286,19 +287,19 @@ export default function VideoChatPage() {
   // Remote video controls
   const toggleRemoteVideo = () => {
     if (remoteStream) {
-      const videoTrack = remoteStream.getVideoTracks()[0];
+      const videoTrack = remoteStream.getVideoTracks()[0]
       if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
+        videoTrack.enabled = !videoTrack.enabled
       }
     }
   }
 
   const toggleRemoteAudio = () => {
     if (remoteStream) {
-      const audioTrack = remoteStream.getAudioTracks()[0];
+      const audioTrack = remoteStream.getAudioTracks()[0]
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsRemoteMuted(!isRemoteMuted);
+        audioTrack.enabled = !audioTrack.enabled
+        setIsRemoteMuted(!isRemoteMuted)
       }
     }
   }

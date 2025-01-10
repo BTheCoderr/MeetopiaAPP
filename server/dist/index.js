@@ -11,13 +11,13 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 // Enhanced CORS configuration
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3003;
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
     'https://meetopia-qpqrimjnj-bthecoders-projects.vercel.app',
     'https://meetopia-app.vercel.app',
     'https://meetopia-signaling.onrender.com',
     'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3003'
 ];
 console.log('Server starting with configuration:');
 console.log('PORT:', PORT);
@@ -59,14 +59,17 @@ const userIPs = new Map(); // Track user IPs to prevent self-matching
 // Socket connection handling
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
+    console.log('Total connected clients:', io.engine.clientsCount);
     // Store client IP
     const clientIP = socket.handshake.address;
     userIPs.set(socket.id, clientIP);
     socket.on('find-user', () => {
         console.log('User searching for match:', socket.id);
+        console.log('Current waiting users:', Array.from(waitingUsers));
         const availableUsers = Array.from(waitingUsers);
         const match = availableUsers.find(userId => userId !== socket.id);
         if (match) {
+            console.log('Match found:', match);
             waitingUsers.delete(match);
             // Track the connection between users
             activeConnections.set(socket.id, match);
@@ -75,6 +78,7 @@ io.on('connection', (socket) => {
             io.to(match).emit('user-found', { partnerId: socket.id });
         }
         else {
+            console.log('No match found, adding to waiting list:', socket.id);
             waitingUsers.add(socket.id);
         }
     });
