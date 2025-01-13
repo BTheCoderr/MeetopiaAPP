@@ -28,6 +28,13 @@ export default function VideoChatPage() {
   const socketRef = useRef<Socket>();
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const [localVideoDrag, setLocalVideoDrag] = useState(() => {
+    if (typeof window === 'undefined') return { x: 680, y: 20 };
+    return {
+      x: window.innerWidth - 380,
+      y: 120  // Position below the status bar
+    };
+  });
 
   const handleRetry = async () => {
     setConnectionError(null);
@@ -237,6 +244,18 @@ export default function VideoChatPage() {
     }
     window.location.href = '/';
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setLocalVideoDrag(prev => ({
+        x: window.innerWidth - 380,
+        y: 120  // Keep consistent with initial position
+      }));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <ChatLayout
