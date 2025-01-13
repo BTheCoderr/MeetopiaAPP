@@ -36,6 +36,19 @@ export default function VideoChatPage() {
     };
   });
 
+  const videoConstraints = {
+    video: {
+      width: { min: 1280, ideal: 1920, max: 2560 },
+      height: { min: 720, ideal: 1080, max: 1440 },
+      frameRate: { min: 24, ideal: 30, max: 60 }
+    },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+  };
+
   const handleRetry = async () => {
     setConnectionError(null);
     if (socketRef.current) {
@@ -193,7 +206,7 @@ export default function VideoChatPage() {
 
   useEffect(() => {
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+      .getUserMedia(videoConstraints)
       .then((stream) => {
         localStreamRef.current = stream;
         if (localVideoRef.current) {
@@ -257,10 +270,20 @@ export default function VideoChatPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const getConnectionStatusClass = () => {
+    if (!isConnected) return 'bg-red-500/20 text-red-400';
+    if (isWaiting) return 'bg-yellow-500/20 text-yellow-400';
+    return 'bg-green-500/20 text-green-400';
+  };
+
+  const getConnectionStatusText = () => {
+    if (!isConnected) return 'Not Connected';
+    if (isWaiting) return 'Almost There...';
+    return 'Connected';
+  };
+
   return (
     <ChatLayout
-      title="Video Chat"
-      icon="📹"
       onStart={handleStart}
       onNext={handleNext}
       onLeave={handleLeave}
@@ -271,6 +294,9 @@ export default function VideoChatPage() {
       onRetry={handleRetry}
     >
       <div className="h-[600px] p-4 flex flex-col">
+        <div className={`absolute top-4 right-4 px-3 py-1 rounded-full ${getConnectionStatusClass()}`}>
+          {getConnectionStatusText()}
+        </div>
         <div className="grid grid-cols-2 gap-4 h-[500px]">
           <div className="relative">
             <video
