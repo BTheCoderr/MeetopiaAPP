@@ -1,0 +1,78 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  username      String    @unique
+  displayName   String?
+  bio           String?
+  interests     String[]
+  isFlagged     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relationships
+  friends       User[]    @relation("UserFriends")
+  friendOf      User[]    @relation("UserFriends")
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  sessions      Session[]
+  reportsSubmitted Report[] @relation("ReportsSubmitted")
+  reportsReceived Report[] @relation("ReportsReceived")
+  feedback      Feedback[]
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  createdAt   DateTime @default(now())
+  senderId    String
+  receiverId  String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  reportedUserId String
+  reason        String
+  details       String?
+  status        String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  reporter      User     @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  reportedUser  User     @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // connection_issues, audio_video_quality, feature_request, bug_report, other
+  details   String?
+  status    String   @default("NEW") // NEW, REVIEWED, IMPLEMENTED, DISMISSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id])
+} 
