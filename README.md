@@ -1,134 +1,99 @@
-# Meetopia
+# Meetopia - Video Chat & Speed Dating App
 
-A modern meeting scheduling and management application built with Next.js that helps teams coordinate and organize their meetings efficiently.
+Meetopia is a modern video chat and speed dating application that allows users to connect with others through video and text chat.
 
 ## Features
 
-- Video Chat with camera/mic controls
-- Text Chat with emoji support
-- Combined Chat (Video + Text)
-- User Authentication (Email/Password)
-- Report/Feedback System
-- Real-time Communication using Socket.IO
-- Responsive Design with TailwindCSS
-- MongoDB Database Integration
-- Session Management
+### 🎥 Video Chat
+- Instant video connections with other users
+- High-quality WebRTC video and audio
+- Text chat alongside video
 
-## Tech Stack
+### ⏱️ Speed Dating Mode
+- 3-minute timed rounds with automatic matching
+- Perfect for meeting multiple people quickly
+- Automatic transition to new matches when time expires
 
-- Next.js 14
-- TypeScript
-- MongoDB
-- Prisma
-- Socket.IO
-- TailwindCSS
-- bcryptjs for password hashing
-- JWT for session management
+### 👀 Blind Date Feature
+- Video starts blurred for the first 30 seconds
+- Focus on conversation before seeing each other
+- Creates a unique and exciting dating experience
 
-## Prerequisites
+### 🔄 Quick Next Match
+- One-click to find a new match
+- No waiting or swiping required
+- Instant connections with new people
 
-- Node.js >= 18.18.0
-- MongoDB running locally or a MongoDB Atlas account
-- PostgreSQL for Prisma (optional, if using Prisma features)
+### 🛡️ Safety Features
+- Report and block functionality
+- Moderation system to prevent inappropriate behavior
 
 ## Getting Started
 
-1. Clone the repository:
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/MeetopiaAPP.git
-cd MeetopiaAPP
+git clone https://github.com/yourusername/meetopia.git
+cd meetopia
 ```
 
-2. Install dependencies:
+2. Install dependencies
 ```bash
 npm install
+# or
+yarn install
 ```
 
-3. Set up environment variables:
-Create a `.env` file in the root directory with the following variables:
-```
-MONGODB_URI=your_mongodb_uri
-JWT_SECRET=your_jwt_secret
-DATABASE_URL=your_postgresql_url  # Only if using Prisma
-```
-
-4. Run database migrations (if using Prisma):
-```bash
-npx prisma generate
-npx prisma migrate dev
-```
-
-5. Seed the database with a test user:
-```bash
-npm run seed
-```
-This will create a test user with:
-- Email: demo@example.com
-- Password: test123
-
-6. Start the development server:
+3. Start the development server
 ```bash
 npm run dev
+# or
+yarn dev
 ```
 
-7. Open http://localhost:3000 in your browser
-
-## Features in Detail
-
-### Chat Options
-- Video Chat: One-on-one video calls with camera/mic controls
-- Text Chat: Real-time messaging with emoji support
-- Combined Chat: Video calls with text chat functionality
-
-### User Management
-- Sign Up/Sign In with email and password
-- Session-based authentication
-- Profile management
-
-### Report System
-- Report inappropriate users
-- Provide feedback for improvements
-- Admin review system for reports
-
-## Deployment
-
-The application can be deployed on platforms like Vercel or Render. Make sure to:
-1. Set up the environment variables in your deployment platform
-2. Configure the build command: `npm run build`
-3. Configure the start command: `npm start`
-4. Set up MongoDB Atlas for the database
-5. Update CORS settings if needed
-
-## Recent Updates
-
-- Added report/feedback system
-- Improved error handling in chat features
-- Fixed authentication issues
-- Added proper TypeScript types
-- Improved MongoDB connection handling
-- Added session management
-- Fixed build and deployment issues
-
-## Known Issues
-
-- Socket.IO requires separate server setup for production
-- Viewport warnings in development (expected behavior)
-- Dynamic server usage with cookies (expected in Next.js 14)
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Make sure MongoDB is running locally or your MongoDB Atlas connection string is correct
-2. Verify Node.js version is >= 18.18.0
-3. Clear `.next` directory and node_modules if you encounter build issues:
+4. Start the signaling server
 ```bash
-rm -rf .next node_modules
+cd server
 npm install
+npm start
 ```
-4. Check environment variables are properly set
-5. Make sure all required ports are available (3000 for Next.js, 27017 for MongoDB)
+
+5. Open your browser and navigate to `http://localhost:3000`
+
+## How to Use
+
+1. **Start Matching**
+   - Choose between Regular Chat or Speed Dating mode
+   - Select Video Chat or Text Chat
+   - Click "Start Matching Now"
+
+2. **During a Match**
+   - In Speed Dating mode, a 3-minute timer will count down
+   - The first 30 seconds will have blurred video (Blind Date feature)
+   - Use the chat box to send messages
+   - Click "Next Match" at any time to find someone new
+
+3. **Safety**
+   - Use the "Report User" button if you encounter inappropriate behavior
+   - Use the "Block User" button to prevent future matches with that person
+
+## Technology Stack
+
+- Next.js for the frontend
+- Socket.IO for real-time communication
+- WebRTC for peer-to-peer video
+- Tailwind CSS for styling
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Thanks to all contributors who have helped make Meetopia better
+- Inspired by the need for meaningful connections in a digital world

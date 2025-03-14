@@ -1,13 +1,19 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
+import { useSearchParams } from 'next/navigation'
 import MainLayout from '../../../components/Layout/MainLayout'
 import { WebRTCService } from '../../../lib/webrtc'
 import ChatBox from '../../../components/Chat/ChatBox'
 import { ReportingService } from '../../../lib/services/reporting'
 import { UserProfile, ReportReason } from '../../../lib/types/user'
+import { Socket } from 'socket.io-client'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') || 'regular'
+  const blindDate = searchParams.get('blind') === 'true'
+  
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const webrtcRef = useRef<WebRTCService | null>(null)
@@ -17,12 +23,53 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const tempUserId = `user_${Date.now()}`
   const [remoteUser, setRemoteUser] = useState<UserProfile | null>(null)
   const reportingService = useRef(new ReportingService())
+  
+  // Socket for chat
+  const [chatSocket, setChatSocket] = useState<Socket | null>(null)
+  
+  // Speed dating timer state
+  const [timeRemaining, setTimeRemaining] = useState<number>(mode === 'speed' ? 180 : 0) // 3 minutes in seconds
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Blind date feature - blur video for first 30 seconds
+  const [isBlurred, setIsBlurred] = useState(blindDate)
+  const blurTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    const socket = io()
+    // Create a separate socket for chat
+    const newChatSocket = io('http://localhost:3003', {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    })
+    setChatSocket(newChatSocket)
+    
+    return () => {
+      newChatSocket.close()
+    }
+  }, [])
+
+  useEffect(() => {
+    const socket = io('http://localhost:3003', {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    })
+    
+    socket.on('connect', () => {
+      console.log('Socket connected to server')
+      setConnectionStatus('connecting')
+    })
+    
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error)
+      setConnectionStatus('disconnected')
+    })
+    
     webrtcRef.current = new WebRTCService(socket)
 
-    socket.on('connect', () => setConnectionStatus('connecting'))
     socket.on('user-connected', () => setConnectionStatus('connected'))
     socket.on('user-disconnected', () => setConnectionStatus('disconnected'))
 
@@ -38,23 +85,74 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.detail.stream
         setConnectionStatus('connected')
+        
+        // Start the blur timer when connection is established
+        if (blindDate) {
+          startBlurTimer()
+        }
+        
+        // Start the speed dating timer if in speed mode
+        if (mode === 'speed') {
+          startSpeedDatingTimer()
+        }
       }
     }) as EventListener)
 
+    console.log('Joining room:', params.roomId)
     socket.emit('join-room', params.roomId)
 
     return () => {
       webrtcRef.current?.cleanup()
       socket.close()
+      
+      // Clear timers on cleanup
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
     }
-  }, [params.roomId])
+  }, [params.roomId, mode, blindDate])
+  
+  const startBlurTimer = () => {
+    // Unblur after 30 seconds
+    blurTimerRef.current = setTimeout(() => {
+      setIsBlurred(false)
+    }, 30000)
+  }
+  
+  const startSpeedDatingTimer = () => {
+    timerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Time's up, clear interval and find next match
+          if (timerRef.current) clearInterval(timerRef.current)
+          findNextMatch()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+  
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`
+  }
 
   const findNextMatch = () => {
     setConnectionStatus('connecting')
+    if (blindDate) {
+      setIsBlurred(true) // Reset blur for next match
+    }
+    setTimeRemaining(mode === 'speed' ? 180 : 0) // Reset timer
+    
+    // Clear existing timers
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    
     webrtcRef.current?.cleanup()
     // Generate new room ID and redirect
     const newRoomId = `room_${Date.now()}`
-    window.location.href = `/room/${newRoomId}`
+    window.location.href = `/room/${newRoomId}?mode=${mode}&blind=${blindDate}`
   }
 
   const toggleMute = () => {
@@ -108,9 +206,16 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
   return (
     <MainLayout>
-      <div className="flex gap-4 p-4">
-        <div className="w-2/3">
-          <div className="grid grid-cols-2 gap-4">
+      <div className="flex flex-col md:flex-row gap-4 p-4">
+        <div className="w-full md:w-2/3">
+          {mode === 'speed' && timeRemaining > 0 && (
+            <div className="bg-blue-100 text-blue-800 p-3 rounded-lg mb-4 flex justify-between items-center">
+              <span className="font-medium">Speed Dating Mode</span>
+              <span className="text-xl font-bold">{formatTime(timeRemaining)}</span>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <video
                 ref={localVideoRef}
@@ -135,6 +240,14 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               </div>
             </div>
             <div className="relative">
+              {isBlurred && (
+                <div className="absolute inset-0 z-10 backdrop-blur-xl rounded-lg flex items-center justify-center transition-all duration-500">
+                  <div className="text-center p-4 bg-black bg-opacity-50 rounded-lg">
+                    <p className="text-lg font-bold mb-2 text-white">Blind Date Mode</p>
+                    <p className="text-white">Video will appear in 30 seconds</p>
+                  </div>
+                </div>
+              )}
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -152,21 +265,23 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               </div>
             </div>
           </div>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-6 flex justify-center">
             <button
               onClick={findNextMatch}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-8 py-3 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
             >
               Next Match
             </button>
           </div>
         </div>
-        <div className="w-1/3 flex flex-col gap-4">
-          <ChatBox 
-            socket={io()} 
-            roomId={params.roomId} 
-            userId={tempUserId}
-          />
+        <div className="w-full md:w-1/3 flex flex-col gap-4">
+          {chatSocket && (
+            <ChatBox 
+              socket={chatSocket} 
+              roomId={params.roomId} 
+              userId={tempUserId}
+            />
+          )}
           {remoteUser && (
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="font-semibold mb-2">Partner Profile</h3>
