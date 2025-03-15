@@ -20,7 +20,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const webrtcRef = useRef<WebRTCService | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed'>('connecting')
   const tempUserId = `user_${Date.now()}`
   const [remoteUser, setRemoteUser] = useState<UserProfile | null>(null)
   const reportingService = useRef(new ReportingService())
@@ -35,6 +35,19 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   // Blind date feature - blur video for first 30 seconds
   const [isBlurred, setIsBlurred] = useState(blindDate)
   const blurTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Like/Dislike system
+  const [hasLiked, setHasLiked] = useState(false)
+  const [hasDisliked, setHasDisliked] = useState(false)
+  const [matchLiked, setMatchLiked] = useState(false)
+  const [isMatched, setIsMatched] = useState(false)
+  
+  // Next match loading state
+  const [isLoadingNextMatch, setIsLoadingNextMatch] = useState(false)
+
+  // Connection retry count
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 3
 
   useEffect(() => {
     // Create a separate socket for chat
@@ -73,8 +86,40 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     
     webrtcRef.current = new WebRTCService(socket)
 
+    // Handle WebRTC events
+    window.addEventListener('webrtc-reconnecting', ((event: CustomEvent) => {
+      setConnectionStatus('reconnecting')
+      setRetryCount(event.detail.attempt)
+    }) as EventListener)
+    
+    window.addEventListener('webrtc-failed', (() => {
+      setConnectionStatus('failed')
+      // Auto find next match after connection failure
+      if (retryCount >= maxRetries) {
+        setTimeout(() => findNextMatch(), 2000)
+      }
+    }) as EventListener)
+
     socket.on('user-connected', () => setConnectionStatus('connected'))
-    socket.on('user-disconnected', () => setConnectionStatus('disconnected'))
+    socket.on('user-disconnected', () => {
+      setConnectionStatus('disconnected')
+      // Auto find next match if user disconnects
+      setTimeout(() => findNextMatch(), 2000)
+    })
+
+    // Handle like/dislike events
+    socket.on('peer-liked', () => {
+      setMatchLiked(true)
+      if (hasLiked) {
+        setIsMatched(true)
+        // Show match notification
+        const matchNotification = document.createElement('div')
+        matchNotification.className = 'fixed top-0 left-0 right-0 bg-green-500 text-white text-center p-2 z-50'
+        matchNotification.textContent = 'It\'s a match! You both liked each other!'
+        document.body.appendChild(matchNotification)
+        setTimeout(() => matchNotification.remove(), 5000)
+      }
+    })
 
     // Start local stream
     webrtcRef.current.startLocalStream().then(stream => {
@@ -111,8 +156,13 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       // Clear timers on cleanup
       if (timerRef.current) clearInterval(timerRef.current)
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+      
+      // Remove event listeners
+      window.removeEventListener('webrtc-reconnecting', (() => {}) as EventListener)
+      window.removeEventListener('webrtc-failed', (() => {}) as EventListener)
+      window.removeEventListener('remote-stream', (() => {}) as EventListener)
     }
-  }, [params.roomId, mode, blindDate])
+  }, [params.roomId, mode, blindDate, hasLiked, retryCount])
   
   const startBlurTimer = () => {
     // Unblur after 30 seconds
@@ -142,17 +192,29 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   }
 
   const findNextMatch = () => {
+    // Prevent multiple clicks
+    if (isLoadingNextMatch) return
+    
+    setIsLoadingNextMatch(true)
     setConnectionStatus('connecting')
+    
     if (blindDate) {
       setIsBlurred(true) // Reset blur for next match
     }
     setTimeRemaining(mode === 'speed' ? 180 : 0) // Reset timer
+    
+    // Reset like/dislike state
+    setHasLiked(false)
+    setHasDisliked(false)
+    setMatchLiked(false)
+    setIsMatched(false)
     
     // Clear existing timers
     if (timerRef.current) clearInterval(timerRef.current)
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
     
     webrtcRef.current?.cleanup()
+    
     // Generate new room ID and redirect
     const newRoomId = `room_${Date.now()}`
     window.location.href = `/room/${newRoomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}`
@@ -206,6 +268,34 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       console.error('Failed to block user:', error)
     }
   }
+  
+  const handleLike = () => {
+    if (hasLiked) return
+    
+    setHasLiked(true)
+    setHasDisliked(false)
+    
+    // Emit like event to server
+    chatSocket?.emit('like-user', {
+      roomId: params.roomId,
+      userId: tempUserId
+    })
+    
+    // If match also liked, it's a match!
+    if (matchLiked) {
+      setIsMatched(true)
+    }
+  }
+  
+  const handleDislike = () => {
+    if (hasDisliked) return
+    
+    setHasDisliked(true)
+    setHasLiked(false)
+    
+    // If disliked, automatically find next match after a short delay
+    setTimeout(() => findNextMatch(), 500)
+  }
 
   return (
     <MainLayout>
@@ -221,6 +311,12 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
           {chatMode === 'dating' && (
             <div className={`bg-pink-100 text-pink-800 p-3 rounded-lg mb-4 ${mode === 'speed' ? 'mt-2' : ''}`}>
               <span className="font-medium">Dating Mode - Find your perfect match!</span>
+            </div>
+          )}
+          
+          {isMatched && (
+            <div className="bg-green-100 text-green-800 p-3 rounded-lg mb-4 flex items-center justify-center">
+              <span className="font-medium">🎉 It's a match! You both liked each other!</span>
             </div>
           )}
           
@@ -266,20 +362,52 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               <div className="absolute top-4 left-4">
                 <span className={`px-2 py-1 rounded text-sm text-white ${
                   connectionStatus === 'connected' ? 'bg-green-500' :
-                  connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+                  connectionStatus === 'connecting' ? 'bg-yellow-500' :
+                  connectionStatus === 'reconnecting' ? 'bg-orange-500' :
+                  'bg-red-500'
                 }`}>
                   {connectionStatus === 'connected' ? 'Connected' :
-                   connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                   connectionStatus === 'connecting' ? 'Connecting...' :
+                   connectionStatus === 'reconnecting' ? `Reconnecting (${retryCount}/3)...` :
+                   connectionStatus === 'failed' ? 'Connection Failed' : 'Disconnected'}
                 </span>
               </div>
             </div>
           </div>
-          <div className="mt-6 flex justify-center">
+          
+          {/* Like/Dislike and Next Match Buttons */}
+          <div className="mt-6 flex justify-center gap-4">
+            {chatMode === 'dating' && connectionStatus === 'connected' && (
+              <>
+                <button
+                  onClick={handleDislike}
+                  disabled={hasDisliked || isLoadingNextMatch}
+                  className={`px-8 py-3 rounded-full text-white text-lg font-bold transition-colors shadow-md ${
+                    hasDisliked ? 'bg-red-300' : 'bg-red-500 hover:bg-red-600'
+                  }`}
+                >
+                  👎 Pass
+                </button>
+                <button
+                  onClick={handleLike}
+                  disabled={hasLiked || isLoadingNextMatch}
+                  className={`px-8 py-3 rounded-full text-white text-lg font-bold transition-colors shadow-md ${
+                    hasLiked ? 'bg-green-300' : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                >
+                  👍 Like
+                </button>
+              </>
+            )}
+            
             <button
               onClick={findNextMatch}
-              className="px-8 py-3 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              disabled={isLoadingNextMatch}
+              className={`px-8 py-3 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md ${
+                isLoadingNextMatch ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              Next Match
+              {isLoadingNextMatch ? 'Finding Next...' : 'Next Match'}
             </button>
           </div>
         </div>
