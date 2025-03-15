@@ -37,7 +37,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
   useEffect(() => {
     // Create a separate socket for chat
-    const newChatSocket = io('http://localhost:3003', {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
+    const newChatSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -51,7 +52,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   }, [])
 
   useEffect(() => {
-    const socket = io('http://localhost:3003', {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
+    const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

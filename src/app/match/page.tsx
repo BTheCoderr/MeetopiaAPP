@@ -17,8 +17,9 @@ export default function MatchPage() {
   const [connectionError, setConnectionError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Explicitly connect to the server at localhost:3003
-    const newSocket = io('http://localhost:3003', {
+    // Explicitly connect to the server using environment variable or fallback to localhost
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

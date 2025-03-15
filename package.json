@@ -6,7 +6,7 @@
     "dev:next": "next dev",
     "dev:server": "cd server && npm run dev",
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:server\"",
-    "build": "prisma generate && cd server && tsc && cd .. && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.mjs",
