@@ -13,6 +13,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') || 'regular'
   const blindDate = searchParams.get('blind') === 'true'
+  const chatMode = searchParams.get('chatMode') || 'chat'
   
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -154,7 +155,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     webrtcRef.current?.cleanup()
     // Generate new room ID and redirect
     const newRoomId = `room_${Date.now()}`
-    window.location.href = `/room/${newRoomId}?mode=${mode}&blind=${blindDate}`
+    window.location.href = `/room/${newRoomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}`
   }
 
   const toggleMute = () => {
@@ -212,8 +213,14 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
         <div className="w-full md:w-2/3">
           {mode === 'speed' && timeRemaining > 0 && (
             <div className="bg-blue-100 text-blue-800 p-3 rounded-lg mb-4 flex justify-between items-center">
-              <span className="font-medium">Speed Dating Mode</span>
+              <span className="font-medium">Speed {chatMode === 'dating' ? 'Dating' : 'Chat'} Mode</span>
               <span className="text-xl font-bold">{formatTime(timeRemaining)}</span>
+            </div>
+          )}
+          
+          {chatMode === 'dating' && (
+            <div className={`bg-pink-100 text-pink-800 p-3 rounded-lg mb-4 ${mode === 'speed' ? 'mt-2' : ''}`}>
+              <span className="font-medium">Dating Mode - Find your perfect match!</span>
             </div>
           )}
           

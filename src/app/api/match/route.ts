@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { type, mode, blindDate } = await req.json()
+    const { type, mode, blindDate, chatMode } = await req.json()
     
     // For now, generate a temporary user ID
     const tempUserId = `user_${Date.now()}`
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
         type,
         mode: mode || 'regular', // Default to regular mode if not specified
         blindDate: blindDate || false, // Default to false if not specified
+        chatMode: chatMode || 'chat', // Default to chat mode if not specified
         userId: tempUserId,
         status: 'searching'
       }
