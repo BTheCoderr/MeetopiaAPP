@@ -2,6 +2,7 @@ services:
   - type: web
     name: meetopia-signaling
     env: node
+    root: server
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
