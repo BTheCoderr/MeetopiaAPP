@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: meetopia-signaling
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3003
+      - key: CORS_ORIGINS
+        value: https://meetopia-app.vercel.app,https://meetopia-signaling.onrender.com,https://meetopia-80ipqfy65-bthecoders-projects.vercel.app,https://meetopia-lbwtpcp18-bthecoders-projects.vercel.app
+    healthCheckPath: /
+    autoDeploy: true
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1 
