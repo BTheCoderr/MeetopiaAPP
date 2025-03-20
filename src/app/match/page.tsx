@@ -10,17 +10,6 @@ export default function MatchPage() {
   const blindParam = searchParams.get('blind')
   const modeParam = searchParams.get('mode') || 'chat'
   const videoParam = searchParams.get('video')
-  const bioParam = searchParams.get('bio') || ''
-  const interestsParam = searchParams.get('interests') || '[]'
-  
-  // Parse interests from URL
-  const parsedInterests = (() => {
-    try {
-      return JSON.parse(decodeURIComponent(interestsParam))
-    } catch (e) {
-      return []
-    }
-  })()
   
   // Force video for dating mode
   const [matchType, setMatchType] = useState<'video' | 'text'>(
@@ -29,18 +18,46 @@ export default function MatchPage() {
   const [mode, setMode] = useState<'regular' | 'speed'>(speedParam === 'true' ? 'speed' : 'regular')
   const [blindDate, setBlindDate] = useState<boolean>(blindParam === 'true')
   const [chatMode, setChatMode] = useState<'chat' | 'dating'>(modeParam === 'dating' ? 'dating' : 'chat')
-  const [userBio, setUserBio] = useState<string>(decodeURIComponent(bioParam))
-  const [userInterests, setUserInterests] = useState<string[]>(parsedInterests)
+  
+  // Bio and interests state
+  const [userBio, setUserBio] = useState<string>('')
+  const [userInterests, setUserInterests] = useState<string[]>([])
+  const [interestInput, setInterestInput] = useState<string>('')
+  
+  // Matching state
   const [status, setStatus] = useState<'idle' | 'searching' | 'matched'>('idle')
   const [socket, setSocket] = useState<Socket | null>(null)
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  
+  // Add interest function
+  const addInterest = () => {
+    if (interestInput.trim() && userInterests.length < 5) {
+      setUserInterests([...userInterests, interestInput.trim()])
+      setInterestInput('')
+    }
+  }
+  
+  // Remove interest function
+  const removeInterest = (index: number) => {
+    setUserInterests(userInterests.filter((_, i) => i !== index))
+  }
+  
+  // Handle Enter key for adding interests
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addInterest()
+    }
+  }
 
   useEffect(() => {
     // Explicitly connect to the server using environment variable or fallback to localhost
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
+    console.log('Connecting to socket server at:', socketUrl);
+    
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       timeout: 20000
     })
@@ -52,7 +69,7 @@ export default function MatchPage() {
     
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error)
-      setConnectionError('Failed to connect to server. Please try again.')
+      setConnectionError('Failed to connect to server. Please check that the signaling server is running at ' + socketUrl)
     })
 
     newSocket.on('match-found', ({ roomId, peer }) => {
@@ -71,6 +88,12 @@ export default function MatchPage() {
   }, [mode, blindDate, chatMode, userBio, userInterests])
 
   const startMatching = async () => {
+    // For dating mode, require at least a bio
+    if (chatMode === 'dating' && !userBio.trim()) {
+      setConnectionError('Please add a brief bio before starting')
+      return
+    }
+    
     if (!socket?.connected) {
       setConnectionError('Not connected to server. Please refresh the page.')
       return
@@ -164,30 +187,63 @@ export default function MatchPage() {
                 <span className="text-sm text-gray-600">30-second blur</span>
               )}
             </div>
-            
-            {chatMode === 'dating' && (
-              <div className="mt-2 border-t pt-3">
-                <h3 className="font-medium mb-2">Your Profile</h3>
-                {userBio ? (
-                  <p className="text-sm text-gray-700 mb-2">{userBio}</p>
-                ) : (
-                  <p className="text-sm text-gray-500 italic mb-2">No bio provided</p>
-                )}
-                
-                {userInterests.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {userInterests.map((interest, index) => (
-                      <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
-                        {interest}
-                      </span>
-                    ))}
+          </div>
+          
+          {chatMode === 'dating' && (
+            <div className="mt-2 border-t pt-3">
+              <h3 className="font-medium mb-2">Set Your Profile</h3>
+              <textarea
+                value={userBio}
+                onChange={(e) => setUserBio(e.target.value.slice(0, 150))}
+                placeholder="Tell potential matches a bit about yourself..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-1"
+                rows={3}
+                maxLength={150}
+              />
+              <p className="text-xs text-right text-gray-500 mb-3">{userBio.length}/150</p>
+              
+              <div className="flex gap-2 mb-2">
+                <input
+                  value={interestInput}
+                  onChange={(e) => setInterestInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Add an interest..."
+                  className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  disabled={userInterests.length >= 5}
+                />
+                <button
+                  onClick={addInterest}
+                  disabled={userInterests.length >= 5 || !interestInput.trim()}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:bg-gray-300"
+                >
+                  Add
+                </button>
+              </div>
+              
+              <div className="flex flex-wrap gap-2 mb-3">
+                {userInterests.map((interest, index) => (
+                  <div key={index} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center">
+                    <span>{interest}</span>
+                    <button 
+                      onClick={() => removeInterest(index)}
+                      className="ml-2 text-purple-800 hover:text-purple-900"
+                    >
+                      ×
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No interests provided</p>
+                ))}
+                {userInterests.length === 0 && (
+                  <span className="text-sm text-gray-500">Add up to 5 interests</span>
                 )}
               </div>
-            )}
-          </div>
+              
+              <div className="bg-pink-50 p-3 rounded-lg mb-4 text-center">
+                <p className="text-pink-800 text-sm">
+                  Dating mode uses video chat only for more meaningful connections
+                </p>
+              </div>
+            </div>
+          )}
           
           {chatMode !== 'dating' && videoParam !== 'true' && (
             <div className="flex gap-4 mb-4">
@@ -209,14 +265,6 @@ export default function MatchPage() {
               >
                 Text Chat
               </button>
-            </div>
-          )}
-          
-          {chatMode === 'dating' && (
-            <div className="bg-pink-50 p-3 rounded-lg mb-4 text-center">
-              <p className="text-pink-800 text-sm">
-                Dating mode uses video chat only for more meaningful connections
-              </p>
             </div>
           )}
         </div>

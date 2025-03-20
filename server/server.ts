@@ -1,200 +1,354 @@
 import express from 'express';
-import { createServer } from 'http';
+import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
+
+interface UserPreferences {
+  type: 'video' | 'text';
+  mode: 'regular' | 'speed';
+  blindDate: boolean;
+  chatMode: 'chat' | 'dating';
+  bio?: string;
+  interests?: string[];
+}
+
+interface User {
+  id: string;
+  socketId: string;
+  preferences: UserPreferences;
+  searching: boolean;
+  likes: Set<string>;
+  likedBy: Set<string>;
+}
+
+interface Room {
+  id: string;
+  users: string[];
+}
 
 const app = express();
-app.use(cors());
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
+const server = http.createServer(app);
+
+// Configure CORS for socket.io
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:3001', 'https://meetopia-app.vercel.app'];
+
+const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: allowedOrigins,
+    methods: ['GET', 'POST']
   }
 });
 
-// Serve static files (optional)
-app.use(express.static('public'));
+app.use(cors({
+  origin: allowedOrigins
+}));
 
-// Serve the HTML page
+// Health check route
 app.get('/', (req, res) => {
-  res.setHeader('Content-Type', 'text/html');
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>🚀 Meetopia Signaling Server</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-          }
-          .container {
-            text-align: center;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-          }
-          .loader {
-            width: 80px;
-            height: 80px;
-            position: relative;
-            margin: 30px auto;
-          }
-          .loader:before,
-          .loader:after {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 5px solid transparent;
-            border-top-color: #3498db;
-          }
-          .loader:before {
-            animation: spin 2s linear infinite;
-          }
-          .loader:after {
-            border-top-color: #e74c3c;
-            animation: spin 3s linear infinite;
-          }
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          .status {
-            font-size: 1.5em;
-            margin: 20px 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-          }
-          .connections {
-            font-size: 1.1em;
-            color: #3498db;
-            margin: 15px 0;
-          }
-          .pulse {
-            animation: pulse 2s infinite;
-          }
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-        </style>
-        <script src="/socket.io/socket.io.js"></script>
-      </head>
-      <body>
-        <div class="container">
-          <h1 class="pulse">🌐 Meetopia Signaling Server</h1>
-          <div class="loader"></div>
-          <div class="status">Server is Running</div>
-          <div class="connections">Waiting for connections...</div>
-          <div class="stats">
-            <div class="stat-box">
-              <div>🔌 Port: ${process.env.PORT || 3001}</div>
-              <div>👥 Users: <span id="user-count">0</span></div>
-            </div>
-          </div>
-        </div>
-
-        <script>
-          const messages = [
-            "🔄 Connecting the dots...",
-            "🚀 Warming up the engines...",
-            "🛠️ Preparing for takeoff...",
-            "✨ Ready for action!",
-            "🌟 Awaiting connections...",
-            "🎮 Game on!"
-          ];
-          
-          let count = 0;
-          setInterval(() => {
-            const status = document.querySelector('.connections');
-            status.textContent = messages[count % messages.length];
-            count++;
-          }, 2000);
-
-          // Update user count when receiving updates
-          const socket = io();
-          socket.on('clientCount', (count) => {
-            document.getElementById('user-count').textContent = count;
-          });
-        </script>
-      </body>
-    </html>
-  `);
+  res.send('Meetopia signaling server is running');
 });
 
-// Add a variable to track connected clients
-let connectedClients = 0;
+// Users and rooms storage
+const users = new Map<string, User>();
+const rooms = new Map<string, Room>();
 
-io.on('connection', (socket) => {
-  connectedClients++;
-  console.log(`Client connected: ${socket.id}`);
-  console.log(`Total connected clients: ${connectedClients}`);
+// Waiting queues for different match types and modes
+const waitingQueues = {
+  video: {
+    regular: {
+      chat: new Set<string>(),
+      dating: new Set<string>(),
+    },
+    speed: {
+      chat: new Set<string>(),
+      dating: new Set<string>(),
+    }
+  },
+  text: {
+    regular: {
+      chat: new Set<string>(),
+      dating: new Set<string>(),
+    },
+    speed: {
+      chat: new Set<string>(),
+      dating: new Set<string>(),
+    }
+  }
+};
+
+// Cleanup function for when users disconnect or find a new match
+function cleanupUserConnections(userId: string) {
+  // Find and clean up any existing rooms
+  for (const [roomId, room] of rooms.entries()) {
+    if (room.users.includes(userId)) {
+      // Remove user from room
+      room.users = room.users.filter(id => id !== userId);
+      
+      // If room is empty, remove it
+      if (room.users.length === 0) {
+        rooms.delete(roomId);
+      } else {
+        // Notify other user in the room
+        const otherUserId = room.users[0];
+        const otherUser = users.get(otherUserId);
+        if (otherUser) {
+          io.to(otherUser.socketId).emit('peer-left');
+        }
+      }
+    }
+  }
   
-  io.emit('clientCount', connectedClients);
+  // Reset likes for this user
+  const user = users.get(userId);
+  if (user) {
+    user.likes.clear();
+    user.likedBy.clear();
+    
+    // Remove user from all waiting queues
+    for (const type of ['video', 'text'] as const) {
+      for (const mode of ['regular', 'speed'] as const) {
+        for (const chatMode of ['chat', 'dating'] as const) {
+          waitingQueues[type][mode][chatMode].delete(userId);
+        }
+      }
+    }
+  }
+}
 
-  // Handle offer
-  socket.on('offer', ({ offer, from }) => {
-    console.log(`Received offer from: ${from}`);
-    // Broadcast to everyone except sender
-    socket.broadcast.emit('offer', { offer, from });
-  });
-
-  // Handle answer
-  socket.on('answer', ({ answer, to, from }) => {
-    console.log(`Received answer from: ${from} to: ${to}`);
-    // Send only to the specific peer
-    io.to(to).emit('answer', { answer, from });
-  });
-
-  // Handle ICE candidate
-  socket.on('ice-candidate', ({ candidate, from, to }) => {
-    console.log(`Received ICE candidate from: ${from}`);
-    if (to) {
-      // Send to specific peer if 'to' is provided
-      io.to(to).emit('ice-candidate', { candidate, from });
-    } else {
-      // Broadcast to all other peers if no specific target
-      socket.broadcast.emit('ice-candidate', { candidate, from });
+// Socket connection handler
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+  
+  // Handle user searching for a match
+  socket.on('find-match', async (data: {
+    userId: string,
+    type: 'video' | 'text',
+    mode: 'regular' | 'speed',
+    blindDate: boolean,
+    chatMode: 'chat' | 'dating',
+    bio?: string,
+    interests?: string[]
+  }) => {
+    console.log('Find match request:', data);
+    
+    // Create or update user
+    const user: User = {
+      id: data.userId,
+      socketId: socket.id,
+      preferences: {
+        type: data.type,
+        mode: data.mode,
+        blindDate: data.blindDate,
+        chatMode: data.chatMode,
+        bio: data.bio,
+        interests: data.interests
+      },
+      searching: true,
+      likes: new Set<string>(),
+      likedBy: new Set<string>()
+    };
+    
+    // Clean up previous connections first
+    cleanupUserConnections(data.userId);
+    
+    // Add/update user in our map
+    users.set(data.userId, user);
+    
+    // Choose the appropriate waiting queue
+    const queue = waitingQueues[data.type][data.mode][data.chatMode];
+    
+    // Check for matching user in the waiting queue
+    let matchFound = false;
+    
+    for (const waitingUserId of queue) {
+      const waitingUser = users.get(waitingUserId);
+      
+      // Skip if user not found or no longer searching
+      if (!waitingUser || !waitingUser.searching) {
+        queue.delete(waitingUserId);
+        continue;
+      }
+      
+      // Check compatibility (blind date must match)
+      if (
+        waitingUser.preferences.type === data.type &&
+        waitingUser.preferences.mode === data.mode &&
+        waitingUser.preferences.blindDate === data.blindDate &&
+        waitingUser.preferences.chatMode === data.chatMode
+      ) {
+        // Match found!
+        matchFound = true;
+        
+        // Remove waiting user from queue
+        queue.delete(waitingUserId);
+        
+        // Set users as not searching
+        user.searching = false;
+        waitingUser.searching = false;
+        
+        // Create room
+        const roomId = uuidv4();
+        const room: Room = {
+          id: roomId,
+          users: [data.userId, waitingUserId]
+        };
+        rooms.set(roomId, room);
+        
+        // Extract profile data
+        const userProfile = {
+          bio: user.preferences.bio || '',
+          interests: user.preferences.interests || []
+        };
+        
+        const waitingUserProfile = {
+          bio: waitingUser.preferences.bio || '',
+          interests: waitingUser.preferences.interests || []
+        };
+        
+        // Notify both users about the match
+        io.to(user.socketId).emit('match-found', {
+          roomId,
+          peer: waitingUserId,
+          peerProfile: waitingUserProfile
+        });
+        
+        io.to(waitingUser.socketId).emit('match-found', {
+          roomId,
+          peer: data.userId,
+          peerProfile: userProfile
+        });
+        
+        break;
+      }
+    }
+    
+    // If no match found, add user to queue
+    if (!matchFound) {
+      queue.add(data.userId);
     }
   });
-
-  socket.on('disconnect', (reason) => {
-    connectedClients--;
-    console.log(`Client disconnected: ${socket.id} Reason: ${reason}`);
-    console.log(`Remaining connected clients: ${connectedClients}`);
-    io.emit('clientCount', connectedClients);
+  
+  // Handle joining a room
+  socket.on('join-room', (data: { roomId: string, bio?: string, interests?: string[] }) => {
+    console.log('Join room request:', data.roomId);
+    
+    const room = rooms.get(data.roomId);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+    
+    // Find user and their peer in the room
+    let userId = '';
+    let peerId = '';
+    
+    for (const [id, user] of users.entries()) {
+      if (user.socketId === socket.id) {
+        userId = id;
+      }
+    }
+    
+    if (!userId) {
+      // If socket isn't associated with a user, try to find by room
+      for (const id of room.users) {
+        const user = users.get(id);
+        if (user && user.socketId === socket.id) {
+          userId = id;
+        } else if (user) {
+          peerId = id;
+        }
+      }
+    } else {
+      // Find peer ID (other user in the room)
+      peerId = room.users.find(id => id !== userId) || '';
+    }
+    
+    // Join socket to room
+    socket.join(data.roomId);
+    
+    // Get peer's user object
+    const peer = users.get(peerId);
+    
+    // Create profile info to share
+    const peerProfile = peer ? {
+      bio: peer.preferences.bio || '',
+      interests: peer.preferences.interests || []
+    } : null;
+    
+    // Update user's profile if new info provided
+    if (userId) {
+      const user = users.get(userId);
+      if (user && (data.bio || data.interests)) {
+        user.preferences.bio = data.bio;
+        user.preferences.interests = data.interests;
+      }
+    }
+    
+    // Notify user they joined the room with peer info
+    socket.emit('room-joined', {
+      peerId,
+      peerProfile
+    });
+  });
+  
+  // Handle likes
+  socket.on('like-peer', (data: { roomId: string, peerId: string }) => {
+    console.log('Like peer:', data);
+    
+    // Find current user
+    let userId = '';
+    for (const [id, user] of users.entries()) {
+      if (user.socketId === socket.id) {
+        userId = id;
+        break;
+      }
+    }
+    
+    if (!userId) return;
+    
+    const user = users.get(userId);
+    const peer = users.get(data.peerId);
+    
+    if (!user || !peer) return;
+    
+    // Record the like
+    user.likes.add(data.peerId);
+    peer.likedBy.add(userId);
+    
+    // Notify peer about the like
+    io.to(peer.socketId).emit('peer-like');
+  });
+  
+  // Handle disconnects
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+    
+    // Find user by socket ID
+    let userId = '';
+    for (const [id, user] of users.entries()) {
+      if (user.socketId === socket.id) {
+        userId = id;
+        break;
+      }
+    }
+    
+    if (userId) {
+      // Clean up user's connections
+      cleanupUserConnections(userId);
+      
+      // Mark user as not searching
+      const user = users.get(userId);
+      if (user) {
+        user.searching = false;
+      }
+    }
   });
 });
 
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`
-\x1b[36m╔════════════════════════════════════════╗
-║     🚀 Meetopia Signaling Server 🚀     ║
-╠════════════════════════════════════════╣
-║                                        ║
-║   🌟 Server Status: \x1b[32mONLINE\x1b[36m           ║
-║   🎯 Port: ${PORT}                         ║
-║   🌐 WebSocket: \x1b[32mREADY\x1b[36m              ║
-║                                        ║
-║   Waiting for connections... 🎮         ║
-║                                        ║
-╚════════════════════════════════════════╝\x1b[0m
-  `);
+const PORT = process.env.PORT || 3003;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 }); 
