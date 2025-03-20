@@ -8,10 +8,11 @@
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:server\"",
     "build": "next build",
     "start": "next start",
+    "signal": "cd server && npm start",
+    "signal:dev": "cd server && npm run dev",
     "lint": "next lint",
     "seed": "node prisma/seed.mjs",
-    "postinstall": "prisma generate",
-    "signal": "cd server && node dist/index.js"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",

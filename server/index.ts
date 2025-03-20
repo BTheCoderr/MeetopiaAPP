@@ -12,13 +12,39 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// Get CORS origins from environment or use defaults
+const PORT = process.env.PORT || 3003
+const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+  'https://meetopia-app.vercel.app',
+  'https://meetopia-signaling.onrender.com',
+  'https://meetopia-80ipqfy65-bthecoders-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3003',
+  '*'  // Allow all origins for development
+]
+
+console.log('Server starting with configuration:')
+console.log('PORT:', PORT)
+console.log('CORS_ORIGINS:', CORS_ORIGINS)
+console.log('NODE_ENV:', process.env.NODE_ENV)
+
 // Enhanced CORS configuration
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: CORS_ORIGINS,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
+})
+
+// Add a simple health check route
+app.get('/', (req, res) => {
+  res.send({
+    status: 'ok',
+    message: 'Meetopia Signaling Server is running',
+    version: '1.0.0'
+  })
 })
 
 interface User {
@@ -458,7 +484,6 @@ function cleanupUserConnections(userId: string) {
 }
 
 // Start server
-const PORT = process.env.PORT || 3003
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
