@@ -10,11 +10,27 @@ export default function MatchPage() {
   const blindParam = searchParams.get('blind')
   const modeParam = searchParams.get('mode') || 'chat'
   const videoParam = searchParams.get('video')
+  const bioParam = searchParams.get('bio') || ''
+  const interestsParam = searchParams.get('interests') || '[]'
   
-  const [matchType, setMatchType] = useState<'video' | 'text'>(videoParam === 'true' ? 'video' : 'text')
+  // Parse interests from URL
+  const parsedInterests = (() => {
+    try {
+      return JSON.parse(decodeURIComponent(interestsParam))
+    } catch (e) {
+      return []
+    }
+  })()
+  
+  // Force video for dating mode
+  const [matchType, setMatchType] = useState<'video' | 'text'>(
+    modeParam === 'dating' ? 'video' : (videoParam === 'true' ? 'video' : 'text')
+  )
   const [mode, setMode] = useState<'regular' | 'speed'>(speedParam === 'true' ? 'speed' : 'regular')
   const [blindDate, setBlindDate] = useState<boolean>(blindParam === 'true')
   const [chatMode, setChatMode] = useState<'chat' | 'dating'>(modeParam === 'dating' ? 'dating' : 'chat')
+  const [userBio, setUserBio] = useState<string>(decodeURIComponent(bioParam))
+  const [userInterests, setUserInterests] = useState<string[]>(parsedInterests)
   const [status, setStatus] = useState<'idle' | 'searching' | 'matched'>('idle')
   const [socket, setSocket] = useState<Socket | null>(null)
   const [connectionError, setConnectionError] = useState<string | null>(null)
@@ -43,7 +59,7 @@ export default function MatchPage() {
       console.log('Match found, navigating to room:', roomId)
       setStatus('matched')
       // Navigate to chat/video room with mode and blind date parameters
-      window.location.href = `/room/${roomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}`
+      window.location.href = `/room/${roomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}&bio=${encodeURIComponent(userBio)}&interests=${encodeURIComponent(JSON.stringify(userInterests))}`
     })
 
     setSocket(newSocket)
@@ -52,7 +68,7 @@ export default function MatchPage() {
       console.log('Closing socket connection')
       newSocket.close()
     }
-  }, [mode, blindDate, chatMode])
+  }, [mode, blindDate, chatMode, userBio, userInterests])
 
   const startMatching = async () => {
     if (!socket?.connected) {
@@ -64,18 +80,34 @@ export default function MatchPage() {
       const res = await fetch('/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: matchType, mode, blindDate, chatMode })
+        body: JSON.stringify({ 
+          type: matchType, 
+          mode, 
+          blindDate, 
+          chatMode,
+          bio: userBio,
+          interests: userInterests
+        })
       })
       
       const data = await res.json()
       if (data.success) {
         setStatus('searching')
-        console.log('Emitting find-match event with:', { type: matchType, mode, blindDate, chatMode })
+        console.log('Emitting find-match event with:', { 
+          type: matchType, 
+          mode, 
+          blindDate, 
+          chatMode,
+          bio: userBio,
+          interests: userInterests
+        })
         socket?.emit('find-match', {
           type: matchType,
           mode: mode,
           blindDate: blindDate,
           chatMode: chatMode,
+          bio: userBio,
+          interests: userInterests,
           userId: data.match.userId
         })
       }
@@ -132,9 +164,32 @@ export default function MatchPage() {
                 <span className="text-sm text-gray-600">30-second blur</span>
               )}
             </div>
+            
+            {chatMode === 'dating' && (
+              <div className="mt-2 border-t pt-3">
+                <h3 className="font-medium mb-2">Your Profile</h3>
+                {userBio ? (
+                  <p className="text-sm text-gray-700 mb-2">{userBio}</p>
+                ) : (
+                  <p className="text-sm text-gray-500 italic mb-2">No bio provided</p>
+                )}
+                
+                {userInterests.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {userInterests.map((interest, index) => (
+                      <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No interests provided</p>
+                )}
+              </div>
+            )}
           </div>
           
-          {videoParam !== 'true' && (
+          {chatMode !== 'dating' && videoParam !== 'true' && (
             <div className="flex gap-4 mb-4">
               <button
                 onClick={() => setMatchType('video')}
@@ -154,6 +209,14 @@ export default function MatchPage() {
               >
                 Text Chat
               </button>
+            </div>
+          )}
+          
+          {chatMode === 'dating' && (
+            <div className="bg-pink-50 p-3 rounded-lg mb-4 text-center">
+              <p className="text-pink-800 text-sm">
+                Dating mode uses video chat only for more meaningful connections
+              </p>
             </div>
           )}
         </div>

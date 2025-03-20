@@ -1,19 +1,30 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
-import { io } from 'socket.io-client'
-import { useSearchParams } from 'next/navigation'
+import { io, Socket } from 'socket.io-client'
+import { useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '../../../components/Layout/MainLayout'
 import { WebRTCService } from '../../../lib/webrtc'
 import ChatBox from '../../../components/Chat/ChatBox'
 import { ReportingService } from '../../../lib/services/reporting'
 import { UserProfile, ReportReason } from '../../../lib/types/user'
-import { Socket } from 'socket.io-client'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') || 'regular'
   const blindDate = searchParams.get('blind') === 'true'
   const chatMode = searchParams.get('chatMode') || 'chat'
+  const peerBio = searchParams.get('peerBio') || ''
+  const peerInterestsParam = searchParams.get('peerInterests') || '[]'
+  
+  // Parse peer interests
+  const peerInterests = (() => {
+    try {
+      return JSON.parse(decodeURIComponent(peerInterestsParam))
+    } catch (e) {
+      return []
+    }
+  })()
   
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -217,7 +228,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     
     // Generate new room ID and redirect
     const newRoomId = `room_${Date.now()}`
-    window.location.href = `/room/${newRoomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}`
+    router.push(`/room/${newRoomId}?mode=${mode}&blind=${blindDate}&chatMode=${chatMode}&peerBio=${encodeURIComponent(peerBio)}&peerInterests=${encodeURIComponent(JSON.stringify(peerInterests))}`)
   }
 
   const toggleMute = () => {

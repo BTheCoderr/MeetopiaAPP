@@ -1,264 +1,297 @@
 import express from 'express'
-import { createServer } from 'http'
+import http from 'http'
 import { Server } from 'socket.io'
+import cors from 'cors'
+import { v4 as uuidv4 } from 'uuid'
 import dotenv from 'dotenv'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
+app.use(cors())
+app.use(express.json())
 
 // Enhanced CORS configuration
-const PORT = process.env.PORT || 3003
-const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
-  'https://meetopia-qpqrimjnj-bthecoders-projects.vercel.app',
-  'https://meetopia-app.vercel.app',
-  'https://meetopia-signaling.onrender.com',
-  'http://localhost:3000',
-  'http://localhost:3003',
-  '*'  // Allow all origins for development
-] as string[]
-
-console.log('Server starting with configuration:')
-console.log('PORT:', PORT)
-console.log('CORS_ORIGINS:', CORS_ORIGINS)
-console.log('NODE_ENV:', process.env.NODE_ENV)
-console.log('Current directory:', process.cwd())
-
-// Create HTTP server first
-const httpServer = createServer(app)
-
-// Socket.IO setup with enhanced configuration
-const io = new Server(httpServer, {
+const server = http.createServer(app)
+const io = new Server(server, {
   cors: {
-    origin: '*',  // Allow all origins for development
-    methods: ["GET", "POST", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"]
-  },
-  transports: ['websocket', 'polling'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  connectTimeout: 45000
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
 })
 
-// Add CORS middleware for Express
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*')  // Allow all origins for development
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end()
+interface User {
+  id: string
+  socketId: string
+  preferences: {
+    type: 'video' | 'text'
+    mode: 'regular' | 'speed'
+    blindDate: boolean
+    chatMode: 'chat' | 'dating'
+    bio?: string
+    interests?: string[]
+  }
+}
+
+interface Room {
+  id: string
+  users: string[]
+}
+
+interface MatchedPair {
+  user1: string
+  user2: string
+  roomId: string
+}
+
+// In-memory storage
+const users: Record<string, User> = {}
+const rooms: Record<string, Room> = {}
+const videoWaitingQueue: string[] = []
+const textWaitingQueue: string[] = []
+const speedVideoWaitingQueue: string[] = []
+const speedTextWaitingQueue: string[] = []
+const datingWaitingQueue: string[] = []
+const matchedPairs: MatchedPair[] = []
+const userLikes: Record<string, string[]> = {} // userId -> array of liked userIds
+
+// Helper function to find a compatible user
+function findCompatibleUser(userId: string, queue: string[]): string | null {
+  const user = users[userId]
+  if (!user) return null
+
+  for (let i = 0; i < queue.length; i++) {
+    const potentialMatchId = queue[i]
+    if (potentialMatchId === userId) continue
+    
+    const potentialMatch = users[potentialMatchId]
+    if (!potentialMatch) continue
+    
+    // Check if users are compatible based on preferences
+    const isTypeCompatible = user.preferences.type === potentialMatch.preferences.type
+    const isModeCompatible = user.preferences.mode === potentialMatch.preferences.mode
+    const isChatModeCompatible = user.preferences.chatMode === potentialMatch.preferences.chatMode
+    
+    if (isTypeCompatible && isModeCompatible && isChatModeCompatible) {
+      // Remove the matched user from the queue
+      queue.splice(i, 1)
+      return potentialMatchId
+    }
   }
   
-  next()
-})
+  return null
+}
 
-// Add a route handler for the root path
-app.get('/', (req, res) => {
-  res.send({
-    status: 'ok',
-    message: 'Meetopia Signaling Server is running',
-    version: '1.0.0'
+// API endpoint to create a match
+app.post('/api/match', (req, res) => {
+  const userId = uuidv4()
+  const { type, mode, blindDate, chatMode, bio, interests } = req.body
+  
+  users[userId] = {
+    id: userId,
+    socketId: '', // Will be set when socket connects
+    preferences: {
+      type: type || 'video',
+      mode: mode || 'regular',
+      blindDate: blindDate || false,
+      chatMode: chatMode || 'chat',
+      bio: bio || '',
+      interests: interests || []
+    }
+  }
+  
+  res.json({
+    success: true,
+    match: { userId }
   })
 })
-
-// Track connected clients and their status
-const connectedClients = new Map<string, any>()
-const waitingUsers = new Set<string>()
-// Separate waiting queues for different modes
-const regularWaitingUsers = new Set<string>()
-const speedWaitingUsers = new Set<string>()
-const activeConnections = new Map<string, string>() // Track who is connected to whom
-const videoStreams = new Map<string, boolean>() // Track active video streams
-const videoWaitingUsers = new Set<string>() // Track users waiting for video matches
-const userIPs = new Map<string, string>() // Track user IPs to prevent self-matching
-// Track user preferences
-const userPreferences = new Map<string, { 
-  type: string, 
-  mode: string, 
-  blindDate: boolean,
-  chatMode: string 
-}>()
-
-// Like/Dislike system
-const userLikes = new Map<string, Set<string>>() // Track who liked whom
-const matchedPairs = new Set<string>() // Track matched pairs (userId1-userId2)
 
 // Socket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)
-  console.log('Total connected clients:', io.engine.clientsCount)
   
   // Store client IP
   const clientIP = socket.handshake.address
-  userIPs.set(socket.id, clientIP)
   
   // Initialize user likes
-  userLikes.set(socket.id, new Set<string>())
+  userLikes[socket.id] = []
   
   // Handle room joining
-  socket.on('join-room', (roomId) => {
-    console.log(`User ${socket.id} joining room: ${roomId}`)
+  socket.on('join-room', ({ roomId }) => {
+    console.log(`User ${socket.id} joined room: ${roomId}`)
     socket.join(roomId)
+    socket.to(roomId).emit('user-joined')
     
-    // Notify others in the room
-    socket.to(roomId).emit('user-connected', socket.id)
-    
-    // Handle disconnection from room
-    socket.on('disconnect', () => {
-      console.log(`User ${socket.id} disconnected from room: ${roomId}`)
-      socket.to(roomId).emit('user-disconnected', socket.id)
-    })
-  })
-  
-  // Handle like/dislike
-  socket.on('like-user', ({ roomId, userId }) => {
-    console.log(`User ${socket.id} liked user in room: ${roomId}`)
-    
-    // Get the peer in the room
-    const peer = activeConnections.get(socket.id)
-    
-    if (peer) {
-      // Add to likes
-      const userLikesSet = userLikes.get(socket.id) || new Set<string>()
-      userLikesSet.add(peer)
-      userLikes.set(socket.id, userLikesSet)
-      
-      // Check if peer also liked this user
-      const peerLikesSet = userLikes.get(peer) || new Set<string>()
-      
-      if (peerLikesSet.has(socket.id)) {
-        // It's a match!
-        const matchId = [socket.id, peer].sort().join('-')
-        matchedPairs.add(matchId)
-        
-        // Notify both users
-        io.to(socket.id).emit('peer-liked')
-        io.to(peer).emit('peer-liked')
-      } else {
-        // Just notify the peer that they were liked
-        io.to(peer).emit('peer-liked')
+    // Find the user ID for this socket
+    const userId = Object.keys(users).find(id => users[id].socketId === socket.id)
+    if (userId) {
+      // Find the room
+      const room = rooms[roomId]
+      if (room) {
+        // Find the peer in the room
+        const peerId = room.users.find(id => id !== userId)
+        if (peerId) {
+          // Send peer profile info
+          socket.emit('peer-profile', {
+            bio: users[peerId].preferences.bio,
+            interests: users[peerId].preferences.interests
+          })
+        }
       }
     }
   })
   
-  socket.on('find-user', () => {
-    console.log('User searching for match:', socket.id)
-    console.log('Current waiting users:', Array.from(waitingUsers))
+  // Handle find-match event
+  socket.on('find-match', ({ userId, type, mode, blindDate, chatMode, bio, interests }) => {
+    console.log('Find match request:', { userId, type, mode, blindDate, chatMode })
     
-    const availableUsers = Array.from(waitingUsers)
-    const match = availableUsers.find(userId => userId !== socket.id)
+    if (!userId || !users[userId]) {
+      console.log('Invalid user ID')
+      return
+    }
     
-    if (match) {
-      console.log('Match found:', match)
-      waitingUsers.delete(match)
-      // Track the connection between users
-      activeConnections.set(socket.id, match)
-      activeConnections.set(match, socket.id)
-      socket.emit('user-found', { partnerId: match })
-      io.to(match as string).emit('user-found', { partnerId: socket.id })
+    // Update user with socket ID and preferences
+    users[userId].socketId = socket.id
+    users[userId].preferences = {
+      type: type || 'video',
+      mode: mode || 'regular',
+      blindDate: blindDate || false,
+      chatMode: chatMode || 'chat',
+      bio: bio || '',
+      interests: interests || []
+    }
+    
+    // Clean up any previous connections for this user
+    cleanupUserConnections(userId)
+    
+    // Choose the appropriate waiting queue
+    let waitingQueue: string[]
+    if (chatMode === 'dating') {
+      waitingQueue = datingWaitingQueue
+    } else if (type === 'video' && mode === 'speed') {
+      waitingQueue = speedVideoWaitingQueue
+    } else if (type === 'text' && mode === 'speed') {
+      waitingQueue = speedTextWaitingQueue
+    } else if (type === 'video') {
+      waitingQueue = videoWaitingQueue
     } else {
-      console.log('No match found, adding to waiting list:', socket.id)
-      waitingUsers.add(socket.id)
+      waitingQueue = textWaitingQueue
+    }
+    
+    // Try to find a match
+    const matchedUserId = findCompatibleUser(userId, waitingQueue)
+    
+    if (matchedUserId) {
+      // Match found
+      const roomId = `room_${Date.now()}`
+      
+      // Create a room
+      rooms[roomId] = {
+        id: roomId,
+        users: [userId, matchedUserId]
+      }
+      
+      // Add to matched pairs
+      matchedPairs.push({
+        user1: userId,
+        user2: matchedUserId,
+        roomId
+      })
+      
+      // Notify both users
+      const user1Socket = users[userId].socketId
+      const user2Socket = users[matchedUserId].socketId
+      
+      io.to(user1Socket).emit('match-found', {
+        roomId,
+        peer: {
+          id: matchedUserId,
+          bio: users[matchedUserId].preferences.bio,
+          interests: users[matchedUserId].preferences.interests
+        }
+      })
+      
+      io.to(user2Socket).emit('match-found', {
+        roomId,
+        peer: {
+          id: userId,
+          bio: users[userId].preferences.bio,
+          interests: users[userId].preferences.interests
+        }
+      })
+      
+      console.log('Match found:', { roomId, user1: userId, user2: matchedUserId })
+    } else {
+      // No match found, add to waiting queue
+      waitingQueue.push(userId)
+      console.log('Added to waiting queue:', { userId, queueLength: waitingQueue.length })
     }
   })
   
-  // Enhanced find-match with mode support
-  socket.on('find-match', ({ type, mode, blindDate, chatMode, userId }) => {
-    console.log(`User ${socket.id} searching for ${mode} ${type} match with blindDate: ${blindDate}, chatMode: ${chatMode}`)
-    
-    // Store user preferences
-    userPreferences.set(socket.id, { type, mode, blindDate, chatMode })
-    
-    // Choose the appropriate waiting queue based on mode
-    const waitingQueue = mode === 'speed' ? speedWaitingUsers : regularWaitingUsers
-    
-    // Find a match with the same preferences
-    const availableUsers = Array.from(waitingQueue)
-    const match = availableUsers.find(userId => {
-      // Don't match with self
-      if (userId === socket.id) return false
-      
-      // Check if user has same preferences
-      const userPref = userPreferences.get(userId)
-      return userPref && 
-             userPref.type === type && 
-             userPref.mode === mode && 
-             userPref.chatMode === chatMode
-    })
-    
-    if (match) {
-      console.log('Match found:', match)
-      waitingQueue.delete(match)
-      
-      // Generate a room ID
-      const roomId = `room_${Date.now()}`
-      
-      // Track the connection between users
-      activeConnections.set(socket.id, match)
-      activeConnections.set(match, socket.id)
-      
-      // Notify both users about the match
-      socket.emit('match-found', { roomId, peer: match })
-      io.to(match).emit('match-found', { roomId, peer: socket.id })
-    } else {
-      console.log('No match found, adding to waiting list:', socket.id)
-      waitingQueue.add(socket.id)
-    }
-  })
-
   // WebRTC signaling events
-  socket.on('offer', (offer) => {
-    const peer = activeConnections.get(socket.id)
-    if (peer) {
-      console.log('Forwarding offer to:', peer)
-      io.to(peer).emit('offer', { offer, from: socket.id })
+  socket.on('offer', ({ roomId, offer }) => {
+    console.log('Forwarding offer to room:', roomId)
+    socket.to(roomId).emit('offer', { offer })
+  })
+  
+  socket.on('answer', ({ roomId, answer }) => {
+    console.log('Forwarding answer to room:', roomId)
+    socket.to(roomId).emit('answer', { answer })
+  })
+  
+  socket.on('ice-candidate', ({ roomId, candidate }) => {
+    console.log('Forwarding ICE candidate to room:', roomId)
+    socket.to(roomId).emit('ice-candidate', { candidate })
+  })
+  
+  // Handle like event
+  socket.on('like', ({ roomId }) => {
+    console.log('Like received for room:', roomId)
+    
+    // Find the user ID for this socket
+    const userId = Object.keys(users).find(id => users[id].socketId === socket.id)
+    if (!userId) return
+    
+    // Find the room
+    const room = rooms[roomId]
+    if (!room) return
+    
+    // Find the peer in the room
+    const peerId = room.users.find(id => id !== userId)
+    if (!peerId) return
+    
+    // Add to likes
+    if (!userLikes[userId]) {
+      userLikes[userId] = []
+    }
+    userLikes[userId].push(peerId)
+    
+    // Check if mutual like
+    const mutualLike = userLikes[peerId]?.includes(userId)
+    
+    // Notify peer about the like
+    const peerSocket = users[peerId]?.socketId
+    if (peerSocket) {
+      io.to(peerSocket).emit('peer-liked')
+    }
+    
+    // If mutual like, notify both users
+    if (mutualLike) {
+      io.to(roomId).emit('matched')
     }
   })
-
-  socket.on('answer', (answer) => {
-    const peer = activeConnections.get(socket.id)
-    if (peer) {
-      console.log('Forwarding answer to:', peer)
-      io.to(peer).emit('answer', { answer, from: socket.id })
-    }
-  })
-
-  socket.on('ice-candidate', (candidate) => {
-    const peer = activeConnections.get(socket.id)
-    if (peer) {
-      console.log('Forwarding ICE candidate to:', peer)
-      io.to(peer).emit('ice-candidate', { candidate, from: socket.id })
-    }
-  })
-
-  // Handle call events
-  socket.on('call-user', ({ offer, to }) => {
-    console.log('Forwarding call offer to:', to)
-    io.to(to).emit('call-made', { offer, from: socket.id })
-  })
-
-  socket.on('make-answer', ({ answer, to }) => {
-    console.log('Forwarding call answer to:', to)
-    io.to(to).emit('answer-made', { answer, from: socket.id })
-  })
-
-  // Handle chat messages
-  socket.on('chat-message', (messageData) => {
-    console.log('Forwarding message to:', messageData.to)
-    io.to(messageData.to).emit('chat-message', messageData)
-  })
-
+  
+  // Handle find-next-user
   socket.on('find-next-user', () => {
     console.log('User searching for next match:', socket.id)
     
+    // Find the user ID for this socket
+    const userId = Object.keys(users).find(id => users[id].socketId === socket.id)
+    if (!userId) return
+    
     // Get user preferences
-    const userPref = userPreferences.get(socket.id) || { 
+    const userPref = users[userId]?.preferences || { 
       type: 'video', 
       mode: 'regular', 
       blindDate: false,
@@ -266,88 +299,166 @@ io.on('connection', (socket) => {
     }
     
     // Clean up previous connection if any
-    const previousPeer = activeConnections.get(socket.id)
+    const previousPeer = Object.keys(users).find(id => {
+      const user = users[id]
+      return user && user.socketId && user.socketId !== socket.id && 
+             matchedPairs.some(pair => 
+               (pair.user1 === userId && pair.user2 === id) || 
+               (pair.user1 === id && pair.user2 === userId)
+             )
+    })
+    
     if (previousPeer) {
-      io.to(previousPeer).emit('peer-left')
-      activeConnections.delete(previousPeer)
-      activeConnections.delete(socket.id)
-      
-      // Reset likes between these users
-      const userLikesSet = userLikes.get(socket.id)
-      if (userLikesSet) {
-        userLikesSet.delete(previousPeer)
+      const previousPeerSocketId = users[previousPeer]?.socketId
+      if (previousPeerSocketId) {
+        io.to(previousPeerSocketId).emit('peer-left')
       }
       
-      const peerLikesSet = userLikes.get(previousPeer)
-      if (peerLikesSet) {
-        peerLikesSet.delete(socket.id)
+      // Reset likes between these users
+      if (userLikes[userId]) {
+        userLikes[userId] = userLikes[userId].filter(id => id !== previousPeer)
+      }
+      
+      if (userLikes[previousPeer]) {
+        userLikes[previousPeer] = userLikes[previousPeer].filter(id => id !== userId)
       }
       
       // Remove any matched pair
-      const matchId = [socket.id, previousPeer].sort().join('-')
-      matchedPairs.delete(matchId)
+      const pairIndex = matchedPairs.findIndex(pair => 
+        (pair.user1 === userId && pair.user2 === previousPeer) || 
+        (pair.user1 === previousPeer && pair.user2 === userId)
+      )
+      
+      if (pairIndex !== -1) {
+        matchedPairs.splice(pairIndex, 1)
+      }
     }
     
-    // Choose the appropriate waiting queue based on mode
-    const waitingQueue = userPref.mode === 'speed' ? speedWaitingUsers : regularWaitingUsers
+    // Choose the appropriate waiting queue based on mode and type
+    let waitingQueue: string[]
+    if (userPref.chatMode === 'dating') {
+      waitingQueue = datingWaitingQueue
+    } else if (userPref.type === 'video' && userPref.mode === 'speed') {
+      waitingQueue = speedVideoWaitingQueue
+    } else if (userPref.type === 'text' && userPref.mode === 'speed') {
+      waitingQueue = speedTextWaitingQueue
+    } else if (userPref.type === 'video') {
+      waitingQueue = videoWaitingQueue
+    } else {
+      waitingQueue = textWaitingQueue
+    }
     
     // Find new match with same preferences
-    const availableUsers = Array.from(waitingQueue)
-    const match = availableUsers.find(userId => {
-      // Don't match with self
-      if (userId === socket.id) return false
-      
-      // Check if user has same preferences
-      const matchPref = userPreferences.get(userId)
-      return matchPref && 
-             matchPref.type === userPref.type && 
-             matchPref.mode === userPref.mode &&
-             matchPref.chatMode === userPref.chatMode
-    })
+    const matchedUserId = findCompatibleUser(userId, waitingQueue)
     
-    if (match) {
-      waitingQueue.delete(match)
-      
-      // Generate a room ID
+    if (matchedUserId) {
+      // Match found
       const roomId = `room_${Date.now()}`
       
-      // Track the new connection
-      activeConnections.set(socket.id, match)
-      activeConnections.set(match, socket.id)
+      // Create a room
+      rooms[roomId] = {
+        id: roomId,
+        users: [userId, matchedUserId]
+      }
       
-      // Notify both users about the match
-      socket.emit('match-found', { roomId, peer: match })
-      io.to(match).emit('match-found', { roomId, peer: socket.id })
+      // Add to matched pairs
+      matchedPairs.push({
+        user1: userId,
+        user2: matchedUserId,
+        roomId
+      })
+      
+      // Notify both users
+      const user1Socket = users[userId].socketId
+      const user2Socket = users[matchedUserId].socketId
+      
+      io.to(user1Socket).emit('match-found', {
+        roomId,
+        peer: {
+          id: matchedUserId,
+          bio: users[matchedUserId].preferences.bio,
+          interests: users[matchedUserId].preferences.interests
+        }
+      })
+      
+      io.to(user2Socket).emit('match-found', {
+        roomId,
+        peer: {
+          id: userId,
+          bio: users[userId].preferences.bio,
+          interests: users[userId].preferences.interests
+        }
+      })
     } else {
-      waitingQueue.add(socket.id)
+      // No match found, add to waiting queue
+      waitingQueue.push(userId)
+      console.log('Added to waiting queue:', { userId, queueLength: waitingQueue.length })
     }
   })
-
+  
+  // Handle disconnect
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id)
-    waitingUsers.delete(socket.id)
-    regularWaitingUsers.delete(socket.id)
-    speedWaitingUsers.delete(socket.id)
-    userIPs.delete(socket.id)
-    userPreferences.delete(socket.id)
-    userLikes.delete(socket.id)
     
-    // Clean up any matched pairs involving this user
-    const pairsToRemove = Array.from(matchedPairs).filter(pair => 
-      pair.includes(socket.id)
-    )
-    pairsToRemove.forEach(pair => matchedPairs.delete(pair))
+    // Find the user ID for this socket
+    const userId = Object.keys(users).find(id => users[id].socketId === socket.id)
+    if (!userId) return
     
-    const peer = activeConnections.get(socket.id)
-    if (peer) {
-      io.to(peer).emit('peer-left')
-      activeConnections.delete(peer)
-    }
-    activeConnections.delete(socket.id)
+    // Clean up user connections
+    cleanupUserConnections(userId)
+    
+    // Remove user from users object
+    delete users[userId]
   })
 })
 
+// Helper function to clean up user connections
+function cleanupUserConnections(userId: string) {
+  // Remove from waiting queues
+  const queues = [videoWaitingQueue, textWaitingQueue, speedVideoWaitingQueue, speedTextWaitingQueue, datingWaitingQueue]
+  queues.forEach(queue => {
+    const index = queue.indexOf(userId)
+    if (index !== -1) {
+      queue.splice(index, 1)
+    }
+  })
+  
+  // Find rooms the user is in
+  const userRooms = Object.values(rooms).filter(room => room.users.includes(userId))
+  
+  userRooms.forEach(room => {
+    // Notify other users in the room
+    const otherUsers = room.users.filter(id => id !== userId)
+    otherUsers.forEach(otherUserId => {
+      const otherUserSocketId = users[otherUserId]?.socketId
+      if (otherUserSocketId) {
+        io.to(otherUserSocketId).emit('user-disconnected')
+      }
+    })
+    
+    // Remove room
+    delete rooms[room.id]
+  })
+  
+  // Remove from matched pairs
+  const pairIndex = matchedPairs.findIndex(pair => pair.user1 === userId || pair.user2 === userId)
+  if (pairIndex !== -1) {
+    matchedPairs.splice(pairIndex, 1)
+  }
+  
+  // Reset likes
+  delete userLikes[userId]
+  // Also remove this user from other users' likes
+  Object.keys(userLikes).forEach(id => {
+    const index = userLikes[id].indexOf(userId)
+    if (index !== -1) {
+      userLikes[id].splice(index, 1)
+    }
+  })
+}
+
 // Start server
-httpServer.listen(PORT, () => {
+const PORT = process.env.PORT || 3003
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
