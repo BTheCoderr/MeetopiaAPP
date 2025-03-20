@@ -294,6 +294,38 @@ io.on('connection', (socket) => {
     });
   });
   
+  // Handle joining chat room
+  socket.on('join-chat-room', (data: { roomId: string }) => {
+    console.log('Join chat room request:', data.roomId);
+    socket.join(data.roomId);
+  });
+  
+  // Handle text chat messages
+  socket.on('send-message', (data: { 
+    id: string, 
+    text: string, 
+    roomId: string, 
+    peerId: string, 
+    timestamp: string 
+  }) => {
+    // Forward the message to the room
+    socket.to(data.roomId).emit('chat-message', {
+      id: data.id,
+      text: data.text,
+      sender: socket.id,
+      timestamp: data.timestamp
+    });
+  });
+  
+  // Handle typing indicators
+  socket.on('typing-start', (data: { roomId: string }) => {
+    socket.to(data.roomId).emit('typing-start');
+  });
+  
+  socket.on('typing-end', (data: { roomId: string }) => {
+    socket.to(data.roomId).emit('typing-end');
+  });
+  
   // Handle likes
   socket.on('like-peer', (data: { roomId: string, peerId: string }) => {
     console.log('Like peer:', data);
