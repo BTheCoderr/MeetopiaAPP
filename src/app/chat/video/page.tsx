@@ -1,4 +1,5 @@
 'use client'
+// Trigger new deployment - Modern Video Chat Interface
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
