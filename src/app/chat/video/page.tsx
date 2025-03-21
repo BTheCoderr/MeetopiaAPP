@@ -158,6 +158,8 @@ export default function VideoChatPage() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const localVideoContainerRef = useRef<HTMLDivElement>(null)
+  const remoteVideoContainerRef = useRef<HTMLDivElement>(null)
   const { peerConnection } = usePeerConnection(stream)
   const {
     isReportModalOpen,
@@ -168,7 +170,7 @@ export default function VideoChatPage() {
 
   // Add state for controls visibility
   const [areControlsVisible, setAreControlsVisible] = useState(true)
-  const controlsTimeoutRef = useRef<NodeJS.Timeout>()
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Add state for UI preferences
   const [isMenuOpen, setIsMenuOpen] = useState(false)
