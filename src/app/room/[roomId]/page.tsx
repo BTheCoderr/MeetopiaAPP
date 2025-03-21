@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import VideoCall from '@/components/VideoCall'
 import TextChat from '@/components/TextChat'
-import { socket } from '@/lib/socket'
+import { socket } from '@/lib/socket-client'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
