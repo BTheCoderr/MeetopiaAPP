@@ -9,8 +9,8 @@ import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
 interface PictureInPictureProps {
-  pipRef: React.RefObject<HTMLDivElement | null>;
-  localVideoRef: React.RefObject<HTMLVideoElement | null>;
+  pipRef: React.RefObject<HTMLDivElement>;
+  localVideoRef: React.RefObject<HTMLVideoElement>;
   pipPosition: { x: number; y: number };
   isDragging: boolean;
   areControlsVisible: boolean;
@@ -138,7 +138,7 @@ export default function VideoChatPage() {
 
   const [isDragging, setIsDragging] = useState(false)
   const [startDragPosition, setStartDragPosition] = useState({ x: 0, y: 0 })
-  const pipRef = useRef<HTMLDivElement | null>(null)
+  const pipRef = useRef<HTMLDivElement>(null)
 
   // Update PiP position on window resize
   useEffect(() => {
@@ -156,8 +156,8 @@ export default function VideoChatPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [isDragging])
 
-  const localVideoRef = useRef<HTMLVideoElement | null>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const { peerConnection } = usePeerConnection(stream)
   const {
     isReportModalOpen,
@@ -168,7 +168,7 @@ export default function VideoChatPage() {
 
   // Add state for controls visibility
   const [areControlsVisible, setAreControlsVisible] = useState(true)
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const controlsTimeoutRef = useRef<NodeJS.Timeout>()
 
   // Add state for UI preferences
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -183,7 +183,7 @@ export default function VideoChatPage() {
   }>>([])
   const [newMessage, setNewMessage] = useState('')
   const [isChatOpen, setIsChatOpen] = useState(true)
-  const chatContainerRef = useRef<HTMLDivElement | null>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   // Menu navigation
   const handleNavigate = (path: string) => {
