@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Camera Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    video {
+      width: 100%;
+      max-width: 500px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    .error {
+      color: red;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Camera Test</h1>
+  <p>This page tests basic camera access using WebRTC. If this works, the issue is likely with the Next.js app, not your browser or permissions.</p>
+  
+  <button id="startCamera">Start Camera</button>
+  <div id="errorMsg" class="error"></div>
+  
+  <video id="localVideo" autoplay playsinline muted></video>
+  
+  <script>
+    document.getElementById('startCamera').addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        
+        const videoElement = document.getElementById('localVideo');
+        videoElement.srcObject = stream;
+        
+        console.log('Camera access successful', stream);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        document.getElementById('errorMsg').textContent = 
+          `Error accessing camera: ${error.name} - ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html> 

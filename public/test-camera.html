@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camera and WebRTC Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+    .test-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+    video {
+      width: 100%;
+      background-color: #000;
+      border-radius: 4px;
+      margin-top: 15px;
+    }
+    .error {
+      color: #e74c3c;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fadbd8;
+      border-radius: 4px;
+    }
+    .status {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Camera and WebRTC Test</h1>
+    
+    <div class="test-section">
+      <h2>Camera Access Test</h2>
+      <p>This test checks if your browser can access your camera and microphone.</p>
+      <button id="startCameraBtn">Start Camera</button>
+      <button id="stopCameraBtn" disabled>Stop Camera</button>
+      <div id="cameraStatus" class="status"></div>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    
+    <div class="test-section">
+      <h2>WebRTC Connection Test</h2>
+      <p>This tests a local WebRTC connection (loopback).</p>
+      <button id="startWebRTCBtn" disabled>Test WebRTC Connection</button>
+      <button id="stopWebRTCBtn" disabled>Stop WebRTC Test</button>
+      <div id="webrtcStatus" class="status"></div>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+    
+    <div class="test-section">
+      <h2>Browser Information</h2>
+      <div id="browserInfo"></div>
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const stopCameraBtn = document.getElementById('stopCameraBtn');
+    const startWebRTCBtn = document.getElementById('startWebRTCBtn');
+    const stopWebRTCBtn = document.getElementById('stopWebRTCBtn');
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const webrtcStatus = document.getElementById('webrtcStatus');
+    const browserInfo = document.getElementById('browserInfo');
+    
+    // State
+    let localStream = null;
+    let pc1 = null; // local peer connection
+    let pc2 = null; // remote peer connection
+    
+    // Display browser information
+    function showBrowserInfo() {
+      const info = `
+        <p><strong>Browser:</strong> ${navigator.userAgent}</p>
+        <p><strong>WebRTC Support:</strong> ${window.RTCPeerConnection ? 'Yes' : 'No'}</p>
+        <p><strong>getUserMedia Support:</strong> ${navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
+      `;
+      browserInfo.innerHTML = info;
+    }
+    showBrowserInfo();
+    
+    // Camera access test
+    startCameraBtn.addEventListener('click', async () => {
+      try {
+        cameraStatus.textContent = 'Accessing camera...';
+        cameraStatus.className = 'status';
+        
+        // Request camera and microphone
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        
+        // Display the video
+        localVideo.srcObject = localStream;
+        
+        cameraStatus.textContent = 'Camera accessed successfully!';
+        cameraStatus.className = 'status success';
+        
+        // Update button states
+        startCameraBtn.disabled = true;
+        stopCameraBtn.disabled = false;
+        startWebRTCBtn.disabled = false;
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        cameraStatus.innerHTML = `<strong>Error:</strong> ${error.message || 'Could not access camera or microphone'}`;
+        cameraStatus.className = 'status error';
+      }
+    });
+    
+    stopCameraBtn.addEventListener('click', () => {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localVideo.srcObject = null;
+        localStream = null;
+        
+        cameraStatus.textContent = 'Camera stopped.';
+        cameraStatus.className = 'status';
+        
+        startCameraBtn.disabled = false;
+        stopCameraBtn.disabled = true;
+        startWebRTCBtn.disabled = true;
+        
+        // Also stop WebRTC if it's running
+        if (pc1 || pc2) {
+          stopWebRTCTest();
+        }
+      }
+    });
+    
+    // WebRTC loopback test
+    startWebRTCBtn.addEventListener('click', async () => {
+      webrtcStatus.textContent = 'Starting WebRTC test...';
+      webrtcStatus.className = 'status';
+      
+      try {
+        // Create peer connections
+        const configuration = {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        };
+        
+        pc1 = new RTCPeerConnection(configuration);
+        pc2 = new RTCPeerConnection(configuration);
+        
+        // Connect signaling
+        pc1.onicecandidate = e => {
+          if (e.candidate) pc2.addIceCandidate(e.candidate);
+        };
+        
+        pc2.onicecandidate = e => {
+          if (e.candidate) pc1.addIceCandidate(e.candidate);
+        };
+        
+        // Display remote stream
+        pc2.ontrack = e => {
+          if (remoteVideo.srcObject !== e.streams[0]) {
+            console.log('Received remote stream');
+            remoteVideo.srcObject = e.streams[0];
+            webrtcStatus.textContent = 'Remote stream received - WebRTC is working!';
+            webrtcStatus.className = 'status success';
+          }
+        };
+        
+        // Add local stream to peer connection
+        localStream.getTracks().forEach(track => 
+          pc1.addTrack(track, localStream));
+        
+        // Create and set offer
+        const offer = await pc1.createOffer();
+        await pc1.setLocalDescription(offer);
+        await pc2.setRemoteDescription(offer);
+        
+        // Create and set answer
+        const answer = await pc2.createAnswer();
+        await pc2.setLocalDescription(answer);
+        await pc1.setRemoteDescription(answer);
+        
+        startWebRTCBtn.disabled = true;
+        stopWebRTCBtn.disabled = false;
+      } catch (error) {
+        console.error('WebRTC test failed:', error);
+        webrtcStatus.innerHTML = `<strong>Error:</strong> ${error.message || 'WebRTC test failed'}`;
+        webrtcStatus.className = 'status error';
+      }
+    });
+    
+    stopWebRTCBtn.addEventListener('click', stopWebRTCTest);
+    
+    function stopWebRTCTest() {
+      if (pc1) {
+        pc1.close();
+        pc1 = null;
+      }
+      
+      if (pc2) {
+        pc2.close();
+        pc2 = null;
+      }
+      
+      remoteVideo.srcObject = null;
+      webrtcStatus.textContent = 'WebRTC test stopped.';
+      webrtcStatus.className = 'status';
+      
+      stopWebRTCBtn.disabled = true;
+      if (localStream) {
+        startWebRTCBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html> 
