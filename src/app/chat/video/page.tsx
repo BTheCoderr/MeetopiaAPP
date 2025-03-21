@@ -9,8 +9,8 @@ import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
 interface PictureInPictureProps {
-  pipRef: React.RefObject<HTMLDivElement>;
-  localVideoRef: React.RefObject<HTMLVideoElement>;
+  pipRef: React.RefObject<HTMLDivElement | null>;
+  localVideoRef: React.RefObject<HTMLVideoElement | null>;
   pipPosition: { x: number; y: number };
   isDragging: boolean;
   areControlsVisible: boolean;
@@ -33,7 +33,7 @@ const PictureInPicture = dynamic(() => Promise.resolve((props: PictureInPictureP
 
   return (
     <div
-      ref={props.pipRef}
+      ref={props.pipRef as React.RefObject<HTMLDivElement>}
       style={{
         position: 'absolute',
         top: props.pipPosition.y,
@@ -52,7 +52,7 @@ const PictureInPicture = dynamic(() => Promise.resolve((props: PictureInPictureP
           onMouseDown={props.handleMouseDown}
         />
         <video
-          ref={props.localVideoRef}
+          ref={props.localVideoRef as React.RefObject<HTMLVideoElement>}
           autoPlay
           playsInline
           muted
@@ -139,23 +139,6 @@ export default function VideoChatPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [startDragPosition, setStartDragPosition] = useState({ x: 0, y: 0 })
   const pipRef = useRef<HTMLDivElement>(null)
-
-  // Update PiP position on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (!isDragging && pipRef.current) {
-        const maxX = window.innerWidth - pipRef.current.offsetWidth
-        setPipPosition(prev => ({
-          x: Math.min(prev.x, maxX),
-          y: prev.y
-        }))
-      }
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [isDragging])
-
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const localVideoContainerRef = useRef<HTMLDivElement>(null)
