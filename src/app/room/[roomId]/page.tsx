@@ -8,7 +8,11 @@ import ChatBox from '../../../components/Chat/ChatBox'
 import { ReportingService } from '../../../lib/services/reporting'
 import { UserProfile, ReportReason } from '../../../lib/types/user'
 
-export default function RoomPage({ params }: { params: { roomId: string } }) {
+interface PageProps {
+  params: Promise<{ roomId: string }>
+}
+
+export default function RoomPage({ params }: PageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') || 'regular'
@@ -35,6 +39,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const tempUserId = `user_${Date.now()}`
   const [remoteUser, setRemoteUser] = useState<UserProfile | null>(null)
   const reportingService = useRef(new ReportingService())
+  const [roomId, setRoomId] = useState<string>('')
   
   // Socket for chat
   const [chatSocket, setChatSocket] = useState<Socket | null>(null)
@@ -60,6 +65,15 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 3
 
+  // Effect to unwrap async params
+  useEffect(() => {
+    const unwrapParams = async () => {
+      const resolvedParams = await params
+      setRoomId(resolvedParams.roomId)
+    }
+    unwrapParams()
+  }, [params])
+
   useEffect(() => {
     // Create a separate socket for chat
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
@@ -77,6 +91,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   }, [])
 
   useEffect(() => {
+    if (!roomId) return // Wait for roomId to be resolved
+    
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003';
     const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
@@ -157,8 +173,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       }
     }) as EventListener)
 
-    console.log('Joining room:', params.roomId)
-    socket.emit('join-room', params.roomId)
+    console.log('Joining room:', roomId)
+    socket.emit('join-room', roomId)
 
     return () => {
       webrtcRef.current?.cleanup()
@@ -173,7 +189,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       window.removeEventListener('webrtc-failed', (() => {}) as EventListener)
       window.removeEventListener('remote-stream', (() => {}) as EventListener)
     }
-  }, [params.roomId, mode, blindDate, hasLiked, retryCount])
+  }, [roomId, mode, blindDate, hasLiked, retryCount])
   
   const startBlurTimer = () => {
     // Unblur after 30 seconds
@@ -288,7 +304,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     
     // Emit like event to server
     chatSocket?.emit('like-user', {
-      roomId: params.roomId,
+      roomId: roomId,
       userId: tempUserId
     })
     
@@ -426,7 +442,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
           {chatSocket && (
             <ChatBox 
               socket={chatSocket} 
-              roomId={params.roomId} 
+              roomId={roomId} 
               userId={tempUserId}
             />
           )}
