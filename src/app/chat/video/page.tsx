@@ -4,13 +4,14 @@ import { io, Socket } from 'socket.io-client'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
 import ChatMenu from '@/components/ChatMenu'
 import ReportModal from '@/components/ReportModal'
+import Tutorial from '@/components/Tutorial'
 import { useReporting } from '@/hooks/useReporting'
 import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
 interface PictureInPictureProps {
-  pipRef: React.RefObject<HTMLDivElement>;
-  localVideoRef: React.RefObject<HTMLVideoElement>;
+  pipRef: React.RefObject<HTMLDivElement | null>;
+  localVideoRef: React.RefObject<HTMLVideoElement | null>;
   pipPosition: { x: number; y: number };
   isDragging: boolean;
   areControlsVisible: boolean;
@@ -185,6 +186,34 @@ export default function VideoChatPage() {
   const [isChatOpen, setIsChatOpen] = useState(true)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
+  // Add tutorial state
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false)
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(false)
+
+  // Check if user has seen tutorial before
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const seen = localStorage.getItem('meetopia-tutorial-seen')
+      setHasSeenTutorial(!!seen)
+      
+      // Auto-show tutorial for first-time users after a short delay
+      if (!seen) {
+        setTimeout(() => {
+          setIsTutorialOpen(true)
+        }, 2000)
+      }
+    }
+  }, [])
+
+  // Handle tutorial completion
+  const handleTutorialClose = () => {
+    setIsTutorialOpen(false)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('meetopia-tutorial-seen', 'true')
+      setHasSeenTutorial(true)
+    }
+  }
+
   // Menu navigation
   const handleNavigate = (path: string) => {
     window.location.href = path
@@ -204,6 +233,58 @@ export default function VideoChatPage() {
       setIsChatOpen(false)
     }, 7000)
   }, [])
+
+  // Start cooldown
+  const startCooldown = useCallback(() => {
+    setButtonCooldown(true)
+    setTimeout(() => setButtonCooldown(false), 2000)
+  }, [setButtonCooldown])
+
+  // Handle start chat
+  const handleStartChat = useCallback(() => {
+    if (!socket?.connected || !stream || isSearching || buttonCooldown) return
+    setIsSearching(true)
+    socket.emit('find-match', { type: 'video' })
+  }, [socket, stream, isSearching, buttonCooldown])
+
+  // Handle next person
+  const handleNextPerson = useCallback(() => {
+    if (!socket?.connected || !stream || buttonCooldown) return
+    
+    // Clean disconnect from current peer
+    if (currentPeer && peerConnection) {
+      // Close peer connection
+      peerConnection.close()
+      
+      // Clear remote stream
+      setRemoteStream(null)
+      
+      // Clear current peer
+      setCurrentPeer(null)
+      
+      // Reset connection state
+      setIsPeerConnected(false)
+      
+      // Clear messages
+      setMessages([])
+    }
+    
+    // Now search for next user
+    setIsSearching(true)
+    socket.emit('find-next-user')
+    startCooldown()
+  }, [socket, stream, buttonCooldown, currentPeer, peerConnection, startCooldown])
+
+  // Handle leave chat
+  const handleLeaveChat = useCallback(() => {
+    if (!socket?.connected) return
+    setIsPeerConnected(false)
+    socket.emit('leave-chat')
+    setCurrentPeer(null)
+    setRemoteStream(null)
+    setIsSearching(false)
+    window.location.href = '/'
+  }, [socket])
 
   // Setup mouse movement listener and handle chat visibility
   useEffect(() => {
@@ -246,7 +327,7 @@ export default function VideoChatPage() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPeer])
+  }, [currentPeer, handleNextPerson, handleStartChat])
 
   // Handle drag start
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -565,36 +646,6 @@ export default function VideoChatPage() {
     }
   }, [remoteStream])
 
-  const startCooldown = () => {
-    setButtonCooldown(true)
-    setTimeout(() => setButtonCooldown(false), 5000)
-  }
-
-  const handleStartChat = () => {
-    if (!socket?.connected || !stream || buttonCooldown) return
-    setIsSearching(true)
-    socket.emit('find-user')
-    startCooldown()
-  }
-
-  const handleNextPerson = () => {
-    if (!socket?.connected || !stream || buttonCooldown) return
-    setIsPeerConnected(false)
-    setIsSearching(true)
-    socket.emit('find-next-user')
-    startCooldown()
-  }
-
-  const handleLeaveChat = () => {
-    if (!socket?.connected) return
-    setIsPeerConnected(false)
-    socket.emit('leave-chat')
-    setCurrentPeer(null)
-    setRemoteStream(null)
-    setIsSearching(false)
-    window.location.href = '/'
-  }
-
   // Remote stream state indicators
   const [isRemoteCameraOff, setIsRemoteCameraOff] = useState(false)
   const [isRemoteAudioOff, setIsRemoteAudioOff] = useState(false)
@@ -833,6 +884,8 @@ export default function VideoChatPage() {
       <div className="absolute top-0 left-0 right-0 z-20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* Menu button commented out for simplicity */}
+            {/* 
             <button 
               onClick={() => setIsMenuOpen(true)} 
               className={`transition-opacity duration-300 ${
@@ -843,6 +896,7 @@ export default function VideoChatPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            */}
             <h1 className={`text-xl font-bold transition-colors duration-300`}>
               <span className="text-blue-400">Meet</span>
               <span className={isDarkTheme ? 'text-white' : 'text-black'}>opia</span>
@@ -851,6 +905,18 @@ export default function VideoChatPage() {
           <div className={`flex items-center gap-4 transition-opacity duration-300 ${
             areControlsVisible ? 'opacity-100' : 'opacity-0'
           }`}>
+            {/* Tutorial Button */}
+            <button
+              onClick={() => setIsTutorialOpen(true)}
+              className={`px-3 py-1 rounded-full text-sm ${
+                isDarkTheme 
+                  ? 'bg-purple-600/20 text-purple-300 hover:bg-purple-600/30' 
+                  : 'bg-purple-600/20 text-purple-700 hover:bg-purple-600/30'
+              } transition-all duration-300`}
+              title="Show Tutorial"
+            >
+              ? Tutorial
+            </button>
             <button
               onClick={() => setIsDarkTheme(!isDarkTheme)}
               className={`px-3 py-1 rounded-full text-sm ${
@@ -875,7 +941,8 @@ export default function VideoChatPage() {
         </div>
       </div>
 
-      {/* Side Menu */}
+      {/* Side Menu - Commented out for simplicity */}
+      {/* 
       {isMenuOpen && (
         <>
           <div 
@@ -927,6 +994,7 @@ export default function VideoChatPage() {
           </div>
         </>
       )}
+      */}
 
       {/* Action Buttons Bar */}
       <div className={`absolute top-20 left-0 right-0 z-10 transition-opacity duration-300 ${
@@ -1080,6 +1148,13 @@ export default function VideoChatPage() {
         onClose={closeReportModal}
         onSubmit={handleReport}
         reportedUserId={currentPeer || undefined}
+      />
+
+      {/* Tutorial */}
+      <Tutorial 
+        isOpen={isTutorialOpen}
+        onClose={handleTutorialClose}
+        isDarkTheme={isDarkTheme}
       />
 
       {/* Chat Interface - TikTok Style */}

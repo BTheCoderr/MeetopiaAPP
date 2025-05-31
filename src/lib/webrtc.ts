@@ -1,10 +1,13 @@
+import { webrtcLogger } from './logger'
+
 export class WebRTCService {
   private peerConnection: RTCPeerConnection
-  private socket: any
   private localStream: MediaStream | null = null
-  private connectionTimeout: NodeJS.Timeout | null = null
+  private remoteStream: MediaStream | null = null
+  private socket: any
   private reconnectAttempts = 0
   private maxReconnectAttempts = 3
+  private connectionTimeout: NodeJS.Timeout | null = null
 
   constructor(socket: any) {
     this.socket = socket
@@ -29,7 +32,7 @@ export class WebRTCService {
     
     // Monitor connection state changes
     pc.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', pc.iceConnectionState)
+      webrtcLogger.info('ICE connection state changed', { state: pc.iceConnectionState })
       
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
         this.handleConnectionFailure()
@@ -38,6 +41,7 @@ export class WebRTCService {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         this.clearConnectionTimeout()
         this.reconnectAttempts = 0
+        webrtcLogger.info('WebRTC connection established successfully')
       }
     }
     
@@ -48,7 +52,7 @@ export class WebRTCService {
     try {
       // Check if peer connection is still valid
       if (this.peerConnection.signalingState === 'closed') {
-        console.log('Peer connection is closed, recreating...')
+        webrtcLogger.info('Peer connection is closed, recreating connection')
         this.peerConnection = this.createPeerConnection()
       }
 
@@ -74,9 +78,10 @@ export class WebRTCService {
             this.peerConnection.addTrack(track, stream)
           })
         }
+        webrtcLogger.info('High quality media stream started successfully')
         return stream
       } catch (err) {
-        console.log('Falling back to standard quality:', err)
+        webrtcLogger.warn('High quality stream failed, falling back to standard quality', { error: err })
         // Fallback to standard quality
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: true, 
@@ -90,30 +95,37 @@ export class WebRTCService {
             this.peerConnection.addTrack(track, stream)
           })
         }
+        webrtcLogger.info('Standard quality media stream started successfully')
         return stream
       }
     } catch (error) {
-      console.error('Error accessing media devices:', error)
+      webrtcLogger.error('Failed to access media devices', { error })
       throw error
     }
   }
 
   private handleTrack(event: RTCTrackEvent) {
-    window.dispatchEvent(new CustomEvent('remote-stream', { 
-      detail: { stream: event.streams[0] } 
-    }))
+    webrtcLogger.info('Received remote track', { kind: event.track.kind })
+    this.remoteStream = event.streams[0]
+    window.dispatchEvent(new CustomEvent('remote-stream', { detail: this.remoteStream }))
   }
 
   private handleIceCandidate(event: RTCPeerConnectionIceEvent) {
     if (event.candidate) {
+      webrtcLogger.debug('Sending ICE candidate', { candidate: event.candidate.candidate })
       this.socket.emit('ice-candidate', event.candidate)
+    } else {
+      webrtcLogger.debug('ICE candidate gathering completed')
     }
   }
 
   private handleConnectionFailure() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      console.log(`Connection failed. Attempt ${this.reconnectAttempts} of ${this.maxReconnectAttempts} to reconnect...`)
+      webrtcLogger.warn('Connection failed, attempting reconnection', { 
+        attempt: this.reconnectAttempts, 
+        maxAttempts: this.maxReconnectAttempts 
+      })
       
       // Recreate peer connection
       this.cleanup(false) // Don't stop tracks
@@ -125,7 +137,7 @@ export class WebRTCService {
           try {
             this.peerConnection.addTrack(track, this.localStream!)
           } catch (error) {
-            console.error('Error re-adding track:', error)
+            webrtcLogger.error('Failed to re-add track during reconnection', { error })
           }
         })
       }
@@ -138,7 +150,7 @@ export class WebRTCService {
       // Try to create a new offer
       this.createOffer()
     } else {
-      console.log('Max reconnection attempts reached')
+      webrtcLogger.error('Max reconnection attempts reached, connection failed permanently')
       window.dispatchEvent(new CustomEvent('webrtc-failed'))
     }
   }
@@ -151,7 +163,9 @@ export class WebRTCService {
     this.connectionTimeout = setTimeout(() => {
       if (this.peerConnection.iceConnectionState !== 'connected' && 
           this.peerConnection.iceConnectionState !== 'completed') {
-        console.log('Connection timeout')
+        webrtcLogger.warn('Connection timeout reached', { 
+          currentState: this.peerConnection.iceConnectionState 
+        })
         this.handleConnectionFailure()
       }
     }, 15000)
@@ -174,9 +188,10 @@ export class WebRTCService {
       })
       await this.peerConnection.setLocalDescription(offer)
       this.socket.emit('offer', offer)
+      webrtcLogger.info('WebRTC offer created and sent successfully')
       return offer
     } catch (error) {
-      console.error('Error creating offer:', error)
+      webrtcLogger.error('Failed to create WebRTC offer', { error })
       throw error
     }
   }
@@ -188,9 +203,10 @@ export class WebRTCService {
       const answer = await this.peerConnection.createAnswer()
       await this.peerConnection.setLocalDescription(answer)
       this.socket.emit('answer', answer)
+      webrtcLogger.info('WebRTC offer handled and answer sent successfully')
       return answer
     } catch (error) {
-      console.error('Error handling offer:', error)
+      webrtcLogger.error('Failed to handle WebRTC offer', { error })
       throw error
     }
   }
@@ -198,8 +214,9 @@ export class WebRTCService {
   async handleAnswer(answer: RTCSessionDescriptionInit) {
     try {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+      webrtcLogger.info('WebRTC answer handled successfully')
     } catch (error) {
-      console.error('Error handling answer:', error)
+      webrtcLogger.error('Failed to handle WebRTC answer', { error })
       throw error
     }
   }
@@ -207,20 +224,44 @@ export class WebRTCService {
   async addIceCandidate(candidate: RTCIceCandidateInit) {
     try {
       await this.peerConnection.addIceCandidate(candidate)
+      webrtcLogger.debug('ICE candidate added successfully')
     } catch (error) {
-      console.error('Error adding ICE candidate:', error)
+      webrtcLogger.warn('Failed to add ICE candidate (non-critical)', { error })
       // Don't throw here, just log - this can happen normally sometimes
     }
   }
 
   cleanup(stopTracks = true) {
-    this.clearConnectionTimeout()
+    webrtcLogger.info('Cleaning up WebRTC connection', { stopTracks })
     
+    this.clearConnectionTimeout()
+
     if (stopTracks && this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop())
+      this.localStream.getTracks().forEach(track => {
+        track.stop()
+        webrtcLogger.debug('Stopped local media track', { kind: track.kind })
+      })
       this.localStream = null
     }
-    
-    this.peerConnection.close()
+
+    if (this.peerConnection && this.peerConnection.signalingState !== 'closed') {
+      this.peerConnection.close()
+      webrtcLogger.debug('Peer connection closed')
+    }
+
+    this.remoteStream = null
+    this.reconnectAttempts = 0
+  }
+
+  getLocalStream() {
+    return this.localStream
+  }
+
+  getRemoteStream() {
+    return this.remoteStream
+  }
+
+  getPeerConnection() {
+    return this.peerConnection
   }
 }

@@ -5,9 +5,7 @@ const nextConfig = {
     config.externals = [...config.externals]
     return config
   },
-  experimental: {
-    serverComponentsExternalPackages: []
-  }
+  serverExternalPackages: []
 }
 
 module.exports = nextConfig 
