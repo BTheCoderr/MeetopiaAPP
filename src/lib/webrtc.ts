@@ -46,6 +46,12 @@ export class WebRTCService {
 
   async startLocalStream() {
     try {
+      // Check if peer connection is still valid
+      if (this.peerConnection.signalingState === 'closed') {
+        console.log('Peer connection is closed, recreating...')
+        this.peerConnection = this.createPeerConnection()
+      }
+
       // Try high quality first
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -61,9 +67,13 @@ export class WebRTCService {
           }
         })
         this.localStream = stream
-        stream.getTracks().forEach(track => {
-          this.peerConnection.addTrack(track, stream)
-        })
+        
+        // Only add tracks if peer connection is not closed
+        if (this.peerConnection.signalingState !== 'closed') {
+          stream.getTracks().forEach(track => {
+            this.peerConnection.addTrack(track, stream)
+          })
+        }
         return stream
       } catch (err) {
         console.log('Falling back to standard quality:', err)
@@ -73,9 +83,13 @@ export class WebRTCService {
           audio: true 
         })
         this.localStream = stream
-        stream.getTracks().forEach(track => {
-          this.peerConnection.addTrack(track, stream)
-        })
+        
+        // Only add tracks if peer connection is not closed
+        if (this.peerConnection.signalingState !== 'closed') {
+          stream.getTracks().forEach(track => {
+            this.peerConnection.addTrack(track, stream)
+          })
+        }
         return stream
       }
     } catch (error) {
@@ -105,10 +119,14 @@ export class WebRTCService {
       this.cleanup(false) // Don't stop tracks
       this.peerConnection = this.createPeerConnection()
       
-      // Re-add tracks
-      if (this.localStream) {
+      // Re-add tracks only if we have them and peer connection is valid
+      if (this.localStream && this.peerConnection.signalingState !== 'closed') {
         this.localStream.getTracks().forEach(track => {
-          this.peerConnection.addTrack(track, this.localStream!)
+          try {
+            this.peerConnection.addTrack(track, this.localStream!)
+          } catch (error) {
+            console.error('Error re-adding track:', error)
+          }
         })
       }
       

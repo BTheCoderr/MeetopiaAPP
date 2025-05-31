@@ -11,36 +11,29 @@ export default function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Meetopia
-          </Link>
-          
-          <div className="flex gap-6">
-            <Link 
-              href="/" 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Home
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center">
+              <h1 className="text-2xl font-bold">
+                <span className="text-blue-600">Meet</span>
+                <span className="text-gray-900">opia</span>
+              </h1>
             </Link>
-            <Link 
-              href="/test-video" 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Test Video
-            </Link>
-            <Link 
-              href="/test-chat" 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Test Chat
-            </Link>
+            
+            <nav className="flex gap-6">
+              <Link 
+                href="/" 
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Home
+              </Link>
+            </nav>
           </div>
         </div>
       </header>
       
       {/* Main content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="flex-1">
         {children}
       </main>
       

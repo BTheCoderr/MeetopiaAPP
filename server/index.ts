@@ -54,6 +54,34 @@ app.use((req, res, next) => {
   next()
 })
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    message: 'Meetopia Signaling Server is running',
+    timestamp: new Date().toISOString(),
+    connections: io.engine.clientsCount,
+    waitingUsers: waitingUsers.size,
+    activeConnections: activeConnections.size / 2 // Divide by 2 since each connection is stored twice
+  })
+})
+
+// Status endpoint for monitoring
+app.get('/status', (req, res) => {
+  res.json({
+    server: 'Meetopia Signaling Server',
+    status: 'healthy',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    connections: {
+      total: io.engine.clientsCount,
+      waiting: waitingUsers.size,
+      active: activeConnections.size / 2
+    },
+    environment: process.env.NODE_ENV || 'development'
+  })
+})
+
 // Track connected clients and their status
 const connectedClients = new Map<string, any>()
 const waitingUsers = new Set<string>()
