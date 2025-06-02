@@ -254,9 +254,54 @@ export default function VideoChatPage() {
     setTimeout(() => setButtonCooldown(false), 2000)
   }, [setButtonCooldown])
 
-  // Handle start chat
-  const handleStartChat = useCallback(() => {
-    if (!socket?.connected || !stream || isSearching || buttonCooldown) return
+  // Handle start chat with media setup
+  const handleStartChat = useCallback(async () => {
+    if (!socket?.connected || isSearching || buttonCooldown) return
+    
+    // Request media permissions first if we don't have stream
+    if (!stream) {
+      try {
+        console.log('Requesting camera/microphone access...')
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            frameRate: { min: 20, ideal: 30 },
+            facingMode: "user"
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        })
+        
+        setStream(mediaStream)
+        setPermissionStatus({
+          camera: 'granted',
+          microphone: 'granted'
+        })
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = mediaStream
+        }
+        
+        console.log('✅ Camera/microphone access granted')
+      } catch (err: any) {
+        console.error('Camera/microphone access denied:', err)
+        if (err.name === 'NotAllowedError') {
+          setError('Camera/microphone access required. Please allow access and try again.')
+          setPermissionStatus({
+            camera: 'denied',
+            microphone: 'denied'
+          })
+        } else {
+          setError('Failed to access camera/microphone. Please check your device.')
+        }
+        return
+      }
+    }
+    
     setIsSearching(true)
     socket.emit('find-match', { type: 'video' })
   }, [socket, stream, isSearching, buttonCooldown])
@@ -403,101 +448,12 @@ export default function VideoChatPage() {
     }
   }, [isDragging])
 
-  // Media stream setup
+  // Media stream setup - now user-initiated
   useEffect(() => {
     let currentStream: MediaStream | null = null;
     
-    async function setupMedia() {
-      try {
-        // Try high quality first
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-              width: { min: 1280, ideal: 1920, max: 2560 },
-              height: { min: 720, ideal: 1080, max: 1440 },
-              frameRate: { min: 24, ideal: 30, max: 60 },
-              aspectRatio: { ideal: 1.7777777778 },
-              facingMode: "user"
-          },
-          audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            sampleRate: 48000,
-            sampleSize: 16,
-            channelCount: 1
-          }
-        })
-          console.log('Using high quality video settings')
-          currentStream = mediaStream
-          setStream(mediaStream)
-        } catch (err) {
-          console.log('Falling back to standard quality:', err)
-          // Fallback to standard quality
-          const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { min: 640, ideal: 1280, max: 1920 },
-              height: { min: 480, ideal: 720, max: 1080 },
-              frameRate: { min: 20, ideal: 24 },
-              aspectRatio: { ideal: 1.7777777778 },
-              facingMode: "user"
-            },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            }
-          })
-          console.log('Using standard quality video settings')
-          currentStream = mediaStream
-          setStream(mediaStream)
-        }
-
-        setPermissionStatus({
-          camera: 'granted',
-          microphone: 'granted'
-        })
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = currentStream
-        }
-      } catch (err: any) {
-        console.error('Error accessing media devices:', err)
-        // Try one last time with basic settings
-        try {
-          console.log('Falling back to basic quality')
-          const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-          })
-          console.log('Using basic quality video settings')
-        currentStream = mediaStream
-        setStream(mediaStream)
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = mediaStream
-        }
-        } catch (finalErr) {
-        if (err.name === 'NotAllowedError') {
-          setPermissionStatus({
-            camera: 'denied',
-            microphone: 'denied'
-          })
-          setError(
-            'Camera or microphone access denied. ' +
-            'Please allow access in your browser settings and refresh the page.'
-          )
-        } else {
-          setError(
-            'Failed to access camera/microphone. ' +
-            'Please check your device connections and try again.'
-          )
-          }
-        }
-      }
-    }
-
-    setupMedia()
+    // No automatic media setup - wait for user interaction
+    console.log('Video chat page loaded - camera access will be requested when user clicks "Make a Connection"')
 
     return () => {
       if (currentStream) {
@@ -1104,7 +1060,7 @@ export default function VideoChatPage() {
               isDarkTheme ? 'text-white/90 hover:bg-green-600/20' : 'text-black/90 hover:bg-green-600/10'
             } transition-all duration-300`}
           >
-            Make a Connection!
+            {!stream ? 'Allow Camera & Start' : 'Make a Connection!'}
           </button>
           <button 
             onClick={handleNextPerson}
@@ -1145,9 +1101,33 @@ export default function VideoChatPage() {
         />
         {!remoteStream && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className={`text-lg mb-4 ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>
-              Ready for your Meetopia adventure? Click "Make a Connection" to begin!
-            </p>
+            {error ? (
+              <div className="text-center p-6">
+                <div className={`text-red-500 text-lg mb-4`}>
+                  ⚠️ {error}
+                </div>
+                {error.includes('Camera/microphone access') && (
+                  <div className={`text-sm ${isDarkTheme ? 'text-white/60' : 'text-black/60'} mb-4`}>
+                    Please click the camera icon in your browser's address bar and allow access, then try again.
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setError(null)
+                    setPermissionStatus({ camera: 'pending', microphone: 'pending' })
+                  }}
+                  className={`px-4 py-2 rounded-lg ${
+                    isDarkTheme ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+                  } text-white font-medium transition-colors`}
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <p className={`text-lg mb-4 ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>
+                Ready for your Meetopia adventure? Click "Make a Connection" to begin!
+              </p>
+            )}
           </div>
         )}
 
