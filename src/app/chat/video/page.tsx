@@ -174,6 +174,7 @@ export default function VideoChatPage() {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const { peerConnection } = usePeerConnection(stream)
+  const currentPeerRef = useRef<string | null>(null)
   const {
     isReportModalOpen,
     handleReport,
@@ -500,16 +501,16 @@ export default function VideoChatPage() {
   useEffect(() => {
     if (!socket || !peerConnection || !stream) return
 
-    const handleUserFound = async ({ partnerId }: { partnerId: string }) => {
-      console.log('Found peer:', partnerId)
-      setCurrentPeer(partnerId)
+    const handleMatchFound = async ({ peerId }: { peerId: string }) => {
+      console.log('Found peer:', peerId)
+      setCurrentPeer(peerId)
       setIsSearching(false)
 
-      if (socket && socket.id && partnerId > socket.id) {
+      if (socket && socket.id && peerId > socket.id) {
         try {
           const offer = await peerConnection.createOffer()
           await peerConnection.setLocalDescription(offer)
-          socket.emit('call-user', { offer, to: partnerId })
+          socket.emit('offer', offer)
         } catch (err) {
           console.error('Error creating offer:', err)
           setError('Failed to establish video connection. Please try again.')
@@ -517,20 +518,20 @@ export default function VideoChatPage() {
       }
     }
 
-    const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit, from: string }) => {
+    const handleOffer = async (offer: RTCSessionDescriptionInit) => {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
         const answer = await peerConnection.createAnswer()
         await peerConnection.setLocalDescription(answer)
         if (socket) {
-          socket.emit('make-answer', { answer, to: from })
+          socket.emit('answer', answer)
         }
       } catch (err) {
-        console.error('Error handling call:', err)
+        console.error('Error handling offer:', err)
       }
     }
 
-    const handleAnswerMade = async ({ answer, from }: { answer: RTCSessionDescriptionInit, from: string }) => {
+    const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
       } catch (err) {
@@ -538,7 +539,7 @@ export default function VideoChatPage() {
       }
     }
 
-    const handleIceCandidate = ({ candidate, from }: { candidate: RTCIceCandidate, from: string }) => {
+    const handleIceCandidate = (candidate: RTCIceCandidate) => {
       try {
         if (peerConnection.remoteDescription) {
           peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
@@ -548,25 +549,32 @@ export default function VideoChatPage() {
       }
     }
 
-    const handlePeerLeft = () => {
-      console.log('Peer left')
+    const handleUserDisconnected = () => {
+      console.log('Peer disconnected')
       setCurrentPeer(null)
       setRemoteStream(null)
       setIsSearching(false)
     }
 
-    socket.on('user-found', handleUserFound)
-    socket.on('call-made', handleCallMade)
-    socket.on('answer-made', handleAnswerMade)
+    const handleWaiting = () => {
+      console.log('Waiting for another user...')
+      setIsSearching(true)
+    }
+
+    socket.on('match-found', handleMatchFound)
+    socket.on('offer', handleOffer)
+    socket.on('answer', handleAnswer)
     socket.on('ice-candidate', handleIceCandidate)
-    socket.on('peer-left', handlePeerLeft)
+    socket.on('user-disconnected', handleUserDisconnected)
+    socket.on('waiting', handleWaiting)
 
     return () => {
-      socket?.off('user-found', handleUserFound)
-      socket?.off('call-made', handleCallMade)
-      socket?.off('answer-made', handleAnswerMade)
+      socket?.off('match-found', handleMatchFound)
+      socket?.off('offer', handleOffer)
+      socket?.off('answer', handleAnswer)
       socket?.off('ice-candidate', handleIceCandidate)
-      socket?.off('peer-left', handlePeerLeft)
+      socket?.off('user-disconnected', handleUserDisconnected)
+      socket?.off('waiting', handleWaiting)
     }
   }, [peerConnection, stream])
 
@@ -593,11 +601,8 @@ export default function VideoChatPage() {
     }
 
     peerConnection.onicecandidate = (event) => {
-      if (event.candidate && currentPeer) {
-        socket?.emit('ice-candidate', {
-          candidate: event.candidate,
-          to: currentPeer
-        })
+      if (event.candidate) {
+        socket?.emit('ice-candidate', event.candidate)
       }
     }
 
@@ -811,6 +816,11 @@ export default function VideoChatPage() {
   // Clear messages when peer changes
   useEffect(() => {
     setMessages([])
+  }, [currentPeer])
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentPeerRef.current = currentPeer
   }, [currentPeer])
 
   // Update connection status based on peer connection state
