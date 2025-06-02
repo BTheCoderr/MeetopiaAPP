@@ -10,8 +10,8 @@ import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
 interface PictureInPictureProps {
-  pipRef: React.RefObject<HTMLDivElement | null>;
-  localVideoRef: React.RefObject<HTMLVideoElement | null>;
+  pipRef: React.RefObject<HTMLDivElement>;
+  localVideoRef: React.RefObject<HTMLVideoElement>;
   pipPosition: { x: number; y: number };
   isDragging: boolean;
   areControlsVisible: boolean;
@@ -126,6 +126,20 @@ export default function VideoChatPage() {
   const [isPeerConnected, setIsPeerConnected] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+
+  // Add connection quality monitoring state
+  const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'unknown'>('unknown')
+  const [connectionStats, setConnectionStats] = useState<{
+    bytesReceived: number;
+    bytesSent: number;
+    packetsLost: number;
+    rtt: number;
+  }>({
+    bytesReceived: 0,
+    bytesSent: 0,
+    packetsLost: 0,
+    rtt: 0
+  })
 
   // Add state for PiP position and size with default values
   const [pipPosition, setPipPosition] = useState({ x: 0, y: 140 })
@@ -862,6 +876,68 @@ export default function VideoChatPage() {
     }
   }, [peerConnection])
 
+  // Connection quality monitoring with Safari-specific logic
+  useEffect(() => {
+    if (!peerConnection || !isPeerConnected) return
+
+    const interval = setInterval(async () => {
+      try {
+        const stats = await peerConnection.getStats()
+        let bytesReceived = 0
+        let bytesSent = 0
+        let packetsLost = 0
+        let rtt = 0
+
+        stats.forEach(report => {
+          if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+            bytesReceived += report.bytesReceived || 0
+            packetsLost += report.packetsLost || 0
+          }
+          if (report.type === 'outbound-rtp' && report.mediaType === 'video') {
+            bytesSent += report.bytesSent || 0
+          }
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            rtt = report.currentRoundTripTime || 0
+          }
+        })
+
+        setConnectionStats({ bytesReceived, bytesSent, packetsLost, rtt })
+
+        // Determine connection quality
+        if (rtt < 0.1 && packetsLost < 10) {
+          setConnectionQuality('excellent')
+        } else if (rtt < 0.3 && packetsLost < 50) {
+          setConnectionQuality('good')
+        } else {
+          setConnectionQuality('poor')
+        }
+      } catch (err) {
+        console.warn('Failed to get connection stats:', err)
+        setConnectionQuality('unknown')
+      }
+    }, 2000)
+
+    // Safari-specific connection monitoring
+    if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+      const safariMonitor = setInterval(() => {
+        if (peerConnection.iceConnectionState === 'disconnected' || 
+            peerConnection.iceConnectionState === 'failed') {
+          console.log('Safari ICE connection issue detected, attempting restart')
+          if (peerConnection.restartIce) {
+            peerConnection.restartIce()
+          }
+        }
+      }, 10000) // Check every 10 seconds
+
+      return () => {
+        clearInterval(interval)
+        clearInterval(safariMonitor)
+      }
+    }
+
+    return () => clearInterval(interval)
+  }, [peerConnection, isPeerConnected])
+
   // Remote video controls
   const toggleRemoteAudio = () => {
     if (remoteVideoRef.current) {
@@ -937,6 +1013,26 @@ export default function VideoChatPage() {
               </span>
               <div className={`w-2 h-2 rounded-full ${isPeerConnected ? 'bg-green-500' : 'bg-red-500'}`} />
             </div>
+            
+            {/* Connection Quality Indicator */}
+            {isPeerConnected && (
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+                connectionQuality === 'excellent' ? 'bg-green-500/20' :
+                connectionQuality === 'good' ? 'bg-yellow-500/20' :
+                connectionQuality === 'poor' ? 'bg-red-500/20' : 'bg-gray-500/20'
+              }`}>
+                <span className={`text-xs ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>
+                  {connectionQuality === 'excellent' ? '🟢 Excellent' :
+                   connectionQuality === 'good' ? '🟡 Good' :
+                   connectionQuality === 'poor' ? '🔴 Poor' : '⚪ Unknown'}
+                </span>
+                {connectionStats.rtt > 0 && (
+                  <span className={`text-xs ${isDarkTheme ? 'text-white/60' : 'text-black/60'}`}>
+                    {Math.round(connectionStats.rtt * 1000)}ms
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
