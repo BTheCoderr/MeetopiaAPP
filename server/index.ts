@@ -82,6 +82,7 @@ const CORS_ORIGINS = [
   'https://meetopiaapp.onrender.com',
   'https://meetopia-80ipqfy65-bthecoders-projects.vercel.app',
   'https://meetopia-muc14ebpx-bthecoders-projects.vercel.app',
+  'https://meeetopia.netlify.app',
   'https://vercel.com',
   'https://*.vercel.app',
   'http://localhost:3001',
@@ -129,6 +130,12 @@ app.use(cors({
       return callback(null, true)
     }
     
+    // Allow any Netlify URLs
+    if (origin.includes('netlify.app')) {
+      logger.info('Allowing Netlify URL:', { origin })
+      return callback(null, true)
+    }
+    
     // Allow localhost for development
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true)
@@ -158,6 +165,12 @@ const io = new Server(httpServer, {
       // Allow any Vercel preview URLs
       if (origin.includes('vercel.app') || origin.includes('vercel.com')) {
         logger.info('Socket.IO allowing Vercel preview URL:', { origin })
+        return callback(null, true)
+      }
+      
+      // Allow any Netlify URLs
+      if (origin.includes('netlify.app')) {
+        logger.info('Socket.IO allowing Netlify URL:', { origin })
         return callback(null, true)
       }
       

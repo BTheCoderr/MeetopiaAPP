@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: 3003
       - key: CORS_ORIGINS
-        value: https://meetopia.vercel.app,https://meetopiaapp.onrender.com,https://meetopia-80ipqfy65-bthecoders-projects.vercel.app
+        value: https://meetopia.vercel.app,https://meetopiaapp.onrender.com,https://meetopia-80ipqfy65-bthecoders-projects.vercel.app,https://meeetopia.netlify.app
     healthCheckPath: /
     autoDeploy: true
     disk:
