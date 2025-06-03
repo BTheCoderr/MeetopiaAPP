@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Permissions-Policy" content="camera=(self), microphone=(self), display-capture=(self)">
+    <title>Meetopia Camera Test - Port 3001</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+            width: 100%;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        video {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 15px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .success {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: white;
+            border: none;
+        }
+        .error {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+        }
+        .info {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+        }
+        .port-info {
+            background: linear-gradient(45deg, #a8edea, #fed6e3);
+            color: #333;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🎥 Meetopia</h1>
+        </div>
+        
+        <div class="port-info">
+            🚀 Testing on Port 3001 - Fresh Start!
+        </div>
+        
+        <div class="info status">
+            <strong>Instructions:</strong><br>
+            1. Click "Request Permissions" below<br>
+            2. When prompted, click "Allow" for camera and microphone<br>
+            3. Your camera should appear below
+        </div>
+        
+        <button id="requestBtn" onclick="requestPermissions()">🚀 Request Camera & Microphone</button>
+        <button id="stopBtn" onclick="stopStream()" style="display:none; background: linear-gradient(45deg, #ff6b6b, #ee5a24);">⏹️ Stop Camera</button>
+        
+        <div id="status"></div>
+        <video id="video" autoplay playsinline muted style="display:none;"></video>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/chat/video" style="color: #667eea; text-decoration: none; font-weight: bold;">
+                ← Back to Video Chat
+            </a>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const requestBtn = document.getElementById('requestBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        function showStatus(message, type = 'info') {
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function requestPermissions() {
+            try {
+                showStatus('🔄 Requesting camera and microphone access on port 3001...', 'info');
+                
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia is not supported in this browser');
+                }
+
+                console.log('About to request media permissions on port 3001...');
+                
+                // Request permissions
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                console.log('SUCCESS! Got media stream on port 3001:', stream);
+                
+                // Show video
+                video.srcObject = stream;
+                video.style.display = 'block';
+                
+                // Update UI
+                requestBtn.style.display = 'none';
+                stopBtn.style.display = 'block';
+                
+                const videoTracks = stream.getVideoTracks();
+                const audioTracks = stream.getAudioTracks();
+                
+                showStatus(`✅ SUCCESS! Camera and microphone working on port 3001!<br>
+                           📹 Video tracks: ${videoTracks.length}<br>
+                           🎤 Audio tracks: ${audioTracks.length}<br>
+                           🎯 Now go to the video chat page!`, 'success');
+                
+            } catch (error) {
+                console.error('Permission request failed on port 3001:', error);
+                
+                let message = `❌ Failed: ${error.message}`;
+                
+                if (error.name === 'NotAllowedError') {
+                    message += '<br><br>💡 <strong>Try this:</strong><br>';
+                    message += '• Look for a camera icon 📹 in your address bar<br>';
+                    message += '• Click "Allow" for camera and microphone<br>';
+                    message += '• If no prompt appears, we need to try Chrome with special flags';
+                } else if (error.name === 'NotFoundError') {
+                    message += '<br><br>🔌 No camera or microphone detected. Please check your device connections.';
+                }
+                
+                showStatus(message, 'error');
+            }
+        }
+
+        function stopStream() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.style.display = 'none';
+                requestBtn.style.display = 'block';
+                stopBtn.style.display = 'none';
+                showStatus('⏹️ Camera stopped', 'info');
+            }
+        }
+
+        // Check initial permissions status
+        showStatus('🎯 Ready to test on port 3001!<br>Current URL: ' + window.location.href, 'info');
+        
+        if ('permissions' in navigator) {
+            Promise.all([
+                navigator.permissions.query({name: 'camera'}),
+                navigator.permissions.query({name: 'microphone'})
+            ]).then(results => {
+                const [camera, microphone] = results;
+                showStatus(`Current permissions on port 3001:<br>📹 Camera: ${camera.state}<br>🎤 Microphone: ${microphone.state}`, 'info');
+            }).catch(err => {
+                console.log('Could not check permissions:', err);
+            });
+        }
+    </script>
+</body>
+</html> 
