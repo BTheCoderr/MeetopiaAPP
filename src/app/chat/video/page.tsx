@@ -336,9 +336,15 @@ export default function VideoChatPage() {
       return
     }
     
-    // Clear any stale peer state before starting new search
-    if (currentPeer) {
-      console.log('🧹 Clearing stale peer state before new search')
+    // CRITICAL FIX: Don't clear peer state if we already have an active connection
+    if (currentPeer && isPeerConnected && remoteStream) {
+      console.log('⚠️ Already connected to peer - ignoring duplicate start chat request')
+      return
+    }
+    
+    // Only clear stale peer state if connection is actually broken
+    if (currentPeer && (!isPeerConnected || !remoteStream)) {
+      console.log('🧹 Clearing stale peer state before new search (connection was broken)')
       setCurrentPeer(null)
       setRemoteStream(null)
       setIsPeerConnected(false)
@@ -417,7 +423,7 @@ export default function VideoChatPage() {
       searchTimeoutRef.current = null
     }, 20000) // Increased timeout to 20 seconds for more patience
     
-  }, [socket, stream, isSearching, buttonCooldown, currentPeer])
+  }, [socket, stream, isSearching, buttonCooldown, currentPeer, isPeerConnected, remoteStream])
 
   // Handle next person
   const handleNextPerson = useCallback(() => {
@@ -2091,21 +2097,29 @@ export default function VideoChatPage() {
                 startCooldown()
               }
             }}
-            disabled={!isSocketConnected || isSearching || buttonCooldown || !stream}
+            disabled={!isSocketConnected || isSearching || buttonCooldown || !stream || !!(currentPeer && isPeerConnected && remoteStream)}
             className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 transform ${
               isSearching 
                 ? isDarkTheme 
                   ? 'bg-white/10 text-white/60 border-white/20 animate-pulse' 
                   : 'bg-black/10 text-black/60 border-black/20 animate-pulse'
-                : isDarkTheme 
-                  ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
-                  : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
+                : (currentPeer && isPeerConnected && remoteStream)
+                  ? isDarkTheme 
+                    ? 'bg-green-500/20 text-green-300 border-green-400/30' 
+                    : 'bg-green-500/20 text-green-700 border-green-600/30'
+                  : isDarkTheme 
+                    ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
+                    : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
             } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none backdrop-blur-md shadow-sm border flex-shrink-0 min-w-[120px] sm:min-w-[140px] text-center`}
           >
             {isSearching ? (
               <span className="flex items-center justify-center gap-2">
                 <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                 Searching...
+              </span>
+            ) : (currentPeer && isPeerConnected && remoteStream) ? (
+              <span className="flex items-center justify-center gap-2">
+                ✓ Connected
               </span>
             ) : 'Make a connect'}
           </button>
@@ -2394,7 +2408,7 @@ export default function VideoChatPage() {
             console.error('💥 Remote video error:', e)
           }}
         />
-        {!remoteStream && (
+        {(!remoteStream && !isSearching && !(currentPeer && isPeerConnected)) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
             <p className={`text-base sm:text-lg mb-4 text-center ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>
               Ready for your Meetopia adventure? Click "Make a Connection" to begin!
