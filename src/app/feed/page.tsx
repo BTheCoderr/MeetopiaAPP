@@ -66,7 +66,7 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="ml-20 p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Meetopia</h1>
+          <img src="/meetopia.png" alt="Meetopia" className="h-8 w-auto" />
           <div className="w-10 h-10 bg-gray-700 rounded-full"></div>
         </div>
 

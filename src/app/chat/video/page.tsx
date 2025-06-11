@@ -6,6 +6,7 @@ import ChatMenu from '@/components/ChatMenu'
 import ReportModal from '@/components/ReportModal'
 import Tutorial from '@/components/Tutorial'
 import { useReporting } from '@/hooks/useReporting'
+import Logo from '@/components/Logo'
 import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
@@ -174,7 +175,13 @@ export default function VideoChatPage() {
   const [startDragPosition, setStartDragPosition] = useState({ x: 0, y: 0 })
   const [areControlsVisible, setAreControlsVisible] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isDarkTheme, setIsDarkTheme] = useState(false)
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('meetopia-theme')
+      return savedTheme === 'dark'
+    }
+    return false
+  })
   const [messages, setMessages] = useState<Array<{
     id: string;
     text: string;
@@ -188,6 +195,11 @@ export default function VideoChatPage() {
   const [hasSeenTutorial, setHasSeenTutorial] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
   const [hasGrantedAudioPermission, setHasGrantedAudioPermission] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [previousPeers, setPreviousPeers] = useState<Set<string>>(new Set())
+  
+  // CRITICAL FIX: Add ref to track current active peer connection
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
 
   // Remote stream state indicators
   const [isRemoteCameraOff, setIsRemoteCameraOff] = useState(false)
@@ -195,6 +207,8 @@ export default function VideoChatPage() {
 
   // Connection state and quality monitoring
   const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'connecting'>('connecting')
+  const [peerConnectionStatus, setPeerConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
+  const [shouldShowConnected, setShouldShowConnected] = useState(false)
   const [connectionStats, setConnectionStats] = useState({
     bytesReceived: 0,
     bytesSent: 0,
@@ -220,11 +234,25 @@ export default function VideoChatPage() {
     openReportModal,
     closeReportModal
   } = useReporting()
+  
+  // Sync peerConnection state with ref
+  useEffect(() => {
+    peerConnectionRef.current = peerConnection
+  }, [peerConnection])
 
   // ✅ Now we can safely do conditional rendering after all hooks are declared
   useEffect(() => {
     setIsClient(true)
     setIsMounted(true)
+    
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   // ✅ ALL useEffect hooks MUST be declared before early return
@@ -302,14 +330,33 @@ export default function VideoChatPage() {
       clearTimeout(controlsTimeoutRef.current)
     }
     
-    controlsTimeoutRef.current = setTimeout(() => {
-      setAreControlsVisible(false)
-      // Only auto-hide chat if user hasn't manually toggled it off
-      if (!isChatUserToggled) {
-        setIsChatOpen(false)
-      }
-    }, 7000)
-  }, [isChatUserToggled])
+    // CRITICAL FIX: Keep controls permanently visible when:
+    // - On mobile devices
+    // - Currently connected to someone  
+    // - Searching for someone
+    // - Button cooldown active
+    // - User has manually interacted with chat
+    const shouldKeepVisible = isMobile || 
+                             !!currentPeer || 
+                             isSearching || 
+                             buttonCooldown || 
+                             isChatUserToggled
+    
+    if (!shouldKeepVisible) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        // CRITICAL: Never hide controls if user might need to search for someone
+        // Only hide when actively connected to someone AND not searching AND not on mobile
+        if (currentPeer && isPeerConnected && !isSearching && !buttonCooldown && !isMobile) {
+          setAreControlsVisible(false)
+          // Only auto-hide chat if user hasn't manually toggled it
+          if (!isChatUserToggled) {
+            setIsChatOpen(false)
+          }
+        }
+        // If no peer or not connected, keep controls visible so user can start searching
+      }, 12000) // Extended timeout for better UX
+    }
+  }, [isChatUserToggled, isMobile, isSearching, buttonCooldown, currentPeer])
 
   // Start cooldown
   const startCooldown = useCallback(() => {
@@ -342,12 +389,26 @@ export default function VideoChatPage() {
       return
     }
     
-    // Only clear stale peer state if connection is actually broken
-    if (currentPeer && (!isPeerConnected || !remoteStream)) {
-      console.log('🧹 Clearing stale peer state before new search (connection was broken)')
+    // ENHANCED: Clear stale connections before new search
+    if (currentPeer || peerConnection) {
+      console.log('🧹 Cleaning up stale connections before new search')
+      
+      // Close any existing peer connection
+      if (peerConnection && peerConnection.signalingState !== 'closed') {
+        console.log('🔒 Closing existing peer connection')
+        peerConnection.close()
+      }
+      
+      // Clear queued ICE candidates from previous connections
+      queuedCandidatesRef.current = []
+      
+      // Clear all connection state
       setCurrentPeer(null)
       setRemoteStream(null)
       setIsPeerConnected(false)
+      setPeerConnectionStatus('disconnected')
+      setShouldShowConnected(false)
+      setMessages([])
     }
     
     console.log('🔍 Starting chat search...')
@@ -360,8 +421,8 @@ export default function VideoChatPage() {
       searchTimeoutRef.current = null
     }
     
-    // Emit find-match with enhanced acknowledgment handling
-    socket.emit('find-match', { type: 'video' }, (response: any) => {
+    // Emit find-match with enhanced acknowledgment handling and avoid previous peers
+    socket.emit('find-match', { type: 'video', avoidPeers: Array.from(previousPeers) }, (response: any) => {
       console.log('🔍 Server response received:', response)
       
       if (response && response.status === 'waiting') {
@@ -425,71 +486,137 @@ export default function VideoChatPage() {
     
   }, [socket, stream, isSearching, buttonCooldown, currentPeer, isPeerConnected, remoteStream])
 
-  // Handle next person
+  // Handle next person - CRITICAL FIXES for "Keep Exploring" functionality
   const handleNextPerson = useCallback(() => {
-    // Enhanced guards
+    // Enhanced guards with better logging
     if (!socket?.connected || !stream || buttonCooldown || isSearching) {
       console.log('⚠️ Next person blocked:', { 
         socketConnected: socket?.connected, 
         hasStream: !!stream, 
         buttonCooldown,
-        isSearching
+        isSearching,
+        currentPeer: !!currentPeer
       })
       return
     }
     
     console.log('🔄 Looking for next person...')
     
-    // Clean disconnect from current peer
-    if (currentPeer && peerConnection) {
-      console.log('🧹 Cleaning up current connection before next')
-      
-      // Close peer connection
-      peerConnection.close()
-      
-      // Clear remote stream
-      setRemoteStream(null)
-      
-      // Clear current peer
-      setCurrentPeer(null)
-      
-      // Reset connection state
-      setIsPeerConnected(false)
-      
-      // Clear messages
-      setMessages([])
+    // CRITICAL: Ensure controls stay visible during transition and after
+    setAreControlsVisible(true)
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current)
+      controlsTimeoutRef.current = null
     }
     
-    // Add small delay to ensure cleanup is complete
-    setTimeout(() => {
-      // Now search for next user with the same handleStartChat logic
-      if (!isSearching && socket?.connected && !currentPeer) {
-        setIsSearching(true)
-        
-        socket.emit('find-match', { type: 'video' }, (response: any) => {
-          console.log('🔍 Next person server response:', response)
-          if (response && response.status === 'waiting') {
-            console.log('✅ Added to waiting list for next person')
-          } else if (response && response.status === 'matched') {
-            console.log('✅ Immediate next match found')
-            setIsSearching(false)
-          } else if (response && response.status === 'error') {
-            console.error('❌ Error finding next person:', response.message)
-            setIsSearching(false)
-            setError(`Failed to find next person: ${response.message}`)
-          }
-        })
-        
-        // Set timeout for next person search too
-        searchTimeoutRef.current = setTimeout(() => {
-          if (isSearching) {
-            setIsSearching(false)
-            console.log('🔄 Next person search timeout')
-          }
-          searchTimeoutRef.current = null
-        }, 15000)
+    // Keep controls visible throughout the entire search process
+    const keepControlsVisible = () => {
+      setAreControlsVisible(true)
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current)
+        controlsTimeoutRef.current = null
       }
-    }, 500) // Increased delay to ensure proper cleanup
+    }
+    
+    // Immediate visibility
+    keepControlsVisible()
+    
+    // Ensure they stay visible during search
+    setTimeout(keepControlsVisible, 100)
+    setTimeout(keepControlsVisible, 500)
+    setTimeout(keepControlsVisible, 1000)
+    
+    // ENHANCED: More thorough cleanup before next search
+    if (currentPeer || peerConnection) {
+      console.log('🧹 Cleaning up current connection before next')
+      
+      // Notify server we're disconnecting from current peer
+      if (socket?.connected && currentPeer) {
+        socket.emit('peer-disconnect', { 
+          reason: 'partner-searching-new',
+          peerId: currentPeer 
+        })
+      }
+      
+      // Close all connections thoroughly
+      if (peerConnection && peerConnection.signalingState !== 'closed') {
+        console.log('🔒 Closing peer connection for next person')
+        peerConnection.close()
+      }
+      
+      // Clear queued ICE candidates from previous connection
+      queuedCandidatesRef.current = []
+      
+      // Clear all peer-related state
+      setRemoteStream(null)
+      setCurrentPeer(null)
+      setIsPeerConnected(false)
+      setPeerConnectionStatus('disconnected')
+      setShouldShowConnected(false)
+      setMessages([])
+      setError(null)
+      
+      // Clear connection quality indicators
+      setConnectionQuality('connecting')
+      setIsRemoteCameraOff(false)
+      setIsRemoteAudioOff(false)
+    }
+    
+    // IMPROVED: Better timing and state management
+    setTimeout(() => {
+      // Double-check state before proceeding
+      if (isSearching) {
+        console.log('⚠️ Already searching, skipping duplicate next person request')
+        return
+      }
+      
+      console.log('🔍 Starting fresh search for next person...')
+      setIsSearching(true)
+      setError(null)
+      
+      // CRITICAL: Keep controls visible during search
+      setAreControlsVisible(true)
+      
+      // Clear any existing search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+        searchTimeoutRef.current = null
+      }
+      
+      // Emit find-match with better error handling and avoid previous peers
+      socket.emit('find-match', { type: 'video', avoidPeers: Array.from(previousPeers) }, (response: any) => {
+        console.log('🔍 Next person server response:', response)
+        
+        if (response && response.status === 'waiting') {
+          console.log('✅ Added to waiting list for next person')
+          console.log('📊 Position:', response.position || 'unknown')
+          
+        } else if (response && response.status === 'matched') {
+          console.log('✅ Immediate next match found')
+          setIsSearching(false)
+          
+        } else if (response && response.status === 'error') {
+          console.error('❌ Error finding next person:', response.message)
+          setIsSearching(false)
+          setError(`Failed to find next person: ${response.message}`)
+          
+        } else {
+          console.warn('⚠️ Unexpected response for next person:', response)
+          // Don't immediately fail - server might still be processing
+        }
+      })
+      
+      // Set timeout for next person search
+      searchTimeoutRef.current = setTimeout(() => {
+        if (isSearching) {
+          console.log('🔄 Next person search timeout - resetting state')
+          setIsSearching(false)
+          setError('Search for next person timed out. Please try again.')
+        }
+        searchTimeoutRef.current = null
+      }, 15000)
+      
+    }, 750) // Longer delay for more thorough cleanup
     
     startCooldown()
   }, [socket, stream, buttonCooldown, currentPeer, peerConnection, startCooldown, isSearching])
@@ -551,10 +678,8 @@ export default function VideoChatPage() {
           handleStartChat()
         }
         
-        // Hide controls after action
-        setTimeout(() => {
-          setAreControlsVisible(false)
-        }, 2000)
+        // Keep controls visible
+        setAreControlsVisible(true)
       }
     }
 
@@ -917,8 +1042,18 @@ export default function VideoChatPage() {
       } else {
         console.log('Page visible - checking connection')
         if (!newSocket.connected) {
-          console.log('Reconnecting after page became visible')
-          newSocket.connect()
+          // Add throttling to prevent reconnection spam
+          const lastReconnectAttempt = sessionStorage.getItem('lastReconnectAttempt')
+          const now = Date.now()
+          
+          // Only attempt reconnection once every 5 seconds
+          if (!lastReconnectAttempt || (now - parseInt(lastReconnectAttempt)) > 5000) {
+            console.log('Reconnecting after page became visible')
+            sessionStorage.setItem('lastReconnectAttempt', now.toString())
+            newSocket.connect()
+          } else {
+            console.log('Reconnection throttled - too soon since last attempt')
+          }
         }
         // Safari-specific: Re-establish peer connection if needed
         if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
@@ -1034,7 +1169,7 @@ export default function VideoChatPage() {
         setCurrentPeer(null)
         setRemoteStream(null)
         setIsSearching(false)
-        setError('Your partner has disconnected. Click "Make a connect" to start again.')
+        setError('Your partner has disconnected. Click "Keep Exploring!" to start again.')
       } else if (data.canReconnect) {
         console.log('🔄 Peer temporarily disconnected - waiting for reconnection')
         setError('Your partner is reconnecting...')
@@ -1043,7 +1178,7 @@ export default function VideoChatPage() {
         setCurrentPeer(null)
         setRemoteStream(null)
         setIsSearching(false)
-        setError('Your partner has disconnected. Click "Make a connect" to start again.')
+        setError('Your partner has disconnected. Click "Keep Exploring!" to start again.')
       }
     })
 
@@ -1093,20 +1228,23 @@ export default function VideoChatPage() {
     })
 
     socket.on('ice-candidate', async (candidate) => {
-      if (!peerConnection) {
-        console.warn('Received ICE candidate but no peer connection available - queuing for later')
+      // CRITICAL FIX: Use ref to get current active peer connection instead of stale state
+      const currentPeerConnection = peerConnectionRef.current
+      
+      if (!currentPeerConnection || currentPeerConnection.signalingState === 'closed') {
+        console.warn('Received ICE candidate but no active peer connection available - queuing for later')
         queuedCandidatesRef.current.push(candidate)
         return
       }
 
-      if (!peerConnection.remoteDescription) {
+      if (!currentPeerConnection.remoteDescription) {
         console.warn('Received ICE candidate but remote description not set - queuing for later')
         queuedCandidatesRef.current.push(candidate)
         return
       }
 
       try {
-        await peerConnection.addIceCandidate(candidate)
+        await currentPeerConnection.addIceCandidate(candidate)
         console.log('✅ ICE candidate added successfully')
       } catch (error) {
         console.error('❌ Error adding ICE candidate:', error)
@@ -1114,17 +1252,28 @@ export default function VideoChatPage() {
     })
 
     socket.on('offer', async (offer) => {
-      if (!peerConnection) {
-        console.error('Received offer but no peer connection available')
-        return
+      // CRITICAL FIX: Use ref to get current active peer connection instead of stale state
+      let currentPeerConnection = peerConnectionRef.current
+      
+      if (!currentPeerConnection || currentPeerConnection.signalingState === 'closed') {
+        console.log('⚠️ Received offer but no active peer connection available - creating fresh connection')
+        // Create a fresh connection to handle the incoming offer
+        const freshConnection = createFreshConnection()
+        if (!freshConnection) {
+          console.error('❌ Failed to create fresh peer connection for offer')
+          return
+        }
+        // Update the ref to point to the new connection
+        peerConnectionRef.current = freshConnection
+        currentPeerConnection = freshConnection
       }
 
       try {
-        console.log('✅ Received WebRTC offer from peer')
-        await peerConnection.setRemoteDescription(offer)
-        const answer = await peerConnection.createAnswer()
-        await peerConnection.setLocalDescription(answer)
-        socket.emit('answer', answer, currentPeer)
+        console.log('✅ Processing WebRTC offer from peer')
+        await currentPeerConnection.setRemoteDescription(offer)
+        const answer = await currentPeerConnection.createAnswer()
+        await currentPeerConnection.setLocalDescription(answer)
+        socket.emit('answer', answer, currentPeerRef.current)
         console.log('✅ Sent WebRTC answer to peer')
       } catch (error) {
         console.error('❌ Error handling WebRTC offer:', error)
@@ -1135,114 +1284,176 @@ export default function VideoChatPage() {
     // Add the missing match-found event handler that the server actually emits
     socket.on('match-found', async (data: any) => {
       console.log('🎉 Match found via match-found event! Data:', data)
+      
+      // Check if we've already matched with this peer before
+      if (previousPeers.has(data.peerId)) {
+        console.log('🔄 Already matched with this peer before, requesting new match...')
+        // Request a new match instead of connecting to same person
+        socket.emit('find-match', { type: 'video', avoidPeers: Array.from(previousPeers) })
+        return
+      }
+      
+      // Add this peer to our previous peers list
+      setPreviousPeers(prev => new Set(Array.from(prev).concat(data.peerId)))
+      
+      currentPeerRef.current = data.peerId
       setCurrentPeer(data.peerId)
       setIsSearching(false)
       
+      // Clear search timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = null
-        console.log('✅ Search timeout cleared - match found')
       }
-
-      if (socket && socket.id && data.peerId > socket.id && peerConnection) {
-        console.log('Creating offer for new match')
+      
+      // Ensure we have a fresh peer connection ready
+      if (!peerConnectionRef.current || peerConnectionRef.current.signalingState === 'closed') {
+        console.log('🔄 Creating fresh peer connection for new match')
+        const freshConnection = createFreshConnection()
+        if (freshConnection) {
+          peerConnectionRef.current = freshConnection
+        }
+      }
+      
+      // Clear any error messages 
+      setError(null)
+      setShouldShowConnected(false)
+      
+      // Make sure controls are visible when matched
+      setAreControlsVisible(true)
+      
+      // CRITICAL: If we have a higher socket ID, we initiate the call
+      if (socket && socket.id && data.peerId && socket.id > data.peerId) {
+        console.log('🎯 We initiate call (higher socket ID)')
         try {
-          const offer = await peerConnection.createOffer()
-          await peerConnection.setLocalDescription(offer)
-          socket.emit('offer', offer, data.peerId)
-          console.log('✅ Sent WebRTC offer to matched peer')
+          const currentConnection = peerConnectionRef.current
+          if (currentConnection) {
+            const offer = await currentConnection.createOffer()
+            await currentConnection.setLocalDescription(offer)
+            socket.emit('offer', offer, data.peerId)
+            console.log('✅ Sent WebRTC offer to matched peer')
+          }
         } catch (error) {
           console.error('❌ Error creating offer for match:', error)
           setError('Failed to create connection offer')
         }
+      } else {
+        console.log('⏳ Waiting for peer to initiate call (lower socket ID)')
       }
-    })
-
-    socket.on('userFound', async ({ peerId }: { peerId: string }) => {
-      console.log('Found peer:', peerId)
-      setCurrentPeer(peerId)
-      setIsSearching(false)
       
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-        searchTimeoutRef.current = null
-        console.log('✅ Search timeout cleared - match found')
-      }
+      console.log('✅ Ready for WebRTC negotiation with peer:', data.peerId)
+    })
 
-      if (socket && socket.id && peerId > socket.id && peerConnection) {
-        console.log('Using existing peer connection for offer')
-        try {
-          const offer = await peerConnection.createOffer()
-          await peerConnection.setLocalDescription(offer)
-          socket.emit('offer', offer, peerId)
-          console.log('✅ Sent WebRTC offer to peer')
-        } catch (error) {
-          console.error('❌ Error creating offer:', error)
-          setError('Failed to create connection offer')
+    // Handle peer leaving
+    socket.on('peer-left', (data: any) => {
+      console.log('👋 Peer left:', data)
+      
+      // CRITICAL: Use ref to get current peer ID to avoid stale state
+      const currentPeerId = currentPeerRef.current
+      
+      if (currentPeerId && currentPeerId === data.peerId) {
+        console.log('🧹 Cleaning up connection for departed peer')
+        
+        // Close peer connection
+        if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
+          peerConnectionRef.current.close()
         }
+        
+        // Clear queued ICE candidates
+        queuedCandidatesRef.current = []
+        
+        // Reset all connection state using refs and setters
+        currentPeerRef.current = null
+        setCurrentPeer(null)
+        setRemoteStream(null)
+        setIsPeerConnected(false)
+        setPeerConnectionStatus('disconnected')
+        setShouldShowConnected(false)
+        setMessages([])
+        setIsSearching(false)
+        
+        // Clear connection quality indicators
+        setConnectionQuality('connecting')
+        setIsRemoteCameraOff(false)
+        setIsRemoteAudioOff(false)
+        
+        // Show user-friendly message
+        setError('Your partner has disconnected. Click "Keep Exploring!" to find someone new!')
       }
     })
 
-    socket.on('waiting', () => {
-      console.log('Waiting for a match...')
+    // **CRITICAL**: Handle waiting state properly
+    socket.on('waiting', (data: any) => {
+      console.log('⏳ Waiting for match...', data)
       setIsSearching(true)
-    })
-
-    socket.on('matched', async (data: any) => {
-      console.log('🎉 Match found! Data:', data)
-      setCurrentPeer(data.peerId)
-      setIsSearching(false)
+      setError(null)
       
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-        searchTimeoutRef.current = null
-        console.log('✅ Search timeout cleared - match found')
-      }
+      // Keep controls visible while waiting
+      setAreControlsVisible(true)
+    })
 
-      if (socket && socket.id && data.peerId > socket.id && peerConnection) {
-        console.log('Using existing peer connection for match')
-        try {
-          const offer = await peerConnection.createOffer()
-          await peerConnection.setLocalDescription(offer)
-          socket.emit('offer', offer, data.peerId)
-          console.log('✅ Sent WebRTC offer to peer')
-        } catch (error) {
-          console.error('❌ Error creating offer:', error)
-          setError('Failed to create connection offer')
-        }
+    // Handle connection status updates
+    socket.on('connection-status', (data: { status: string, hasVideo: boolean, hasAudio: boolean }) => {
+      console.log('📡 Connection status update:', data)
+      
+      if (data.status === 'connected') {
+        setIsPeerConnected(true)
+        setPeerConnectionStatus('connected')
+        setShouldShowConnected(true)
+        setConnectionQuality('good')
+        
+        // Update remote media state
+        setIsRemoteCameraOff(!data.hasVideo)
+        setIsRemoteAudioOff(!data.hasAudio)
+        
+        // Clear any error messages
+        setError(null)
+        
+        console.log('✅ Peer connection established successfully')
+      } else if (data.status === 'connecting') {
+        setPeerConnectionStatus('connecting')
+        setConnectionQuality('connecting')
+      } else if (data.status === 'disconnected') {
+        setIsPeerConnected(false)
+        setPeerConnectionStatus('disconnected')
+        setConnectionQuality('connecting')
       }
     })
 
-    socket.on('peer-left', () => {
-      console.log('Peer left')
-      setCurrentPeer(null)
-      setRemoteStream(null)
+    // Handle server errors
+    socket.on('error', (data: { message: string }) => {
+      console.error('🚨 Server error:', data.message)
+      setError(`Server error: ${data.message}`)
       setIsSearching(false)
-      setIsPeerConnected(false)
-      setError('Your partner has disconnected. Click "Make a connect" to start again.')
     })
 
+    // Cleanup function
     return () => {
       socket.off('answer')
       socket.off('ice-candidate')
-      socket.off('offer')
-      socket.off('userFound')
-      socket.off('waiting')
-      socket.off('matched')
+      socket.off('offer') 
       socket.off('match-found')
       socket.off('peer-left')
+      socket.off('waiting')
+      socket.off('connection-status')
+      socket.off('error')
     }
-  }, [socket, stream, peerConnection, currentPeer])
+  }, [socket, stream, peerConnection, createFreshConnection]) // ONLY essential dependencies
 
   // Consolidated track handling - Fixed to properly handle remote video display with Safari compatibility
   useEffect(() => {
     if (!peerConnection) return
 
     // Process any queued ICE candidates when peer connection is ready
-    if (queuedCandidatesRef.current.length > 0 && peerConnection.remoteDescription) {
+    if (queuedCandidatesRef.current.length > 0 && peerConnection.remoteDescription && peerConnection.signalingState !== 'closed') {
       console.log(`📦 Processing ${queuedCandidatesRef.current.length} queued ICE candidates`)
       queuedCandidatesRef.current.forEach(async (candidate) => {
         try {
+          // Double-check connection state before adding candidate
+          if (peerConnection.signalingState === 'closed') {
+            console.log('⚠️ Skipping ICE candidate - connection closed')
+            return
+          }
           await peerConnection.addIceCandidate(candidate)
           console.log('✅ Queued ICE candidate added successfully')
         } catch (error) {
@@ -1253,14 +1464,39 @@ export default function VideoChatPage() {
     }
 
     peerConnection.onconnectionstatechange = () => {
-      console.log('Peer connection state:', peerConnection.connectionState)
-      const isConnected = peerConnection.connectionState === 'connected'
+      const state = peerConnection.connectionState
+      console.log('🔗 Peer connection state changed:', state)
+      const isConnected = state === 'connected'
       setIsPeerConnected(isConnected)
+      setPeerConnectionStatus(state === 'connected' ? 'connected' : state === 'connecting' ? 'connecting' : 'disconnected')
       
-      // Handle disconnection with enhanced recovery
-      if (peerConnection.connectionState === 'disconnected') {
+      if (state === 'connected') {
+        console.log('✅ Peer connection established')
+        setConnectionQuality('excellent')
+        setShouldShowConnected(true)
+        
+        // Notify the peer that we're connected
+        if (socket && currentPeerRef.current) {
+          socket.emit('connection-status', { 
+            peerId: currentPeerRef.current, 
+            status: 'connected',
+            hasVideo: !isCameraOff,
+            hasAudio: !isMuted 
+          })
+        }
+      } else if (state === 'disconnected') {
         console.log('⚠️ Peer connection disconnected - attempting recovery')
         setIsPeerConnected(false)
+        setShouldShowConnected(false)
+        setConnectionQuality('connecting')
+        
+        // Notify the peer that we're disconnected
+        if (socket && currentPeerRef.current) {
+          socket.emit('connection-status', { 
+            peerId: currentPeerRef.current, 
+            status: 'disconnected' 
+          })
+        }
         
         // Try ICE restart first
         setTimeout(() => {
@@ -1270,22 +1506,25 @@ export default function VideoChatPage() {
           }
         }, 2000)
         
-      } else if (peerConnection.connectionState === 'failed') {
+      } else if (state === 'failed') {
         console.log('❌ Peer connection failed completely')
         setIsPeerConnected(false)
+        setShouldShowConnected(false)
+        setPeerConnectionStatus('disconnected')
         setRemoteStream(null)
         
-        // Clear peer state on failure
-        setCurrentPeer(null)
-        setError('Connection failed. Click "Make a connect" to try again.')
+        // Notify the peer that we're disconnected
+        if (socket && currentPeerRef.current) {
+          socket.emit('connection-status', { 
+            peerId: currentPeerRef.current, 
+            status: 'disconnected' 
+          })
+        }
         
-        // Auto-search for new connection after failure
-        setTimeout(() => {
-          if (!isSearching && socket?.connected) {
-            console.log('🔄 Auto-searching for new connection after failure')
-            handleStartChat()
-          }
-        }, 3000)
+        // Clear peer state on failure
+        currentPeerRef.current = null
+        setCurrentPeer(null)
+        setError('Connection failed. Click "Keep Exploring!" to try again.')
       }
     }
 
@@ -1298,53 +1537,6 @@ export default function VideoChatPage() {
       } else if (peerConnection.iceConnectionState === 'connected') {
         console.log('✅ ICE connection established successfully!')
         setIsPeerConnected(true)
-        
-        // Debug: Check what tracks we're actually receiving
-        setTimeout(() => {
-          if (remoteStream) {
-            const videoTracks = remoteStream.getVideoTracks()
-            const audioTracks = remoteStream.getAudioTracks()
-            console.log('📊 Remote stream analysis:')
-            console.log('Video tracks:', videoTracks.map(t => ({
-              id: t.id,
-              enabled: t.enabled,
-              muted: t.muted,
-              readyState: t.readyState,
-              kind: t.kind
-            })))
-            console.log('Audio tracks:', audioTracks.map(t => ({
-              id: t.id,
-              enabled: t.enabled,
-              muted: t.muted,
-              readyState: t.readyState,
-              kind: t.kind
-            })))
-            
-            // Check if video track is actually sending data
-            if (videoTracks.length > 0) {
-              const videoTrack = videoTracks[0]
-              console.log('🎥 Main video track details:', {
-                enabled: videoTrack.enabled,
-                muted: videoTrack.muted,
-                readyState: videoTrack.readyState,
-                label: videoTrack.label,
-                settings: videoTrack.getSettings?.() || 'N/A'
-              })
-              
-              if (!videoTrack.enabled) {
-                console.log('❌ Remote video track is DISABLED!')
-              }
-              if (videoTrack.muted) {
-                console.log('🔇 Remote video track is MUTED!')
-              }
-              if (videoTrack.readyState === 'ended') {
-                console.log('⏹️ Remote video track has ENDED!')
-              }
-            } else {
-              console.log('❌ NO VIDEO TRACKS in remote stream!')
-            }
-          }
-        }, 1000)
         
       } else if (peerConnection.iceConnectionState === 'completed') {
         console.log('🎯 ICE connection completed - optimal path found!')
@@ -1364,6 +1556,7 @@ export default function VideoChatPage() {
         setTimeout(() => {
           if (peerConnection.iceConnectionState === 'failed') {
             console.log('🔄 ICE restart failed - searching for new connection')
+            currentPeerRef.current = null
             setCurrentPeer(null)
             setRemoteStream(null)
             setIsPeerConnected(false)
@@ -1476,7 +1669,7 @@ export default function VideoChatPage() {
       peerConnection.onicecandidate = null
       setIsPeerConnected(false)
     }
-  }, [peerConnection, stream, socket, isSearching, handleStartChat])
+  }, [peerConnection, stream, socket, isSearching, handleStartChat, isCameraOff, isMuted])
 
   // Enhanced video refs setup with better error handling and forced playback
   useEffect(() => {
@@ -1842,6 +2035,15 @@ export default function VideoChatPage() {
 
     peerConnection.ontrack = (event) => {
       console.log('🎵 Received remote track:', event.track.kind)
+      console.log('🎵 Track details:', {
+        id: event.track.id,
+        kind: event.track.kind,
+        enabled: event.track.enabled,
+        muted: event.track.muted,
+        readyState: event.track.readyState,
+        label: event.track.label
+      })
+      
       const [incomingStream] = event.streams
       console.log('🌊 Setting remote stream:', incomingStream)
       console.log('📋 Stream info:', {
@@ -1869,24 +2071,42 @@ export default function VideoChatPage() {
         console.log('✅ Setting REMOTE stream (different from local)')
         setRemoteStream(incomingStream)
         
-        // Ensure video element gets the stream immediately
+        // Ensure video element gets the stream immediately with proper play handling
         if (remoteVideoRef.current) {
           console.log('🎬 Immediately updating REMOTE video element with peer stream')
           remoteVideoRef.current.srcObject = incomingStream
           remoteVideoRef.current.style.display = 'block'
           
-          // Safari-specific: Force play with user gesture simulation
-          setTimeout(async () => {
+          // CRITICAL: Try to play the video, but handle autoplay policy gracefully
+          const playVideo = async () => {
             try {
               if (remoteVideoRef.current) {
-                remoteVideoRef.current.muted = false // Safari prefers unmuted for remote video
-                await remoteVideoRef.current.play()
-                console.log('✅ Remote peer video playing')
+                // Check if user has previously granted audio permission
+                const hasAudioPermission = localStorage.getItem('meetopia-audio-permission-granted')
+                
+                if (hasAudioPermission) {
+                  // User has previously granted permission, try with audio
+                  remoteVideoRef.current.muted = false
+                  await remoteVideoRef.current.play()
+                  console.log('✅ Remote video playing with audio (permission remembered)')
+                  setHasGrantedAudioPermission(true)
+                  setHasUserInteracted(true)
+                } else {
+                  // First time or no permission yet, start muted for autoplay compliance
+                  remoteVideoRef.current.muted = true
+                  await remoteVideoRef.current.play()
+                  console.log('✅ Remote video playing (muted for autoplay compliance)')
+                  console.log('💡 User can click video to enable audio')
+                }
               }
-            } catch (err) {
-              console.log('⚠️ Remote play blocked (normal), will retry on user interaction')
+            } catch (err: any) {
+              console.warn('🔒 Remote video autoplay failed:', err.name)
+              console.log('💡 User needs to interact with the page to play video with audio')
             }
-          }, 100)
+          }
+          
+          // Small delay to ensure stream is fully attached
+          setTimeout(playVideo, 100)
         }
       } else {
         console.log('❌ WARNING: Received our own local stream as "remote" - ignoring!')
@@ -1894,39 +2114,24 @@ export default function VideoChatPage() {
     }
 
     peerConnection.onicecandidate = (event) => {
-      if (event.candidate && currentPeerRef.current) {
-        socket?.emit('ice-candidate', event.candidate)
-      }
-    }
-
-    // Safari-specific: Add additional connection monitoring
-    if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
-      const connectionMonitor = setInterval(() => {
-        if (peerConnection.iceConnectionState === 'disconnected' || 
-            peerConnection.iceConnectionState === 'failed') {
-          console.log('Safari ICE connection issue detected, attempting restart')
-          if (peerConnection.restartIce) {
-            peerConnection.restartIce()
-          }
+      if (event.candidate) {
+        console.log('🧊 Sending ICE candidate:', event.candidate.type, event.candidate.candidate)
+        if (currentPeerRef.current) {
+          socket?.emit('ice-candidate', event.candidate)
         }
-      }, 10000) // Check every 10 seconds
-
-      return () => {
-        clearInterval(connectionMonitor)
-        peerConnection.onconnectionstatechange = null
-        peerConnection.ontrack = null
-        peerConnection.onicecandidate = null
-        setIsPeerConnected(false)
+      } else {
+        console.log('🧊 ICE candidate gathering complete')
       }
     }
 
     return () => {
       peerConnection.onconnectionstatechange = null
+      peerConnection.oniceconnectionstatechange = null
       peerConnection.ontrack = null
       peerConnection.onicecandidate = null
       setIsPeerConnected(false)
     }
-  }, [peerConnection, currentPeer, stream])
+  }, [peerConnection, stream, socket, isSearching, handleStartChat])
 
   // Remote video controls
   const toggleRemoteAudio = () => {
@@ -2006,31 +2211,55 @@ export default function VideoChatPage() {
     }
   }, [socket])
 
-
   return (
-    <div className={`relative min-h-screen transition-colors duration-300 ${
-      isDarkTheme ? 'bg-black' : 'bg-white'
+    <div className={`relative min-h-screen transition-colors duration-500 ${
+      isDarkTheme 
+        ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
+        : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
     }`}>
       {/* Show loading screen when not mounted */}
       {!isMounted ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`${isDarkTheme ? 'bg-gray-800/50' : 'bg-gray-200/50'} backdrop-blur-sm rounded-2xl p-8 border ${isDarkTheme ? 'border-gray-700' : 'border-gray-300'}`}>
-            <div className="text-6xl mb-4 text-center">🎥</div>
-            <h2 className={`text-2xl font-bold mb-2 text-center ${isDarkTheme ? 'text-white' : 'text-black'}`}>Loading Meetopia...</h2>
-            <p className={`text-center ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>Preparing your video chat experience</p>
+          <div className={`${
+            isDarkTheme 
+              ? 'bg-gray-800/80 border-gray-600/30 shadow-2xl' 
+              : 'bg-white/95 border-gray-200/50 shadow-xl'
+          } backdrop-blur-md rounded-3xl p-8 border relative overflow-hidden`}>
+            {/* Gradient Border Effect */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-50"></div>
+            
+            <div className="relative z-10">
+              <div className="text-6xl mb-4 text-center animate-bounce">🎥</div>
+              <h2 className={`text-2xl font-bold mb-2 text-center ${
+                isDarkTheme ? 'text-white' : 'text-gray-800'
+              } bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent`}>
+                Loading Meetopia...
+              </h2>
+              <p className={`text-center ${
+                isDarkTheme ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                Preparing your video chat experience ✨
+              </p>
+              
+              {/* Loading animation */}
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
-        <>
+        <div className="relative min-h-screen">
       {/* Header with Logo and Connection Status */}
       <div className="absolute top-0 left-0 right-0 z-20 p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold">
-                  <span className={isDarkTheme ? 'text-blue-400' : 'text-blue-600'}>Meet</span>
-              <span className={isDarkTheme ? 'text-white' : 'text-black'}>opia</span>
-            </h1>
-          </div>
+          <Logo 
+            size="sm" 
+            isDarkTheme={isDarkTheme}
+            showText={false}
+          />
           <div className={`flex items-center gap-3 transition-opacity duration-300 ${
             areControlsVisible ? 'opacity-100' : 'opacity-0'
           }`}>
@@ -2059,249 +2288,62 @@ export default function VideoChatPage() {
               {isDarkTheme ? '☀️ Light' : '🌙 Dark'}
             </button>
             <div className={`flex items-center gap-2 ${
-              isPeerConnected 
-                ? connectionQuality === 'excellent' ? 'bg-green-500/20 border-green-400/30' : 
-                  connectionQuality === 'good' ? 'bg-yellow-500/20 border-yellow-400/30' : 'bg-red-500/20 border-red-400/30'
-                : isDarkTheme ? 'bg-red-500/20 border-red-400/30' : 'bg-red-500/10 border-red-400/20'
+              shouldShowConnected && remoteStream && peerConnectionStatus === 'connected'
+                ? 'bg-green-500/20 border-green-400/30' :
+              currentPeer && (peerConnectionStatus === 'connecting' || isSearching)
+                ? 'bg-yellow-500/20 border-yellow-400/30' :
+                'bg-red-500/20 border-red-400/30'
             } px-3 py-1.5 rounded-lg border backdrop-blur-sm`}>
               <span className={`text-sm font-medium ${isDarkTheme ? 'text-white/90' : 'text-black/90'}`}>
-                {isPeerConnected ? (
-                  <>
-                    {connectionQuality === 'excellent' && '🟢 Excellent'}
-                    {connectionQuality === 'good' && '🟡 Good'}
-                    {connectionQuality === 'poor' && '🔴 Poor'}
-                    {connectionQuality === 'connecting' && '🔄 Connecting'}
-                  </>
-                ) : 'Not Connected'}
+                {shouldShowConnected && remoteStream && peerConnectionStatus === 'connected' && '🟢 Connected'}
+                {currentPeer && (peerConnectionStatus === 'connecting' || isSearching) && !shouldShowConnected && '🟡 Connecting'}
+                {!currentPeer && !isSearching && '🔴 Not Connected'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
-                isPeerConnected 
-                  ? connectionQuality === 'excellent' ? 'bg-green-500' :
-                    connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'
-                  : 'bg-red-500'
+                shouldShowConnected && remoteStream && peerConnectionStatus === 'connected'
+                  ? 'bg-green-500' :
+                currentPeer && (peerConnectionStatus === 'connecting' || isSearching)
+                  ? 'bg-yellow-500 animate-pulse' :
+                  'bg-red-500'
               }`} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Buttons Bar - Improved Mobile Responsive Layout */}
-      <div className={`absolute top-16 sm:top-20 left-0 right-0 z-10 transition-all duration-500 ${
-        areControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-      }`}>
-        <div className="flex justify-center gap-2 px-4 flex-wrap">
+      {/* FIXED: Action Buttons Bar - FORCE ALWAYS VISIBLE */}
+      <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-black/20 backdrop-blur-md rounded-lg px-4 py-2">
+        <div className="flex gap-3">
           <button 
             onClick={() => {
-              if (!buttonCooldown && isSocketConnected && stream && !isSearching) {
-                handleStartChat()
-                startCooldown()
-              }
-            }}
-            disabled={!isSocketConnected || isSearching || buttonCooldown || !stream || !!(currentPeer && isPeerConnected && remoteStream)}
-            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 transform ${
-              isSearching 
-                ? isDarkTheme 
-                  ? 'bg-white/10 text-white/60 border-white/20 animate-pulse' 
-                  : 'bg-black/10 text-black/60 border-black/20 animate-pulse'
-                : (currentPeer && isPeerConnected && remoteStream)
-                  ? isDarkTheme 
-                    ? 'bg-green-500/20 text-green-300 border-green-400/30' 
-                    : 'bg-green-500/20 text-green-700 border-green-600/30'
-                  : isDarkTheme 
-                    ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
-                    : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
-            } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none backdrop-blur-md shadow-sm border flex-shrink-0 min-w-[120px] sm:min-w-[140px] text-center`}
-          >
-            {isSearching ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                Searching...
-              </span>
-            ) : (currentPeer && isPeerConnected && remoteStream) ? (
-              <span className="flex items-center justify-center gap-2">
-                ✓ Connected
-              </span>
-            ) : 'Make a connect'}
-          </button>
-          
-          <button 
-            onClick={() => {
-              if (!buttonCooldown) {
+              setError(null)
+              if (currentPeer) {
                 handleNextPerson()
-                startCooldown()
+              } else {
+                handleStartChat()
               }
             }}
-            disabled={buttonCooldown || !currentPeer}
-            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 transform ${
-              buttonCooldown
-                ? isDarkTheme 
-                  ? 'bg-white/5 text-white/30 border-white/10' 
-                  : 'bg-black/5 text-black/30 border-black/10'
-                : isDarkTheme 
-                  ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
-                  : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
-            } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none backdrop-blur-md shadow-sm border flex-shrink-0 min-w-[100px] sm:min-w-[120px] text-center`}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors min-w-[120px]"
           >
-            Keep Exploring!
+            {isSearching ? 'Searching...' : 'Keep Exploring!'}
           </button>
           
           <button 
             onClick={handleLeaveChat}
-            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 transform ${
-              isDarkTheme 
-                ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
-                : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
-            } backdrop-blur-md shadow-sm border flex-shrink-0 min-w-[100px] sm:min-w-[120px] text-center`}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition-colors"
           >
             Back to Base
           </button>
           
           <button
-            onClick={() => openReportModal(currentPeer || '')}
-            disabled={!currentPeer}
-            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 transform ${
-              !currentPeer 
-                ? isDarkTheme 
-                  ? 'bg-white/5 text-white/30 border-white/10' 
-                  : 'bg-black/5 text-black/30 border-black/10'
-                : isDarkTheme 
-                  ? 'bg-white/20 text-white hover:bg-white/30 hover:scale-105 border-white/30' 
-                  : 'bg-black/20 text-black hover:bg-black/30 hover:scale-105 border-black/30'
-            } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none backdrop-blur-md shadow-sm border flex-shrink-0 min-w-[100px] sm:min-w-[120px] text-center`}
+            onClick={() => openReportModal(currentPeer || 'unknown')}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition-colors"
           >
             Let Us Know!
           </button>
-          
-          <button
-            onClick={() => {
-              console.log('🔍 COMPREHENSIVE DIAGNOSTIC REPORT:')
-              console.log('=================================')
-              
-              // Basic connection status
-              console.log('📡 Connection Status:')
-              console.log('- Socket connected:', socket?.connected)
-              console.log('- Current peer:', currentPeer)
-              console.log('- Is peer connected:', isPeerConnected)
-              console.log('- Has remote stream:', !!remoteStream)
-              console.log('- Has local stream:', !!stream)
-              
-              // Peer connection details
-              if (peerConnection) {
-                console.log('🔗 Peer Connection:')
-                console.log('- Connection state:', peerConnection.connectionState)
-                console.log('- ICE connection state:', peerConnection.iceConnectionState)
-                console.log('- ICE gathering state:', peerConnection.iceGatheringState)
-                console.log('- Signaling state:', peerConnection.signalingState)
-              }
-              
-              // Stream details
-              if (stream) {
-                console.log('📹 Local Stream:')
-                console.log('- ID:', stream.id)
-                console.log('- Active:', stream.active)
-                console.log('- Video tracks:', stream.getVideoTracks().length)
-                console.log('- Audio tracks:', stream.getAudioTracks().length)
-                stream.getVideoTracks().forEach((track, i) => {
-                  console.log(`  Video track ${i}:`, {
-                    id: track.id,
-                    enabled: track.enabled,
-                    muted: track.muted,
-                    readyState: track.readyState,
-                    settings: track.getSettings?.() || 'N/A'
-                  })
-                })
-              }
-              
-              if (remoteStream) {
-                console.log('📺 Remote Stream:')
-                console.log('- ID:', remoteStream.id)
-                console.log('- Active:', remoteStream.active)
-                console.log('- Video tracks:', remoteStream.getVideoTracks().length)
-                console.log('- Audio tracks:', remoteStream.getAudioTracks().length)
-                remoteStream.getVideoTracks().forEach((track, i) => {
-                  console.log(`  Video track ${i}:`, {
-                    id: track.id,
-                    enabled: track.enabled,
-                    muted: track.muted,
-                    readyState: track.readyState,
-                    settings: track.getSettings?.() || 'N/A'
-                  })
-                })
-              }
-              
-              // Video element diagnostics
-              if (localVideoRef.current) {
-                const localVideo = localVideoRef.current
-                console.log('📱 Local Video Element:')
-                console.log('- Has stream:', !!localVideo.srcObject)
-                console.log('- Stream ID:', (localVideo.srcObject as MediaStream)?.id || 'none')
-                console.log('- Video width/height:', localVideo.videoWidth, 'x', localVideo.videoHeight)
-                console.log('- Paused:', localVideo.paused)
-                console.log('- Ready state:', localVideo.readyState)
-                console.log('- Network state:', localVideo.networkState)
-                console.log('- Current time:', localVideo.currentTime)
-                
-                const computedStyle = window.getComputedStyle(localVideo)
-                console.log('- CSS display:', computedStyle.display)
-                console.log('- CSS visibility:', computedStyle.visibility)
-                console.log('- CSS opacity:', computedStyle.opacity)
-                console.log('- CSS position:', computedStyle.position)
-                console.log('- CSS z-index:', computedStyle.zIndex)
-                
-                // Check if PiP container is visible
-                if (pipRef.current) {
-                  const pipStyle = window.getComputedStyle(pipRef.current)
-                  console.log('- PiP container display:', pipStyle.display)
-                  console.log('- PiP container visibility:', pipStyle.visibility)
-                  console.log('- PiP container opacity:', pipStyle.opacity)
-                  console.log('- PiP position:', pipPosition)
-                }
-              }
-              
-              if (remoteVideoRef.current) {
-                const remoteVideo = remoteVideoRef.current
-                console.log('🖥️ Remote Video Element:')
-                console.log('- Has stream:', !!remoteVideo.srcObject)
-                console.log('- Stream ID:', (remoteVideo.srcObject as MediaStream)?.id || 'none')
-                console.log('- Video width/height:', remoteVideo.videoWidth, 'x', remoteVideo.videoHeight)
-                console.log('- Paused:', remoteVideo.paused)
-                console.log('- Ready state:', remoteVideo.readyState)
-                console.log('- Network state:', remoteVideo.networkState)
-                console.log('- Current time:', remoteVideo.currentTime)
-                console.log('- Muted:', remoteVideo.muted)
-                
-                const computedStyle = window.getComputedStyle(remoteVideo)
-                console.log('- CSS display:', computedStyle.display)
-                console.log('- CSS visibility:', computedStyle.visibility)
-                console.log('- CSS opacity:', computedStyle.opacity)
-                console.log('- CSS width/height:', computedStyle.width, 'x', computedStyle.height)
-                console.log('- Element class:', remoteVideo.className)
-              }
-              
-              console.log('=================================')
-              
-              // Try to force play both videos
-              console.log('🎮 Attempting to force play both videos...')
-              if (localVideoRef.current && stream) {
-                localVideoRef.current.srcObject = stream
-                localVideoRef.current.play().catch(e => console.log('Local video play error:', e.name))
-              }
-              if (remoteVideoRef.current && remoteStream) {
-                remoteVideoRef.current.srcObject = remoteStream
-                remoteVideoRef.current.play().catch(e => console.log('Remote video play error:', e.name))
-              }
-            }}
-            className={`px-2 py-1 rounded-lg text-xs font-bold transition-all duration-300 transform ${
-              isDarkTheme 
-                ? 'bg-white/20 text-white hover:bg-white/30 border border-white/20' 
-                : 'bg-black/20 text-black hover:bg-black/30 border border-black/20'
-            } backdrop-blur-md shadow-sm flex-shrink-0`}
-          >
-            🔍 Debug
-          </button>
         </div>
       </div>
-
+          
       {/* Full Screen Video Content */}
       <div className="absolute inset-0">
         {/* Main Video - Remote Video - Enhanced for mobile */}
@@ -2408,11 +2450,100 @@ export default function VideoChatPage() {
             console.error('💥 Remote video error:', e)
           }}
         />
-        {(!remoteStream && !isSearching && !(currentPeer && isPeerConnected)) && (
+        {/* Default State - Enhanced Meetopia-branded waiting experience */}
+        {!remoteStream && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
-            <p className={`text-base sm:text-lg mb-4 text-center ${isDarkTheme ? 'text-white/80' : 'text-black/80'}`}>
-              Ready for your Meetopia adventure? Click "Make a Connection" to begin!
-            </p>
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {/* Floating Meetopia Icons */}
+              <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-float">
+                🌍
+              </div>
+              <div className="absolute top-1/3 right-1/4 text-4xl opacity-10 animate-float-delayed">
+                💫
+              </div>
+              <div className="absolute bottom-1/3 left-1/3 text-5xl opacity-10 animate-float-slow">
+                🤝
+              </div>
+              <div className="absolute bottom-1/4 right-1/3 text-3xl opacity-10 animate-float">
+                ✨
+              </div>
+            </div>
+
+            <div className={`${isDarkTheme ? 'bg-gray-800/80' : 'bg-white/95'} backdrop-blur-md rounded-3xl p-8 text-center max-w-md mx-auto border ${isDarkTheme ? 'border-gray-600/30 shadow-2xl' : 'border-gray-200/50 shadow-xl'} relative overflow-hidden`}>
+              {/* Gradient Border Effect */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-50"></div>
+              
+              <div className="relative z-10">
+                {isSearching ? (
+                  <>
+                    {/* Enhanced Searching Animation */}
+                    <div className="relative mb-6">
+                      <div className="text-7xl animate-spin-slow">🌍</div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-3xl animate-ping opacity-75">🔍</div>
+                      </div>
+                    </div>
+                    
+                    <h2 className={`text-2xl font-bold mb-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'} bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}>
+                      Finding Your Next Adventure...
+                    </h2>
+                    
+                    <p className={`text-base mb-6 ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
+                      🌟 Connecting hearts across the globe!<br />
+                      Your perfect conversation is just moments away...
+                    </p>
+
+                    {/* Meetopia Progress Animation */}
+                    <div className="mb-6">
+                      <div className="flex items-center justify-center gap-3 mb-3">
+                        <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-bounce"></div>
+                        <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                      </div>
+                      
+                      {/* Animated Progress Bar */}
+                      <div className={`w-full h-2 ${isDarkTheme ? 'bg-gray-700' : 'bg-gray-200'} rounded-full overflow-hidden`}>
+                        <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full animate-progress"></div>
+                      </div>
+                    </div>
+
+                    {/* Fun Search Tips */}
+                    <div className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'} italic`}>
+                      💡 Tip: Smile! Your camera is ready for an amazing connection
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Enhanced Welcome State */}
+                    <div className="relative mb-6">
+                      <div className="text-8xl animate-float mb-2">🎥</div>
+                      <div className="absolute -top-2 -right-2">
+                        <div className="text-2xl animate-pulse">✨</div>
+                      </div>
+                    </div>
+                    
+                    <h2 className={`text-2xl font-bold mb-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>
+                      <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        Ready for your Meetopia adventure?
+                      </span>
+                    </h2>
+                    
+                    <p className={`text-base mb-6 ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
+                      🌍 Connect with amazing people worldwide!<br />
+                      Every conversation is a new adventure waiting to unfold.
+                    </p>
+
+                    {/* Call to Action with Animation */}
+                    <div className={`px-4 py-3 ${isDarkTheme ? 'bg-blue-600/20 border-blue-500/30' : 'bg-blue-50 border-blue-200/50'} border rounded-2xl animate-pulse-gentle`}>
+                      <p className={`text-sm font-semibold ${isDarkTheme ? 'text-blue-300' : 'text-blue-700'}`}>
+                        👆 Click "Keep Exploring!" to begin!
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
                 {permissionStatus.camera === 'pending' && (
                   <div className={`${isDarkTheme ? 'bg-yellow-500/20 border-yellow-400/30' : 'bg-yellow-500/10 border-yellow-400/20'} border rounded-lg p-3 mb-4 max-w-sm`}>
                     <p className={`text-xs sm:text-sm ${isDarkTheme ? 'text-yellow-200' : 'text-yellow-800'}`}>
@@ -2427,6 +2558,7 @@ export default function VideoChatPage() {
                 )}
           </div>
         )}
+
         
         {/* Remote Video Status Indicators - Fixed positioning to avoid overlap */}
         {remoteStream && (
@@ -2678,7 +2810,7 @@ export default function VideoChatPage() {
           </div>
         </div>
       )}
-      </>
+        </div>
       )}
     </div>
   )

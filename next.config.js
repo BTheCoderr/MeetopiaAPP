@@ -41,7 +41,7 @@ const nextConfig = {
     }
     return config
   },
-
+  
   // Environment variables for build optimization
   env: {
     DISABLE_VERCEL_ANALYTICS: 'true'

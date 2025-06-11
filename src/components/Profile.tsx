@@ -6,7 +6,7 @@ export const Profile = () => (
     {/* Header */}
     <div className="flex justify-between items-center p-4 border-b">
       <Link href="/" className="text-2xl font-bold text-blue-500">
-        MEETOPIA
+        <img src="/meetopia.png" alt="Meetopia" className="h-6 w-auto" />
         <span className="ml-2 text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">Beta</span>
       </Link>
       <div className="flex items-center gap-4">

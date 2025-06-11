@@ -614,6 +614,13 @@ export default function RoomPage({ params }: PageProps) {
                 >
                   {isVideoOff ? 'Turn On Video' : 'Turn Off Video'}
                 </button>
+                <button
+                  onClick={() => {/* Virtual background toggle will be implemented */}}
+                  className="p-2 rounded bg-purple-500 text-white hover:bg-purple-600"
+                  title="Virtual Backgrounds"
+                >
+                  ✨
+                </button>
               </div>
             </div>
             <div className="relative">

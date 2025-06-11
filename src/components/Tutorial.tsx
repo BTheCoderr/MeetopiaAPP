@@ -26,16 +26,16 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     id: 'connection-button',
-    title: 'Make a Connection',
-    description: 'Click this button to find someone new to chat with. You\'ll be matched instantly!',
+    title: 'Start Connecting Now',
+    description: 'Click "Start Connecting Now" to find someone new to video chat with. You\'ll be matched instantly!',
     position: { x: 50, y: 20 },
-    highlight: 'Make a Connection!',
+    highlight: 'Start Connecting Now',
     icon: '🔗'
   },
   {
     id: 'keep-exploring',
     title: 'Keep Exploring',
-    description: 'Not vibing with someone? No worries! Click this to find a new person to chat with.',
+    description: 'Not vibing with someone? No worries! Click "Keep Exploring" to find a new person to chat with.',
     position: { x: 50, y: 20 },
     highlight: 'Keep Exploring!',
     icon: '🔄'

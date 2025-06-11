@@ -48,7 +48,7 @@ export const Feed = () => {
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-8">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-blue-600">MEETOPIA</h1>
+          <img src="/meetopia.png" alt="Meetopia" className="h-10 w-auto" />
           <div className="flex gap-4">
             <button 
               onClick={() => setActiveTab('text')}

@@ -59,7 +59,7 @@ export const VideoChatRoom: React.FC<VideoChatRoomProps> = ({
         {/* Status Bar */}
         <div className={`flex justify-between items-center px-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-blue-600">MEETOPIA</h1>
+            <img src="/meetopia.png" alt="Meetopia" className="h-8 sm:h-10 w-auto" />
             <span className="text-sm px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
               Beta
             </span>

@@ -2,7 +2,7 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  // directUrl = env("DATABASE_URL_UNPOOLED") // Only needed for connection pooling
 }
 
 generator client {
@@ -30,6 +30,11 @@ model User {
   reportsSubmitted Report[] @relation("ReportsSubmitted")
   reportsReceived Report[] @relation("ReportsReceived")
   feedback      Feedback[]
+  
+  // Meeting relationships
+  hostedMeetings    Meeting[] @relation("MeetingHost")
+  meetingParticipants MeetingParticipant[]
+  chatMessages      ChatMessage[]
 }
 
 model Message {
@@ -75,4 +80,110 @@ model Feedback {
   updatedAt DateTime @updatedAt
   
   user      User     @relation(fields: [userId], references: [id])
+}
+
+// NEW MEETING MODELS FOR ENTERPRISE FEATURES
+
+model Meeting {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  hostId      String
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?     // Duration in minutes
+  status      String   @default("SCHEDULED") // SCHEDULED, ACTIVE, ENDED, CANCELLED
+  isRecorded  Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  maxParticipants Int?  @default(10)
+  
+  // Meeting settings
+  allowChat   Boolean  @default(true)
+  allowScreenShare Boolean @default(true)
+  requireApproval Boolean @default(false)
+  waitingRoom Boolean  @default(true)
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  host        User     @relation("MeetingHost", fields: [hostId], references: [id])
+  participants MeetingParticipant[]
+  chatMessages ChatMessage[]
+  recordings   Recording[]
+  
+  @@index([hostId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model MeetingParticipant {
+  id          String   @id @default(cuid())
+  meetingId   String
+  userId      String
+  role        String   @default("PARTICIPANT") // HOST, CO_HOST, PARTICIPANT
+  joinedAt    DateTime?
+  leftAt      DateTime?
+  status      String   @default("INVITED") // INVITED, JOINED, LEFT, KICKED
+  
+  // Permissions
+  canSpeak    Boolean  @default(true)
+  canVideo    Boolean  @default(true)
+  canShare    Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@unique([meetingId, userId])
+  @@index([meetingId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  meetingId   String
+  userId      String
+  content     String
+  type        String   @default("TEXT") // TEXT, SYSTEM, EMOJI, FILE
+  createdAt   DateTime @default(now())
+  
+  // Relationships
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@index([meetingId])
+  @@index([createdAt])
+}
+
+model Recording {
+  id          String   @id @default(cuid())
+  meetingId   String
+  filename    String
+  originalName String?
+  fileSize    Int?     // Size in bytes
+  duration    Int?     // Duration in seconds
+  format      String   @default("mp4") // mp4, webm, etc.
+  
+  // Storage info
+  storageProvider String @default("local") // local, s3, gcs, etc.
+  storagePath     String
+  downloadUrl     String?
+  
+  // Processing status
+  status      String   @default("PROCESSING") // PROCESSING, READY, FAILED
+  transcription String? // AI-generated transcript
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  @@index([meetingId])
+  @@index([status])
 } 

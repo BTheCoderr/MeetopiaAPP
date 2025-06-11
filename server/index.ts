@@ -786,6 +786,32 @@ io.on('connection', (socket) => {
     }
   })
 
+  // Handle connection status synchronization between peers
+  socket.on('connection-status-update', (data: { peerId: string, status: 'connected' | 'disconnected', hasVideo?: boolean, hasAudio?: boolean }) => {
+    logger.info('📡 Forwarding connection status update', {
+      from: socket.id,
+      to: data.peerId,
+      status: data.status,
+      hasVideo: data.hasVideo,
+      hasAudio: data.hasAudio
+    })
+    
+    // Forward the status update to the specified peer
+    const peerSocket = io.sockets.sockets.get(data.peerId)
+    if (peerSocket) {
+      peerSocket.emit('connection-status-update', {
+        status: data.status,
+        hasVideo: data.hasVideo,
+        hasAudio: data.hasAudio
+      })
+    } else {
+      logger.warn('❌ Cannot forward connection status - peer not found', {
+        socketId: socket.id,
+        targetPeerId: data.peerId
+      })
+    }
+  })
+
   // **CRITICAL**: Handle connection restoration after socket reconnect
   socket.on('restore-connection', (data: { peerId: string }) => {
     logger.info('🔄 Attempting to restore peer connection', {
