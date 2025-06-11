@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
+import Tutorial from '@/components/Tutorial'
 
 export default function HomePage() {
   const [isDarkTheme, setIsDarkTheme] = useState(false)
@@ -17,6 +18,7 @@ export default function HomePage() {
   const [activeFeature, setActiveFeature] = useState(0)
   const [currentTestimonial, setCurrentTestimonial] = useState(0)
   const [showMiniDemo, setShowMiniDemo] = useState(false)
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -228,6 +230,14 @@ export default function HomePage() {
             />
 
             <div className="flex items-center gap-4">
+              <ModernButton
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTutorialOpen(true)}
+                icon="❓"
+              >
+                Tutorial
+              </ModernButton>
               <ModernButton
                 variant="outline"
                 size="sm"
@@ -623,6 +633,13 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Tutorial Component */}
+      <Tutorial 
+        isOpen={isTutorialOpen} 
+        onClose={() => setIsTutorialOpen(false)}
+        isDarkTheme={isDarkTheme}
+      />
     </div>
   )
 }
