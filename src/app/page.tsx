@@ -230,6 +230,30 @@ export default function HomePage() {
             />
 
             <div className="flex items-center gap-4">
+              {/* Product Hunt Badge */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+                className="hidden md:block"
+              >
+                <a 
+                  href="https://www.producthunt.com/products/meetopia?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-meetopia" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:scale-105 transition-transform duration-300"
+                >
+                  <img 
+                    src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=977210&theme=light&t=1749694171168" 
+                    alt="Meetopia - Featured on Product Hunt" 
+                    style={{ width: '200px', height: '43px' }} 
+                    width="200" 
+                    height="43"
+                    className="shadow-md rounded-md hover:shadow-lg transition-shadow duration-300"
+                  />
+                </a>
+              </motion.div>
+
               <ModernButton
                 variant="outline"
                 size="sm"
@@ -542,9 +566,24 @@ export default function HomePage() {
               className="h-8 w-auto"
             />
           </div>
-          <p className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm mb-6 ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
             Connecting the world, one conversation at a time.
           </p>
+          
+          <div className="flex items-center justify-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <Award size={14} className="text-orange-500" />
+              <span className={isDarkTheme ? 'text-gray-400' : 'text-gray-600'}>
+                Featured on Product Hunt
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-green-500" />
+              <span className={isDarkTheme ? 'text-gray-400' : 'text-gray-600'}>
+                Growing Community
+              </span>
+            </div>
+          </div>
         </div>
       </footer>
 
