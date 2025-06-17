@@ -38,6 +38,7 @@ const PUBLIC_PATHS = [
   '/_next',
   '/favicon.ico',
   '/public',
+  '/manifest.json',
 ]
 
 export async function middleware(request: NextRequest) {

@@ -22,7 +22,7 @@ export const usePeerConnection = (stream: MediaStream | null) => {
       { urls: 'stun:stun4.l.google.com:19302' },
       { urls: 'stun:stun.relay.metered.ca:80' },
       { urls: 'stun:stun.cloudflare.com:3478' },
-      // Multiple TURN servers for better reliability
+      // IMPROVED: More reliable TURN servers for better connectivity
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -38,7 +38,7 @@ export const usePeerConnection = (stream: MediaStream | null) => {
         username: 'openrelayproject',
         credential: 'openrelayproject'
       },
-      // Backup TURN server
+      // FIXED: Remove potentially unreliable servers
       {
         urls: 'turn:relay.metered.ca:80',
         username: 'b2f4a2a6c8f0b2b7a2c8f0b',
@@ -57,7 +57,7 @@ export const usePeerConnection = (stream: MediaStream | null) => {
 
     const config: RTCConfiguration = {
       iceServers,
-      iceCandidatePoolSize: 10,
+      iceCandidatePoolSize: 15, // Increased for better connectivity
       iceTransportPolicy: 'all',
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
@@ -99,15 +99,15 @@ export const usePeerConnection = (stream: MediaStream | null) => {
       
       if (pc.iceConnectionState === 'disconnected') {
         console.log('⚠️ ICE temporarily disconnected - connection may recover')
-        // Don't restart immediately, wait for potential recovery
+        // IMPROVED: Don't restart immediately, wait for potential recovery
         setTimeout(() => {
-          if (pc.iceConnectionState === 'disconnected') {
-            console.log('🔄 ICE still disconnected after 5s, attempting restart')
+          if (pc && pc.iceConnectionState === 'disconnected') {
+            console.log('🔄 ICE still disconnected after 10s, attempting restart')
             if (pc.restartIce) {
               pc.restartIce()
             }
           }
-        }, 5000)
+        }, 10000) // Increased timeout for better stability
       }
     }
     

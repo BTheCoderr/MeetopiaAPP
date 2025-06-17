@@ -330,33 +330,25 @@ export default function VideoChatPage() {
       clearTimeout(controlsTimeoutRef.current)
     }
     
-    // CRITICAL FIX: Keep controls permanently visible when:
-    // - On mobile devices
-    // - Currently connected to someone  
-    // - Searching for someone
-    // - Button cooldown active
-    // - User has manually interacted with chat
+    // FIXED: Simplified logic - only keep controls visible when actively needed
     const shouldKeepVisible = isMobile || 
-                             !!currentPeer || 
                              isSearching || 
-                             buttonCooldown || 
-                             isChatUserToggled
+                             buttonCooldown
     
     if (!shouldKeepVisible) {
       controlsTimeoutRef.current = setTimeout(() => {
-        // CRITICAL: Never hide controls if user might need to search for someone
-        // Only hide when actively connected to someone AND not searching AND not on mobile
-        if (currentPeer && isPeerConnected && !isSearching && !buttonCooldown && !isMobile) {
+        // Hide controls after 10 seconds of inactivity (as intended)
+        // Only exception: don't hide if user is actively using chat
+        if (!isChatUserToggled && !isSearching && !buttonCooldown) {
           setAreControlsVisible(false)
-          // Only auto-hide chat if user hasn't manually toggled it
+          // Also auto-hide chat if user hasn't manually toggled it
           if (!isChatUserToggled) {
             setIsChatOpen(false)
           }
         }
-        // If no peer or not connected, keep controls visible so user can start searching
-      }, 12000) // Extended timeout for better UX
+      }, 10000) // Back to 10 seconds as originally intended
     }
-  }, [isChatUserToggled, isMobile, isSearching, buttonCooldown, currentPeer])
+  }, [isChatUserToggled, isMobile, isSearching, buttonCooldown])
 
   // Start cooldown
   const startCooldown = useCallback(() => {
@@ -1544,17 +1536,31 @@ export default function VideoChatPage() {
         
       } else if (peerConnection.iceConnectionState === 'disconnected') {
         console.log('🔄 ICE disconnected - waiting for recovery')
-        // Give it time to recover naturally
+        setIsPeerConnected(false)
+        // FIXED: Give more time for natural recovery before declaring failure
+        setTimeout(() => {
+          if (peerConnection && (peerConnection.iceConnectionState === 'disconnected' || 
+              peerConnection.iceConnectionState === 'failed')) {
+            console.log('⚠️ ICE still disconnected after 8 seconds - attempting restart')
+            if (peerConnection.restartIce) {
+              peerConnection.restartIce()
+            }
+          }
+        }, 8000) // Increased from 5 to 8 seconds for better stability
         
       } else if (peerConnection.iceConnectionState === 'failed') {
         console.log('❌ ICE connection failed - attempting restart')
+        setIsPeerConnected(false)
+        
+        // FIXED: More aggressive recovery approach
         if (peerConnection.restartIce) {
+          console.log('🔄 Attempting ICE restart immediately')
           peerConnection.restartIce()
         }
         
-        // If still failed after restart attempt, search for new connection
+        // If restart fails, wait longer before giving up
         setTimeout(() => {
-          if (peerConnection.iceConnectionState === 'failed') {
+          if (peerConnection && peerConnection.iceConnectionState === 'failed') {
             console.log('🔄 ICE restart failed - searching for new connection')
             currentPeerRef.current = null
             setCurrentPeer(null)
@@ -1564,7 +1570,8 @@ export default function VideoChatPage() {
               handleStartChat()
             }
           }
-        }, 5000)
+        }, 12000) // Increased timeout for more patience
+        
       } else if (peerConnection.iceConnectionState === 'closed') {
         console.log('🚪 ICE connection closed')
         setIsPeerConnected(false)
