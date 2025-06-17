@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Logo from '../components/Logo'
 
 export default function Home() {
   return (
@@ -23,25 +24,17 @@ export default function Home() {
       {/* Navigation */}
       <nav className="p-6 relative z-10">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xl">T</span>
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-2xl">Meetopia</h1>
-              <p className="text-gray-300 text-sm">Connect Worldwide</p>
-            </div>
-          </div>
+          <Logo size="lg" showText={true} isDarkTheme={true} />
           
           <div className="flex items-center space-x-4">
-            <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full transition-all flex items-center space-x-2">
-              <span>🦋</span>
-              <span className="hidden md:block">Product Hunt</span>
+            <button className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full transition-all flex items-center space-x-2 border border-white/20 hover:border-white/30">
+              <span className="text-orange-400">🔥</span>
+              <span className="hidden md:block font-medium">Product Hunt</span>
             </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-full transition-all">
-              ? Tutorial
+            <button className="bg-purple-600/90 hover:bg-purple-700 text-white px-6 py-2 rounded-full transition-all border border-purple-500/30 hover:border-purple-400/50 backdrop-blur-sm">
+              <span className="mr-1">?</span> Tutorial
             </button>
-            <button className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-full transition-all">
+            <button className="bg-yellow-500/90 hover:bg-yellow-600 text-black px-6 py-2 rounded-full transition-all border border-yellow-400/30 hover:border-yellow-300/50 backdrop-blur-sm font-medium">
               🌙 Dark
             </button>
           </div>
@@ -256,11 +249,8 @@ export default function Home() {
       {/* Footer */}
       <div className="bg-black/20 backdrop-blur-sm py-8 relative z-10">
         <div className="max-w-6xl mx-auto px-6 text-center">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">T</span>
-            </div>
-            <span className="text-white font-semibold text-lg">Meetopia</span>
+          <div className="flex items-center justify-center mb-4">
+            <Logo size="md" showText={true} isDarkTheme={true} />
           </div>
           <p className="text-gray-400 text-sm mb-4">
             Connecting the world, one conversation at a time.
