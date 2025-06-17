@@ -7,6 +7,7 @@ import ReportModal from '@/components/ReportModal'
 import Tutorial from '@/components/Tutorial'
 import { useReporting } from '@/hooks/useReporting'
 import Logo from '@/components/Logo'
+import { connectionManager } from '@/lib/connectionManager'
 import dynamic from 'next/dynamic'
 
 // Define props interface for PictureInPicture
@@ -227,7 +228,7 @@ export default function VideoChatPage() {
   const queuedCandidatesRef = useRef<RTCIceCandidate[]>([])
 
   // Peer connection hook
-  const { peerConnection, createFreshConnection } = usePeerConnection(stream)
+  const { peerConnection, createFreshConnection, connectionMetrics, isConnecting, isStable, cleanupConnection } = usePeerConnection(stream)
   const {
     isReportModalOpen,
     handleReport,
@@ -1273,7 +1274,7 @@ export default function VideoChatPage() {
       }
     })
 
-    // Add the missing match-found event handler that the server actually emits
+    // Enhanced match-found event handler with connection manager
     socket.on('match-found', async (data: any) => {
       console.log('🎉 Match found via match-found event! Data:', data)
       
@@ -1288,6 +1289,40 @@ export default function VideoChatPage() {
       // Add this peer to our previous peers list
       setPreviousPeers(prev => new Set(Array.from(prev).concat(data.peerId)))
       
+      // 🚀 ENHANCED: Use connection manager for smooth transition
+      console.log('🔄 Starting smooth transition to new peer...')
+      
+      const success = await connectionManager.transitionToPeer(
+        data.peerId,
+        () => {
+          // Graceful cleanup of old connection
+          if (currentPeerRef.current && currentPeerRef.current !== data.peerId) {
+            console.log('🧹 Cleaning up old peer connection:', currentPeerRef.current)
+            
+            // Clean up old peer connection
+            if (peerConnectionRef.current) {
+              try {
+                peerConnectionRef.current.close()
+                peerConnectionRef.current = null
+              } catch (error) {
+                console.warn('Error cleaning up old connection:', error)
+              }
+            }
+          }
+        }
+      )
+      
+      if (!success) {
+        console.error('❌ Failed to transition to new peer')
+        setError('Failed to connect to matched peer. Trying again...')
+        // Retry finding a match
+        setTimeout(() => {
+          socket.emit('find-match', { type: 'video' })
+        }, 2000)
+        return
+      }
+      
+      // Update state after successful transition
       currentPeerRef.current = data.peerId
       setCurrentPeer(data.peerId)
       setIsSearching(false)
@@ -1298,13 +1333,38 @@ export default function VideoChatPage() {
         searchTimeoutRef.current = null
       }
       
-      // Ensure we have a fresh peer connection ready
-      if (!peerConnectionRef.current || peerConnectionRef.current.signalingState === 'closed') {
-        console.log('🔄 Creating fresh peer connection for new match')
-        const freshConnection = createFreshConnection()
-        if (freshConnection) {
-          peerConnectionRef.current = freshConnection
+      // Update connection manager state
+      connectionManager.updatePeerState(data.peerId, 'connecting', 'good')
+      
+      // Create fresh peer connection for new match
+      console.log('🔄 Creating fresh peer connection for new match')
+      const freshConnection = createFreshConnection()
+      if (freshConnection) {
+        peerConnectionRef.current = freshConnection
+        
+        // Monitor connection state changes
+        freshConnection.oniceconnectionstatechange = () => {
+          const state = freshConnection.iceConnectionState
+          console.log(`🧊 ICE state for ${data.peerId}:`, state)
+          
+          // Update connection manager
+          switch (state) {
+            case 'connected':
+            case 'completed':
+              connectionManager.updatePeerState(data.peerId, 'connected', 'excellent')
+              break
+            case 'disconnected':
+              connectionManager.updatePeerState(data.peerId, 'disconnected', 'poor')
+              break
+            case 'failed':
+              connectionManager.updatePeerState(data.peerId, 'failed', 'failed')
+              break
+          }
         }
+      } else {
+        console.error('❌ Failed to create fresh connection')
+        setError('Failed to create connection. Please try again.')
+        return
       }
       
       // Clear any error messages 
@@ -1324,10 +1384,14 @@ export default function VideoChatPage() {
             await currentConnection.setLocalDescription(offer)
             socket.emit('offer', offer, data.peerId)
             console.log('✅ Sent WebRTC offer to matched peer')
+            
+            // Update connection state
+            connectionManager.updatePeerState(data.peerId, 'connecting', 'good')
           }
         } catch (error) {
           console.error('❌ Error creating offer for match:', error)
           setError('Failed to create connection offer')
+          connectionManager.updatePeerState(data.peerId, 'failed', 'failed')
         }
       } else {
         console.log('⏳ Waiting for peer to initiate call (lower socket ID)')
@@ -2295,6 +2359,8 @@ export default function VideoChatPage() {
               {isDarkTheme ? '☀️ Light' : '🌙 Dark'}
             </button>
             <div className={`flex items-center gap-2 ${
+              connectionManager.isTransitioning()
+                ? 'bg-blue-500/20 border-blue-400/30' :
               shouldShowConnected && remoteStream && peerConnectionStatus === 'connected'
                 ? 'bg-green-500/20 border-green-400/30' :
               currentPeer && (peerConnectionStatus === 'connecting' || isSearching)
@@ -2302,11 +2368,24 @@ export default function VideoChatPage() {
                 'bg-red-500/20 border-red-400/30'
             } px-3 py-1.5 rounded-lg border backdrop-blur-sm`}>
               <span className={`text-sm font-medium ${isDarkTheme ? 'text-white/90' : 'text-black/90'}`}>
-                {shouldShowConnected && remoteStream && peerConnectionStatus === 'connected' && '🟢 Connected'}
-                {currentPeer && (peerConnectionStatus === 'connecting' || isSearching) && !shouldShowConnected && '🟡 Connecting'}
-                {!currentPeer && !isSearching && '🔴 Not Connected'}
+                {connectionManager.isTransitioning() && 
+                  (() => {
+                    const transition = connectionManager.getTransitionStatus()
+                    switch (transition?.phase) {
+                      case 'preparing': return '🔄 Preparing...'
+                      case 'connecting': return '🔗 Connecting...'
+                      case 'stabilizing': return '⚖️ Stabilizing...'
+                      default: return '🔄 Transitioning...'
+                    }
+                  })()
+                }
+                {!connectionManager.isTransitioning() && shouldShowConnected && remoteStream && peerConnectionStatus === 'connected' && '🟢 Connected'}
+                {!connectionManager.isTransitioning() && currentPeer && (peerConnectionStatus === 'connecting' || isSearching) && !shouldShowConnected && '🟡 Connecting'}
+                {!connectionManager.isTransitioning() && !currentPeer && !isSearching && '🔴 Not Connected'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
+                connectionManager.isTransitioning()
+                  ? 'bg-blue-500 animate-pulse' :
                 shouldShowConnected && remoteStream && peerConnectionStatus === 'connected'
                   ? 'bg-green-500' :
                 currentPeer && (peerConnectionStatus === 'connecting' || isSearching)

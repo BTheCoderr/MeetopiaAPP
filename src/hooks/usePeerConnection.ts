@@ -1,28 +1,144 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+
+interface ConnectionMetrics {
+  connectionAttempts: number;
+  lastConnectionTime: number;
+  connectionQuality: 'excellent' | 'good' | 'poor' | 'failed';
+  reconnectAttempts: number;
+}
 
 export const usePeerConnection = (stream: MediaStream | null) => {
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null)
+  const [connectionMetrics, setConnectionMetrics] = useState<ConnectionMetrics>({
+    connectionAttempts: 0,
+    lastConnectionTime: 0,
+    connectionQuality: 'excellent',
+    reconnectAttempts: 0
+  })
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [isStable, setIsStable] = useState(false)
+  
   const connectionRef = useRef<RTCPeerConnection | null>(null)
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const connectionStartTime = useRef<number>(0)
 
-  const createFreshConnection = () => {
-    // Close existing connection if any
-    if (connectionRef.current) {
-      connectionRef.current.close()
-    }
-
-    console.log('Creating new peer connection')
+  // Enhanced connection cleanup
+  const cleanupConnection = useCallback(() => {
+    console.log('🧹 Cleaning up peer connection...')
     
-    // Enhanced ICE servers with multiple STUN servers for better connectivity
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+    
+    if (stabilityTimeoutRef.current) {
+      clearTimeout(stabilityTimeoutRef.current)
+      stabilityTimeoutRef.current = null
+    }
+    
+    if (connectionRef.current) {
+      try {
+        // Remove all event listeners
+        connectionRef.current.oniceconnectionstatechange = null
+        connectionRef.current.onconnectionstatechange = null
+        connectionRef.current.onicegatheringstatechange = null
+        connectionRef.current.onicecandidate = null
+        connectionRef.current.ondatachannel = null
+        connectionRef.current.ontrack = null
+        
+        // Close the connection
+        connectionRef.current.close()
+        connectionRef.current = null
+      } catch (error) {
+        console.error('Error during connection cleanup:', error)
+      }
+    }
+    
+    setIsConnecting(false)
+    setIsStable(false)
+    setPeerConnection(null)
+  }, [])
+
+  // Enhanced connection quality assessment
+  const assessConnectionQuality = useCallback((pc: RTCPeerConnection) => {
+    const connectionTime = Date.now() - connectionStartTime.current
+    let quality: ConnectionMetrics['connectionQuality'] = 'excellent'
+    
+    if (pc.iceConnectionState === 'failed') {
+      quality = 'failed'
+    } else if (pc.iceConnectionState === 'disconnected') {
+      quality = 'poor'
+    } else if (connectionTime > 10000) { // Taking longer than 10s
+      quality = 'poor'
+    } else if (connectionTime > 5000) { // Taking longer than 5s
+      quality = 'good'
+    }
+    
+    setConnectionMetrics(prev => ({
+      ...prev,
+      connectionQuality: quality,
+      lastConnectionTime: connectionTime
+    }))
+    
+    return quality
+  }, [])
+
+  // Smart reconnection logic
+  const attemptReconnection = useCallback(() => {
+    setConnectionMetrics(prev => {
+      const newAttempts = prev.reconnectAttempts + 1
+      
+      // Exponential backoff: don't spam reconnections
+      if (newAttempts > 5) {
+        console.log('🚫 Max reconnection attempts reached, giving up')
+        return { ...prev, connectionQuality: 'failed' }
+      }
+      
+      const delay = Math.min(1000 * Math.pow(2, newAttempts - 1), 10000) // Max 10s delay
+      console.log(`🔄 Scheduling reconnection attempt ${newAttempts} in ${delay}ms`)
+      
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log(`🔄 Executing reconnection attempt ${newAttempts}`)
+        createFreshConnection()
+      }, delay)
+      
+      return { ...prev, reconnectAttempts: newAttempts }
+    })
+  }, [])
+
+  const createFreshConnection = useCallback(() => {
+    console.log('🆕 Creating fresh peer connection...')
+    
+    // Clean up existing connection
+    cleanupConnection()
+    
+    setIsConnecting(true)
+    connectionStartTime.current = Date.now()
+    
+    setConnectionMetrics(prev => ({
+      ...prev,
+      connectionAttempts: prev.connectionAttempts + 1,
+      reconnectAttempts: 0 // Reset on fresh connection
+    }))
+
+    // Enhanced ICE servers with better reliability
     const iceServers = [
+      // Primary Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      { urls: 'stun:stun.relay.metered.ca:80' },
+      
+      // Backup STUN servers
       { urls: 'stun:stun.cloudflare.com:3478' },
-      // IMPROVED: More reliable TURN servers for better connectivity
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      
+      // Reliable TURN servers for NAT traversal
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -37,27 +153,12 @@ export const usePeerConnection = (stream: MediaStream | null) => {
         urls: 'turn:openrelay.metered.ca:443?transport=tcp',
         username: 'openrelayproject',
         credential: 'openrelayproject'
-      },
-      // FIXED: Remove potentially unreliable servers
-      {
-        urls: 'turn:relay.metered.ca:80',
-        username: 'b2f4a2a6c8f0b2b7a2c8f0b',
-        credential: 'meetopia2024'
-      },
-      {
-        urls: 'turn:relay.metered.ca:443',
-        username: 'b2f4a2a6c8f0b2b7a2c8f0b',
-        credential: 'meetopia2024'
       }
     ]
 
-    console.log('🌐 ICE servers configured:', iceServers.length, 'servers')
-    console.log('📡 STUN servers:', iceServers.filter(s => s.urls.includes('stun')).length)
-    console.log('🔄 TURN servers:', iceServers.filter(s => s.urls.includes('turn')).length)
-
     const config: RTCConfiguration = {
       iceServers,
-      iceCandidatePoolSize: 15, // Increased for better connectivity
+      iceCandidatePoolSize: 10, // Balanced for performance
       iceTransportPolicy: 'all',
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
@@ -65,148 +166,142 @@ export const usePeerConnection = (stream: MediaStream | null) => {
 
     const pc = new RTCPeerConnection(config)
     
-    // Enhanced connection monitoring
+    // Enhanced state monitoring with stability tracking
     pc.oniceconnectionstatechange = () => {
-      console.log('🧊 ICE connection state changed:', pc.iceConnectionState)
+      console.log('🧊 ICE connection state:', pc.iceConnectionState)
       
-      // Log transition details
-      const states = {
-        'new': '🆕 Starting ICE connection process',
-        'checking': '🔄 Checking ICE connectivity',
-        'connected': '✅ ICE connection established successfully!',
-        'completed': '🎉 ICE connection completed - optimal path found',
-        'failed': '❌ ICE connection failed - cannot establish connection',
-        'disconnected': '⚠️ ICE connection temporarily disconnected',
-        'closed': '🔒 ICE connection closed'
-      }
+      const quality = assessConnectionQuality(pc)
       
-      console.log(states[pc.iceConnectionState as keyof typeof states] || `Unknown state: ${pc.iceConnectionState}`)
-      
-      if (pc.iceConnectionState === 'failed') {
-        console.log('🔥 ICE CONNECTION FAILED - Debugging info:')
-        console.log('- Local description:', pc.localDescription?.type)
-        console.log('- Remote description:', pc.remoteDescription?.type)
-        console.log('- Signaling state:', pc.signalingState)
-        console.log('- Connection state:', pc.connectionState)
-        
-        console.log('🔄 Attempting ICE restart...')
-        if (pc.restartIce) {
-          pc.restartIce()
-        } else {
-          console.log('❌ ICE restart not supported')
-        }
-      }
-      
-      if (pc.iceConnectionState === 'disconnected') {
-        console.log('⚠️ ICE temporarily disconnected - connection may recover')
-        // IMPROVED: Don't restart immediately, wait for potential recovery
-        setTimeout(() => {
-          if (pc && pc.iceConnectionState === 'disconnected') {
-            console.log('🔄 ICE still disconnected after 10s, attempting restart')
-            if (pc.restartIce) {
-              pc.restartIce()
-            }
+      switch (pc.iceConnectionState) {
+        case 'connected':
+        case 'completed':
+          console.log('✅ ICE connection established successfully!')
+          setIsConnecting(false)
+          setIsStable(false) // Reset stability timer
+          
+          // Set stable after 3 seconds of successful connection
+          if (stabilityTimeoutRef.current) {
+            clearTimeout(stabilityTimeoutRef.current)
           }
-        }, 10000) // Increased timeout for better stability
+          stabilityTimeoutRef.current = setTimeout(() => {
+            setIsStable(true)
+            console.log('🎯 Connection marked as stable')
+          }, 3000)
+          break
+          
+        case 'failed':
+          console.log('❌ ICE connection failed')
+          setIsConnecting(false)
+          setIsStable(false)
+          attemptReconnection()
+          break
+          
+        case 'disconnected':
+          console.log('⚠️ ICE connection disconnected')
+          setIsStable(false)
+          
+          // Only attempt reconnection if we were previously stable
+          setTimeout(() => {
+            if (pc && pc.iceConnectionState === 'disconnected') {
+              console.log('🔄 Connection still disconnected, attempting recovery')
+              attemptReconnection()
+            }
+          }, 5000)
+          break
+          
+        case 'checking':
+          console.log('🔄 Checking connectivity...')
+          setIsConnecting(true)
+          break
+          
+        case 'closed':
+          console.log('🔒 ICE connection closed')
+          setIsConnecting(false)
+          setIsStable(false)
+          break
       }
     }
     
     pc.onconnectionstatechange = () => {
-      console.log('🔗 Peer connection state changed:', pc.connectionState)
-      
-      // Log transition details
-      const states = {
-        'new': '🆕 Starting peer connection',
-        'connecting': '🔄 Establishing peer connection',
-        'connected': '✅ Peer connection established successfully!',
-        'disconnected': '⚠️ Peer connection temporarily disconnected',
-        'failed': '❌ Peer connection failed completely',
-        'closed': '🔒 Peer connection closed'
-      }
-      
-      console.log(states[pc.connectionState as keyof typeof states] || `Unknown state: ${pc.connectionState}`)
+      console.log('🔗 Peer connection state:', pc.connectionState)
       
       if (pc.connectionState === 'failed') {
-        console.log('🔥 PEER CONNECTION FAILED - Full diagnostic:')
-        console.log('- ICE connection state:', pc.iceConnectionState)
-        console.log('- ICE gathering state:', pc.iceGatheringState)
-        console.log('- Signaling state:', pc.signalingState)
-        console.log('- Local description:', pc.localDescription)
-        console.log('- Remote description:', pc.remoteDescription)
+        console.log('🔥 Peer connection failed completely')
+        setIsConnecting(false)
+        setIsStable(false)
+        attemptReconnection()
       }
     }
     
     pc.onicegatheringstatechange = () => {
-      console.log('🧊 ICE gathering state changed:', pc.iceGatheringState)
-      
-      const states = {
-        'new': '🆕 Starting ICE candidate gathering',
-        'gathering': '🔄 Gathering ICE candidates...',
-        'complete': '✅ ICE candidate gathering completed'
-      }
-      
-      console.log(states[pc.iceGatheringState as keyof typeof states] || `Unknown state: ${pc.iceGatheringState}`)
+      console.log('🧊 ICE gathering state:', pc.iceGatheringState)
     }
 
-    // Enhanced ICE candidate monitoring
+    // Optimized ICE candidate handling
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        // Only log important candidates to reduce noise
         const candidate = event.candidate.candidate
-        const type = candidate.split(' ')[7] || 'unknown'
-        const protocol = candidate.includes('udp') ? 'UDP' : candidate.includes('tcp') ? 'TCP' : 'unknown'
-        
-        console.log(`🧊 ICE candidate found: ${type} (${protocol})`)
-        
-        // Log first few candidates in detail
-        if (Math.random() < 0.2) { // Log 20% of candidates to avoid spam
-          console.log('ICE candidate details:', {
-            type,
-            protocol,
-            foundation: candidate.split(' ')[0],
-            priority: candidate.split(' ')[3],
-            address: candidate.split(' ')[4],
-            port: candidate.split(' ')[5]
-          })
+        if (candidate.includes('typ srflx') || candidate.includes('typ relay')) {
+          console.log('🧊 Important ICE candidate:', candidate.split(' ')[7] || 'unknown')
         }
       } else {
-        console.log('🧊 ICE candidate gathering completed (null candidate received)')
+        console.log('🧊 ICE gathering completed')
       }
     }
 
-    // Monitor data channel state if any
-    pc.ondatachannel = (event) => {
-      console.log('📡 Data channel received:', event.channel.label)
-      
-      event.channel.onopen = () => console.log('📡 Data channel opened')
-      event.channel.onclose = () => console.log('📡 Data channel closed')
-      event.channel.onerror = (error) => console.log('📡 Data channel error:', error)
-    }
-
-    // Add tracks from stream
+    // Add tracks with error handling
     if (stream) {
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream)
-        console.log('Added track to peer connection:', track.kind)
-      })
+      try {
+        stream.getTracks().forEach(track => {
+          pc.addTrack(track, stream)
+          console.log(`➕ Added ${track.kind} track to connection`)
+        })
+      } catch (error) {
+        console.error('Error adding tracks:', error)
+      }
     }
 
     connectionRef.current = pc
     setPeerConnection(pc)
+    
+    console.log('🎯 Fresh connection created and configured')
     return pc
-  }
+  }, [stream, cleanupConnection, assessConnectionQuality, attemptReconnection])
 
+  // Initialize connection when stream is available
   useEffect(() => {
     if (stream) {
+      console.log('🎬 Stream available, creating connection...')
       createFreshConnection()
     }
 
-    return () => {
-      if (connectionRef.current) {
-        connectionRef.current.close()
-        connectionRef.current = null
-      }
-    }
-  }, [stream])
+    return cleanupConnection
+  }, [stream, createFreshConnection, cleanupConnection])
 
-  return { peerConnection, createFreshConnection }
+  // Connection health monitoring
+  useEffect(() => {
+    const healthCheckInterval = setInterval(() => {
+      if (connectionRef.current && isStable) {
+        const pc = connectionRef.current
+        
+        // Check if connection is still healthy
+        if (pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed') {
+          console.log('🏥 Health check failed, connection degraded')
+          setIsStable(false)
+        }
+      }
+    }, 5000) // Check every 5 seconds
+
+    return () => clearInterval(healthCheckInterval)
+  }, [isStable])
+
+  return { 
+    peerConnection, 
+    createFreshConnection, 
+    connectionMetrics,
+    isConnecting,
+    isStable,
+    cleanupConnection
+  }
 } 
