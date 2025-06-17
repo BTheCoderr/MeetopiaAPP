@@ -1321,10 +1321,10 @@ export default function VideoChatPage() {
       }
       
       // Create fresh peer connection for new match
-      console.log('🔄 Creating fresh peer connection for new match')
-      const freshConnection = createFreshConnection()
-      if (freshConnection) {
-        peerConnectionRef.current = freshConnection
+        console.log('🔄 Creating fresh peer connection for new match')
+        const freshConnection = createFreshConnection()
+        if (freshConnection) {
+          peerConnectionRef.current = freshConnection
         
         // Enhanced connection monitoring with longer timeouts
         freshConnection.oniceconnectionstatechange = () => {
@@ -2665,8 +2665,8 @@ export default function VideoChatPage() {
                         <span className="animate-type-writer">Connect with amazing people worldwide!</span>
                       </p>
                       <p className={`text-sm mt-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'} animate-fade-in-out`}>
-                        Every conversation is a new adventure waiting to unfold.
-                      </p>
+                      Every conversation is a new adventure waiting to unfold.
+                    </p>
                     </div>
 
                     {/* Call to Action with Enhanced Animation */}
