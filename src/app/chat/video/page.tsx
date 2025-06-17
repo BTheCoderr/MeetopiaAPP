@@ -1274,7 +1274,7 @@ export default function VideoChatPage() {
       }
     })
 
-    // Enhanced match-found event handler with connection manager
+    // Enhanced match-found event handler with simplified connection logic
     socket.on('match-found', async (data: any) => {
       console.log('🎉 Match found via match-found event! Data:', data)
       
@@ -1289,40 +1289,27 @@ export default function VideoChatPage() {
       // Add this peer to our previous peers list
       setPreviousPeers(prev => new Set(Array.from(prev).concat(data.peerId)))
       
-      // 🚀 ENHANCED: Use connection manager for smooth transition
-      console.log('🔄 Starting smooth transition to new peer...')
+      // 🚀 SIMPLIFIED: Direct connection approach for better stability
+      console.log('🔄 Starting direct connection to new peer...')
       
-      const success = await connectionManager.transitionToPeer(
-        data.peerId,
-        () => {
-          // Graceful cleanup of old connection
-          if (currentPeerRef.current && currentPeerRef.current !== data.peerId) {
-            console.log('🧹 Cleaning up old peer connection:', currentPeerRef.current)
-            
-            // Clean up old peer connection
-            if (peerConnectionRef.current) {
-              try {
-                peerConnectionRef.current.close()
-                peerConnectionRef.current = null
-              } catch (error) {
-                console.warn('Error cleaning up old connection:', error)
-              }
-            }
+      // Graceful cleanup of old connection if exists
+      if (currentPeerRef.current && currentPeerRef.current !== data.peerId) {
+        console.log('🧹 Cleaning up old peer connection:', currentPeerRef.current)
+        
+        // Clean up old peer connection with delay to prevent race conditions
+        if (peerConnectionRef.current) {
+          try {
+            peerConnectionRef.current.close()
+            peerConnectionRef.current = null
+            // Small delay to ensure cleanup completes
+            await new Promise(resolve => setTimeout(resolve, 500))
+          } catch (error) {
+            console.warn('Error cleaning up old connection:', error)
           }
         }
-      )
-      
-      if (!success) {
-        console.error('❌ Failed to transition to new peer')
-        setError('Failed to connect to matched peer. Trying again...')
-        // Retry finding a match
-        setTimeout(() => {
-          socket.emit('find-match', { type: 'video' })
-        }, 2000)
-        return
       }
       
-      // Update state after successful transition
+      // Update state immediately
       currentPeerRef.current = data.peerId
       setCurrentPeer(data.peerId)
       setIsSearching(false)
@@ -1333,32 +1320,72 @@ export default function VideoChatPage() {
         searchTimeoutRef.current = null
       }
       
-      // Update connection manager state
-      connectionManager.updatePeerState(data.peerId, 'connecting', 'good')
-      
       // Create fresh peer connection for new match
       console.log('🔄 Creating fresh peer connection for new match')
       const freshConnection = createFreshConnection()
       if (freshConnection) {
         peerConnectionRef.current = freshConnection
         
-        // Monitor connection state changes
+        // Enhanced connection monitoring with longer timeouts
         freshConnection.oniceconnectionstatechange = () => {
           const state = freshConnection.iceConnectionState
           console.log(`🧊 ICE state for ${data.peerId}:`, state)
           
-          // Update connection manager
-          switch (state) {
-            case 'connected':
-            case 'completed':
-              connectionManager.updatePeerState(data.peerId, 'connected', 'excellent')
-              break
-            case 'disconnected':
-              connectionManager.updatePeerState(data.peerId, 'disconnected', 'poor')
-              break
-            case 'failed':
-              connectionManager.updatePeerState(data.peerId, 'failed', 'failed')
-              break
+          if (state === 'disconnected') {
+            console.log('🔄 ICE disconnected - giving more time for recovery')
+                         // Don't immediately fail - give 10 seconds for natural recovery
+             const disconnectTimeout = setTimeout(() => {
+               if (freshConnection.iceConnectionState === 'disconnected') {
+                 console.log('⚠️ Still disconnected after 10s - attempting ICE restart')
+                 if (freshConnection.restartIce) {
+                   freshConnection.restartIce()
+                 }
+               }
+             }, 10000) as unknown as ReturnType<typeof setTimeout> // Increased timeout for better stability
+          } else if (state === 'failed') {
+            console.log('❌ ICE failed - will search for new peer after delay')
+                         // Don't immediately search - give time for recovery
+             const failedTimeout = setTimeout(() => {
+               if (freshConnection.iceConnectionState === 'failed') {
+                 console.log('🔍 ICE still failed - searching for new connection')
+                 currentPeerRef.current = null
+                 setCurrentPeer(null)
+                 setRemoteStream(null)
+                 setIsPeerConnected(false)
+                 if (!isSearching && socket?.connected) {
+                   handleStartChat()
+                 }
+               }
+             }, 8000) as unknown as ReturnType<typeof setTimeout>
+          }
+        }
+        
+        // Enhanced connection state monitoring
+        freshConnection.onconnectionstatechange = () => {
+          const state = freshConnection.connectionState
+          console.log(`🔗 Connection state for ${data.peerId}:`, state)
+          
+          if (state === 'connected') {
+            console.log('✅ Peer connection established successfully!')
+            setIsPeerConnected(true)
+            setPeerConnectionStatus('connected')
+            setShouldShowConnected(true)
+            setConnectionQuality('excellent')
+          } else if (state === 'failed') {
+            console.log('❌ Peer connection failed - will retry after delay')
+            setIsPeerConnected(false)
+                         // Don't immediately retry - give time for recovery
+             const retryTimeout = setTimeout(() => {
+               if (freshConnection.connectionState === 'failed') {
+                 console.log('🔄 Connection still failed - searching for new peer')
+                 currentPeerRef.current = null
+                 setCurrentPeer(null)
+                 setRemoteStream(null)
+                 if (!isSearching && socket?.connected) {
+                   handleStartChat()
+                 }
+               }
+             }, 5000) as unknown as ReturnType<typeof setTimeout>
           }
         }
       } else {
@@ -1380,18 +1407,20 @@ export default function VideoChatPage() {
         try {
           const currentConnection = peerConnectionRef.current
           if (currentConnection) {
-            const offer = await currentConnection.createOffer()
+            // Add small delay before creating offer to ensure connection is ready
+            await new Promise(resolve => setTimeout(resolve, 200))
+            
+            const offer = await currentConnection.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true
+            })
             await currentConnection.setLocalDescription(offer)
             socket.emit('offer', offer, data.peerId)
             console.log('✅ Sent WebRTC offer to matched peer')
-            
-            // Update connection state
-            connectionManager.updatePeerState(data.peerId, 'connecting', 'good')
           }
         } catch (error) {
           console.error('❌ Error creating offer for match:', error)
           setError('Failed to create connection offer')
-          connectionManager.updatePeerState(data.peerId, 'failed', 'failed')
         }
       } else {
         console.log('⏳ Waiting for peer to initiate call (lower socket ID)')
