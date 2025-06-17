@@ -3,10 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Logo from '../components/Logo'
-import { useTheme } from '../components/ThemeProvider'
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme()
+  const [isDarkMode, setIsDarkMode] = useState(true) // Default to dark since the background is dark
   const [showTutorial, setShowTutorial] = useState(false)
   const [stats, setStats] = useState({
     activeUsers: 1200,
@@ -29,7 +28,11 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [])
 
-  const isDark = theme === 'dark'
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode)
+    // Simple theme toggle without complex context
+    document.documentElement.classList.toggle('dark')
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
@@ -70,7 +73,7 @@ export default function Home() {
               onClick={toggleTheme}
               className="bg-yellow-500/90 hover:bg-yellow-600 text-black px-6 py-2 rounded-full transition-all border border-yellow-400/30 hover:border-yellow-300/50 backdrop-blur-sm font-medium"
             >
-              {isDark ? '☀️ Light' : '🌙 Dark'}
+              {isDarkMode ? '☀️ Light' : '🌙 Dark'}
             </button>
           </div>
         </div>
