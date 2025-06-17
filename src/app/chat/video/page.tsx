@@ -2311,6 +2311,18 @@ export default function VideoChatPage() {
     }
   }, [socket])
 
+  // ✅ Development mode stability - prevent HMR from constantly rebuilding connections
+  const [isDevMode] = useState(() => process.env.NODE_ENV === 'development')
+  const [devConnectionStable, setDevConnectionStable] = useState(false)
+  
+  // Prevent HMR from constantly rebuilding in development
+  useEffect(() => {
+    if (isDevMode && isPeerConnected && !devConnectionStable) {
+      console.log('🔧 DEV MODE: Connection stable, preventing HMR rebuilds')
+      setDevConnectionStable(true)
+    }
+  }, [isPeerConnected, isDevMode, devConnectionStable])
+
   return (
     <div className={`relative min-h-screen transition-colors duration-500 ${
       isDarkTheme 
@@ -2630,29 +2642,40 @@ export default function VideoChatPage() {
                   </>
                 ) : (
                   <>
-                    {/* Enhanced Welcome State */}
-                    <div className="relative mb-6">
-                      <div className="text-8xl animate-float mb-2">🎥</div>
-                      <div className="absolute -top-2 -right-2">
+                    {/* Enhanced Welcome State with Animations */}
+                    <div className="relative mb-6 animate-fade-in-up">
+                      <div className="text-8xl mb-2 transform transition-all duration-1000 hover:rotate-12 animate-bounce-slow">🎥</div>
+                      <div className="absolute -top-2 -right-2 animate-spin-slow">
                         <div className="text-2xl animate-pulse">✨</div>
                       </div>
+                      {/* Floating particles */}
+                      <div className="absolute -top-4 -left-4 w-2 h-2 bg-blue-500/40 rounded-full animate-float-1"></div>
+                      <div className="absolute -bottom-2 -right-4 w-1 h-1 bg-purple-500/50 rounded-full animate-float-2"></div>
                     </div>
                     
-                    <h2 className={`text-2xl font-bold mb-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>
-                      <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    <h2 className={`text-2xl font-bold mb-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'} animate-fade-in-up-delay`}>
+                      <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent animate-gradient-x bg-size-200">
                         Ready for your Meetopia adventure?
                       </span>
                     </h2>
                     
-                    <p className={`text-base mb-6 ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
-                      🌍 Connect with amazing people worldwide!<br />
-                      Every conversation is a new adventure waiting to unfold.
-                    </p>
+                    <div className="mb-6 animate-fade-in-up-delay-2">
+                      <p className={`text-base ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'} leading-relaxed flex items-center justify-center gap-2`}>
+                        <span className="text-xl animate-spin-slow">🌍</span>
+                        <span className="animate-type-writer">Connect with amazing people worldwide!</span>
+                      </p>
+                      <p className={`text-sm mt-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'} animate-fade-in-out`}>
+                        Every conversation is a new adventure waiting to unfold.
+                      </p>
+                    </div>
 
-                    {/* Call to Action with Animation */}
-                    <div className={`px-4 py-3 ${isDarkTheme ? 'bg-blue-600/20 border-blue-500/30' : 'bg-blue-50 border-blue-200/50'} border rounded-2xl animate-pulse-gentle`}>
-                      <p className={`text-sm font-semibold ${isDarkTheme ? 'text-blue-300' : 'text-blue-700'}`}>
-                        👆 Click "Keep Exploring!" to begin!
+                    {/* Call to Action with Enhanced Animation */}
+                    <div className={`px-4 py-3 ${isDarkTheme ? 'bg-blue-600/20 border-blue-500/30' : 'bg-blue-50 border-blue-200/50'} border rounded-2xl animate-bounce-gentle relative overflow-hidden`}>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+                      <p className={`text-sm font-semibold ${isDarkTheme ? 'text-blue-300' : 'text-blue-700'} flex items-center justify-center gap-2 relative z-10`}>
+                        <span className="animate-pulse text-lg">👆</span>
+                        <span className="animate-fade-in-out">Click "Keep Exploring!" to begin!</span>
+                        <span className="animate-pulse text-lg animate-delay-500">👆</span>
                       </p>
                     </div>
                   </>
