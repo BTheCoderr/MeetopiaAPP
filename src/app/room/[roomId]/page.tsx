@@ -599,7 +599,8 @@ export default function RoomPage({ params }: PageProps) {
                 autoPlay
                 playsInline
                 muted
-                className="w-full rounded-lg"
+                className="w-full rounded-lg transform scale-x-[-1] mirror-video"
+                style={{ transform: 'scaleX(-1)' }}
               />
               <div className="absolute bottom-4 left-4 flex gap-2">
                 <button

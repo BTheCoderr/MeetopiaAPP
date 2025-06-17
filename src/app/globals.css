@@ -7,6 +7,14 @@ body {
   color: black;
 }
 
+/* Video mirroring for local video feed */
+.mirror-video {
+  -webkit-transform: scaleX(-1);
+  -moz-transform: scaleX(-1);
+  -o-transform: scaleX(-1);
+  transform: scaleX(-1);
+}
+
 /* Custom animations for Meetopia waiting screen */
 @keyframes float {
   0%, 100% {

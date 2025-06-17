@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Meetopia",
+    "slug": "meetopia-video-chat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111827"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.meetopia.videochat",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Meetopia uses your camera for video calls to connect you with new people around the world.",
+        "NSMicrophoneUsageDescription": "Meetopia uses your microphone for audio during video calls."
+      },
+      "requireFullScreen": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#111827"
+      },
+      "package": "com.meetopia.videochat",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Meetopia to access your camera for video calls."
+        }
+      ],
+      "expo-audio",
+      "expo-video"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3e59c907-edb8-4962-87b2-2ad38ccf01b1"
+      }
+    }
+  }
+}

@@ -76,7 +76,9 @@ export class PerformanceOptimizer {
     // Implement LRU cache
     if (this.cache.size >= this.cacheMaxSize) {
       const firstKey = this.cache.keys().next().value
-      this.cache.delete(firstKey)
+      if (firstKey) {
+        this.cache.delete(firstKey)
+      }
     }
 
     this.cache.set(key, {
@@ -134,7 +136,7 @@ export class PerformanceOptimizer {
   private performMemoryCleanup(): void {
     // Clear old cache entries
     const now = Date.now()
-    for (const [key, cached] of this.cache.entries()) {
+    for (const [key, cached] of Array.from(this.cache.entries())) {
       if (now - cached.timestamp > cached.ttl / 2) {
         this.cache.delete(key)
       }
@@ -389,7 +391,7 @@ export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout
+  let timeout: ReturnType<typeof setTimeout>
   return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)

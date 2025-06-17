@@ -1,5 +1,6 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 import { UserProfileSetup } from '@/components/Profile/UserProfileSetup'
@@ -298,7 +299,7 @@ describe('UserProfileSetup', () => {
     render(<UserProfileSetup onComplete={mockOnComplete} />)
     
     // Check initial progress
-    const progressSteps = screen.getAllByRole('generic').filter(el => 
+    const progressSteps = screen.getAllByRole('generic').filter((el: HTMLElement) => 
       el.className.includes('w-10 h-10 rounded-full')
     )
     
@@ -311,7 +312,7 @@ describe('UserProfileSetup', () => {
     await user.click(screen.getByText('Next'))
     
     // Check updated progress
-    const updatedProgressSteps = screen.getAllByRole('generic').filter(el => 
+    const updatedProgressSteps = screen.getAllByRole('generic').filter((el: HTMLElement) => 
       el.className.includes('w-10 h-10 rounded-full')
     )
     
