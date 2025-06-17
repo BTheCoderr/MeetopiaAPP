@@ -85,6 +85,7 @@ const CORS_ORIGINS = [
   'https://meeetopia.netlify.app',
   'https://vercel.com',
   'https://*.vercel.app',
+  'http://localhost:4000',
   'http://localhost:3001',
   'http://localhost:3000',
   'http://localhost:3003'
