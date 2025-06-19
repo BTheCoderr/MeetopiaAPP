@@ -22,9 +22,9 @@ interface Testimonial {
 }
 
 const stats: Stat[] = [
-  { value: '150K+', label: 'Active Users', icon: '👥' },
-  { value: '2.5M+', label: 'Connections Made', icon: '💫' },
-  { value: '195', label: 'Countries', icon: '🌍' },
+  { value: '2.8K+', label: 'Active Users', icon: '👥' },
+  { value: '15.6K+', label: 'Connections Made', icon: '💫' },
+  { value: '89', label: 'Countries', icon: '🌍' },
   { value: '4.8★', label: 'App Rating', icon: '⭐' }
 ];
 

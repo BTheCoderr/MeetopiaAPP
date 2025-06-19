@@ -77,8 +77,8 @@ export default function SupportPage() {
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">General Support</h3>
               <p className="text-sm text-gray-600 mb-3">Questions about using Meetopia</p>
-              <a href="mailto:support@meetopia.app" className="text-blue-600 hover:text-blue-700 font-medium">
-                support@meetopia.app
+              <a href="mailto:bferrell514@gmail.com" className="text-blue-600 hover:text-blue-700 font-medium">
+                bferrell514@gmail.com
               </a>
             </div>
             
@@ -88,8 +88,8 @@ export default function SupportPage() {
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Bug Reports</h3>
               <p className="text-sm text-gray-600 mb-3">Found a technical issue?</p>
-              <a href="mailto:bugs@meetopia.app" className="text-red-600 hover:text-red-700 font-medium">
-                bugs@meetopia.app
+              <a href="mailto:bferrell514@gmail.com" className="text-red-600 hover:text-red-700 font-medium">
+                bferrell514@gmail.com
               </a>
             </div>
             
@@ -99,8 +99,8 @@ export default function SupportPage() {
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Feedback</h3>
               <p className="text-sm text-gray-600 mb-3">Share your ideas with us</p>
-              <a href="mailto:feedback@meetopia.app" className="text-green-600 hover:text-green-700 font-medium">
-                feedback@meetopia.app
+              <a href="mailto:bferrell514@gmail.com" className="text-green-600 hover:text-green-700 font-medium">
+                bferrell514@gmail.com
               </a>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function SupportPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <a
-              href="mailto:support@meetopia.app"
+              href="mailto:bferrell514@gmail.com"
               className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
             >
               Contact Support
