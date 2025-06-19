@@ -8,6 +8,10 @@ import HomeScreen from '../screens/HomeScreen';
 import VideoCallScreen from '../screens/VideoCallScreen';
 import VideoChatScreen from '../screens/VideoChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import MatchingScreen from '../screens/MatchingScreen';
+import SupportScreen from '../screens/SupportScreen';
+import MarketingScreen from '../screens/MarketingScreen';
+import AboutScreen from '../screens/AboutScreen';
 
 // Components
 import TabBarIcon from '../components/TabBarIcon';
@@ -17,6 +21,10 @@ export type RootStackParamList = {
   Main: undefined;
   VideoCall: { roomUrl?: string; roomId?: string };
   VideoChat: { roomUrl?: string; roomId?: string };
+  Matching: undefined;
+  Support: undefined;
+  Marketing: undefined;
+  About: undefined;
 };
 
 export type TabParamList = {
@@ -93,6 +101,34 @@ const MainStack = () => {
         component={VideoChatScreen}
         options={{
           presentation: 'fullScreenModal',
+        }}
+      />
+      <Stack.Screen 
+        name="Matching" 
+        component={MatchingScreen}
+        options={{
+          presentation: 'fullScreenModal',
+        }}
+      />
+      <Stack.Screen 
+        name="Support" 
+        component={SupportScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="Marketing" 
+        component={MarketingScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="About" 
+        component={AboutScreen}
+        options={{
+          presentation: 'modal',
         }}
       />
     </Stack.Navigator>

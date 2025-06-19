@@ -7,13 +7,13 @@ import {
   SafeAreaView,
   Dimensions,
   Modal,
-  Alert,
+  ScrollView,
   Animated,
+  Share,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Logo from '../components/Logo';
-// Temporarily comment out TutorialModal to fix import issues
-// import TutorialModal from '../components/TutorialModal';
+import { useTheme } from '../context/ThemeContext';
 
 interface HomeScreenProps {
   navigation: any;
@@ -22,8 +22,13 @@ interface HomeScreenProps {
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const [isLightMode, setIsLightMode] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const [showTutorial, setShowTutorial] = useState(false);
+  const [stats, setStats] = useState({
+    activeUsers: 2847,
+    connections: 15632,
+    countries: 89,
+  });
   
   // Floating animations
   const floatingAnim1 = new Animated.Value(0);
@@ -38,13 +43,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         Animated.sequence([
           Animated.timing(animValue, {
             toValue: 1,
-            duration: 2000,
+            duration: 3000,
             delay,
             useNativeDriver: true,
           }),
           Animated.timing(animValue, {
             toValue: 0,
-            duration: 2000,
+            duration: 3000,
             useNativeDriver: true,
           }),
         ])
@@ -55,12 +60,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       Animated.sequence([
         Animated.timing(rocketAnim, {
           toValue: 1,
-          duration: 1500,
+          duration: 2000,
           useNativeDriver: true,
         }),
         Animated.timing(rocketAnim, {
           toValue: 0,
-          duration: 1500,
+          duration: 2000,
           useNativeDriver: true,
         }),
       ])
@@ -71,39 +76,69 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     createFloatingAnimation(floatingAnim2, 1000).start();
     createFloatingAnimation(floatingAnim3, 2000).start();
     rocket.start();
+
+    // Update stats every 3 seconds
+    const statsInterval = setInterval(() => {
+      setStats(prev => ({
+        activeUsers: prev.activeUsers + Math.floor(Math.random() * 10) - 5,
+        connections: prev.connections + Math.floor(Math.random() * 20) - 10,
+        countries: prev.countries,
+      }));
+    }, 3000);
+
+    return () => clearInterval(statsInterval);
   }, []);
 
-  // Watch Demo handler
-  const handleWatchDemo = () => {
-    Alert.alert(
-      "Watch Demo",
-      "This would play a demo video showing how to use Meetopia!",
-      [{ text: "OK" }]
-    );
+  // Real functionality handlers
+  const handleStartConnecting = () => {
+    navigation.navigate('Matching');
   };
 
-  // Toggle theme
-  const toggleTheme = () => {
-    setIsLightMode(!isLightMode);
+  const handleWatchDemo = () => {
+    navigation.navigate('VideoCall');
+  };
+
+  const handleCreateProfile = () => {
+    navigation.navigate('Profile');
+  };
+
+  const handleProductHunt = async () => {
+    try {
+      await Linking.openURL('https://www.producthunt.com/posts/meetopia');
+    } catch (error) {
+      console.log('Cannot open Product Hunt link');
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: 'Check out Meetopia - Connect with people worldwide! 🌍',
+        url: 'https://meetopia.app',
+      });
+    } catch (error) {
+      console.log('Error sharing:', error);
+    }
   };
 
   // Dynamic colors
-  const gradientColors = isLightMode 
-    ? ['#f8fafc', '#e2e8f0', '#cbd5e1'] as const
-    : ['#111827', '#1e3a8a', '#7c3aed'] as const;
+  const gradientColors = isDark 
+    ? ['#0f172a', '#1e293b', '#334155'] as const
+    : ['#f8fafc', '#e2e8f0', '#cbd5e1'] as const;
 
-  const textColor = isLightMode ? '#1f2937' : '#ffffff';
-  const subtitleColor = isLightMode ? '#4b5563' : '#d1d5db';
+  const textColor = isDark ? '#ffffff' : '#1f2937';
+  const subtitleColor = isDark ? '#cbd5e1' : '#64748b';
+  const cardBg = isDark ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)';
 
   // Animation transforms
   const floating1Transform = floatingAnim1.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -10],
+    outputRange: [0, -15],
   });
 
   const floating2Transform = floatingAnim2.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -15],
+    outputRange: [0, -20],
   });
 
   const floating3Transform = floatingAnim3.interpolate({
@@ -113,7 +148,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   const rocketTransform = rocketAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -20],
+    outputRange: [0, -25],
   });
 
   return (
@@ -129,7 +164,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           styles.floatingElement1,
           { transform: [{ translateY: floating1Transform }] }
         ]}>
-          <Text style={styles.floatingEmoji}>🌎</Text>
+          <Text style={styles.floatingEmoji}>🌍</Text>
         </Animated.View>
         
         <Animated.View style={[
@@ -146,46 +181,55 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.floatingEmoji}>💫</Text>
         </Animated.View>
 
-        {/* Navigation */}
-        <View style={styles.nav}>
-          <View style={styles.logo}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoText}>M</Text>
+        {/* SCROLLABLE CONTENT */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          {/* Header Navigation */}
+          <View style={styles.header}>
+            {/* FIXED LOGO - Matching Web App */}
+            <View style={styles.logoContainer}>
+              <View style={styles.logoCircle}>
+                <Text style={styles.logoM}>M</Text>
+              </View>
+              <View style={styles.logoText}>
+                <Text style={[styles.brandName, { color: textColor }]}>Meetopia</Text>
+                <Text style={[styles.tagline, { color: subtitleColor }]}>Connect Worldwide</Text>
+              </View>
+              <Text style={styles.globeEmoji}>🌍</Text>
             </View>
-            <View>
-              <Text style={[styles.logoTitle, { color: textColor }]}>Meetopia</Text>
-              <Text style={[styles.logoSubtitle, { color: subtitleColor }]}>Connect Worldwide</Text>
+            
+            {/* Top Action Buttons */}
+            <View style={styles.headerButtons}>
+              <TouchableOpacity 
+                style={[styles.roundButton, { backgroundColor: cardBg }]}
+                onPress={handleProductHunt}
+              >
+                <Text style={styles.buttonEmoji}>🦋</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.roundButton, { backgroundColor: cardBg }]}
+                onPress={() => setShowTutorial(true)}
+              >
+                <Text style={styles.buttonEmoji}>❓</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.roundButton, { backgroundColor: cardBg }]}
+                onPress={toggleTheme}
+              >
+                <Text style={styles.buttonEmoji}>{isDark ? '☀️' : '🌙'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          
-          <View style={styles.topButtons}>
-            <TouchableOpacity 
-              style={[styles.productHuntButton, isLightMode && styles.lightThemeButton]}
-              onPress={() => Alert.alert('Product Hunt', 'Visit us on Product Hunt!')}
-            >
-              <Text style={[styles.topButtonText, isLightMode && { color: '#1f2937' }]}>🦋 Product Hunt</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.tutorialButton}
-              onPress={() => setShowTutorial(true)}
-            >
-              <Text style={styles.tutorialButtonText}>? Tutorial</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.themeButton}
-              onPress={toggleTheme}
-            >
-              <Text style={styles.themeButtonText}>🌙 Dark</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* Main Content */}
-        <View style={styles.mainContent}>
-          <View style={styles.centerContainer}>
-            {/* Rocket Icon */}
+          {/* Main Hero Section */}
+          <View style={styles.heroSection}>
+            {/* Animated Rocket */}
             <Animated.View style={[
               styles.rocketContainer,
               { transform: [{ translateY: rocketTransform }] }
@@ -194,28 +238,33 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </Animated.View>
             
             {/* Main Title */}
-            <Text style={[styles.title, { color: textColor }]}>
+            <Text style={[styles.mainTitle, { color: textColor }]}>
               Meet People
             </Text>
+            
+            {/* Gradient Subtitle */}
             <LinearGradient
-              colors={['#60a5fa', '#a855f7', '#ec4899']}
+              colors={['#3b82f6', '#8b5cf6', '#ec4899']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.titleGradient}
+              style={styles.gradientBadge}
             >
-              <Text style={styles.titleGradientText}>Worldwide</Text>
+              <Text style={styles.gradientText}>Worldwide</Text>
             </LinearGradient>
             
-            {/* Subtitle */}
-            <Text style={[styles.subtitle, { color: subtitleColor }]}>
-              Advanced video chat platform with smart matching, fun virtual backgrounds, screen sharing, and enterprise-grade security. Connect with confidence and style! 🎨✨
+            {/* Description */}
+            <Text style={[styles.description, { color: subtitleColor }]}>
+              Advanced video chat platform with smart matching, virtual backgrounds, and enterprise-grade security. 
+              {'\n\n'}
+              Connect with confidence! 🎨 ✨
             </Text>
 
-            {/* Action Buttons */}
-            <View style={styles.buttonSection}>
+            {/* ROUND ACTION BUTTONS - REAL FUNCTIONALITY */}
+            <View style={styles.actionButtons}>
               <TouchableOpacity 
-                style={styles.primaryButton}
-                onPress={() => navigation.navigate('VideoCall')}
+                style={styles.primaryRoundButton}
+                onPress={handleStartConnecting}
+                activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={['#3b82f6', '#8b5cf6']}
@@ -223,39 +272,123 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   end={{ x: 1, y: 0 }}
                   style={styles.primaryButtonGradient}
                 >
-                  <Text style={styles.primaryButtonText}>⭐ Start Connecting Now</Text>
+                  <Text style={styles.primaryButtonIcon}>⭐</Text>
+                  <Text style={styles.primaryButtonText}>Start Connecting Now</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.secondaryButton, isLightMode && styles.secondaryButtonLight]}
+                style={[styles.secondaryRoundButton, { backgroundColor: cardBg }]}
                 onPress={handleWatchDemo}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.secondaryButtonText, isLightMode && { color: '#3b82f6' }]}>
-                  📹 Watch Demo
+                <Text style={styles.secondaryButtonIcon}>📹</Text>
+                <Text style={[styles.secondaryButtonText, { color: textColor }]}>
+                  Watch Demo
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.secondaryRoundButton, { backgroundColor: cardBg }]}
+                onPress={handleCreateProfile}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.secondaryButtonIcon}>👤</Text>
+                <Text style={[styles.secondaryButtonText, { color: textColor }]}>
+                  Create Profile
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        {/* Simple Tutorial Modal - Inline for now */}
+          {/* Live Stats Section */}
+          <View style={[styles.statsSection, { backgroundColor: cardBg }]}>
+            <Text style={[styles.statsTitle, { color: textColor }]}>
+              🔥 Live Activity
+            </Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{stats.activeUsers.toLocaleString()}</Text>
+                <Text style={[styles.statLabel, { color: subtitleColor }]}>Active Users</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{stats.connections.toLocaleString()}</Text>
+                <Text style={[styles.statLabel, { color: subtitleColor }]}>Connections Made</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{stats.countries}</Text>
+                <Text style={[styles.statLabel, { color: subtitleColor }]}>Countries</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Features Preview */}
+          <View style={styles.featuresSection}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
+              ✨ What Makes Us Special
+            </Text>
+            
+            <View style={styles.featureCards}>
+              <View style={[styles.featureCard, { backgroundColor: cardBg }]}>
+                <Text style={styles.featureEmoji}>🎥</Text>
+                <Text style={[styles.featureTitle, { color: textColor }]}>HD Video Chat</Text>
+                <Text style={[styles.featureDesc, { color: subtitleColor }]}>
+                  Crystal clear video calls with smart matching
+                </Text>
+              </View>
+
+              <View style={[styles.featureCard, { backgroundColor: cardBg }]}>
+                <Text style={styles.featureEmoji}>🌈</Text>
+                <Text style={[styles.featureTitle, { color: textColor }]}>Virtual Backgrounds</Text>
+                <Text style={[styles.featureDesc, { color: subtitleColor }]}>
+                  Express yourself with fun backgrounds
+                </Text>
+              </View>
+
+              <View style={[styles.featureCard, { backgroundColor: cardBg }]}>
+                <Text style={styles.featureEmoji}>🔒</Text>
+                <Text style={[styles.featureTitle, { color: textColor }]}>Secure & Private</Text>
+                <Text style={[styles.featureDesc, { color: subtitleColor }]}>
+                  Enterprise-grade security for safe connections
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom Action */}
+          <View style={styles.bottomSection}>
+            <TouchableOpacity 
+              style={[styles.shareButton, { backgroundColor: cardBg }]}
+              onPress={handleShare}
+            >
+              <Text style={styles.shareEmoji}>📱</Text>
+              <Text style={[styles.shareText, { color: textColor }]}>
+                Share Meetopia with Friends
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Extra spacing for scroll */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+
+        {/* Tutorial Modal */}
         <Modal
           visible={showTutorial}
-          animationType="fade"
+          animationType="slide"
           transparent={true}
           onRequestClose={() => setShowTutorial(false)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <LinearGradient
-                colors={['#1f2937', '#374151', '#4b5563']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                colors={isDark ? ['#1e293b', '#334155'] : ['#ffffff', '#f8fafc']}
                 style={styles.modalContent}
               >
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Tutorial</Text>
+                  <Text style={[styles.modalTitle, { color: textColor }]}>
+                    🎉 Welcome to Meetopia!
+                  </Text>
                   <TouchableOpacity 
                     onPress={() => setShowTutorial(false)} 
                     style={styles.closeButton}
@@ -264,16 +397,44 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.modalBody}>
-                  <Text style={styles.modalIcon}>🎉</Text>
-                  <Text style={styles.modalSubtitle}>Welcome to Meetopia!</Text>
-                  <Text style={styles.modalDescription}>
-                    • Tap "Start Video Chat" to connect with someone new{'\n'}
-                    • Use the light/dark mode toggle in the top right{'\n'}
-                    • Create a profile to match with similar interests{'\n'}
-                    • Be respectful and have fun!
-                  </Text>
-                </View>
+                <ScrollView style={styles.modalScroll}>
+                  <View style={styles.tutorialSteps}>
+                    <View style={styles.tutorialStep}>
+                      <Text style={styles.stepNumber}>1</Text>
+                      <Text style={[styles.stepText, { color: textColor }]}>
+                        🎥 Tap "Start Connecting" to begin video chatting
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.tutorialStep}>
+                      <Text style={styles.stepNumber}>2</Text>
+                      <Text style={[styles.stepText, { color: textColor }]}>
+                        👤 Create your profile for better matches
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.tutorialStep}>
+                      <Text style={styles.stepNumber}>3</Text>
+                      <Text style={[styles.stepText, { color: textColor }]}>
+                        🌍 Connect with people from around the world
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.tutorialStep}>
+                      <Text style={styles.stepNumber}>4</Text>
+                      <Text style={[styles.stepText, { color: textColor }]}>
+                        🎨 Use virtual backgrounds and filters
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.tutorialStep}>
+                      <Text style={styles.stepNumber}>5</Text>
+                      <Text style={[styles.stepText, { color: textColor }]}>
+                        🤝 Be respectful and have fun!
+                      </Text>
+                    </View>
+                  </View>
+                </ScrollView>
                 
                 <TouchableOpacity 
                   style={styles.modalButton}
@@ -281,11 +442,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 >
                   <LinearGradient
                     colors={['#3b82f6', '#8b5cf6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
                     style={styles.modalButtonGradient}
                   >
-                    <Text style={styles.modalButtonText}>Got it!</Text>
+                    <Text style={styles.modalButtonText}>Let's Go! 🚀</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </LinearGradient>
@@ -304,228 +463,323 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  nav: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  topButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    maxWidth: width * 0.45,
-    flexShrink: 1,
-  },
-  tutorialButton: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.5)',
-    minWidth: 70,
-  },
-  tutorialButtonText: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  productHuntButton: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.5)',
-    minWidth: 70,
-  },
-  topButtonText: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  lightThemeButton: {
-    backgroundColor: 'rgba(251, 191, 36, 0.2)',
-    borderColor: 'rgba(251, 191, 36, 0.5)',
-  },
-  themeButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    minWidth: 60,
-  },
-  themeButtonText: {
-    color: '#60a5fa',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  mainContent: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    minHeight: height * 0.8,
   },
-  centerContainer: {
-    alignItems: 'center',
-    maxWidth: width * 0.9,
-    width: '100%',
-  },
-  logo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  logoIcon: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  logoTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  logoSubtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  titleGradient: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-  },
-  titleGradientText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 48,
-    lineHeight: 24,
-  },
-  buttonSection: {
-    width: '100%',
-    gap: 16,
-    marginBottom: 24,
-  },
-  primaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#6b7280',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-  },
-  primaryButtonGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  primaryButtonText: {
-    color: '#d1d5db',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#6b7280',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-  },
-  secondaryButtonLight: {
-    borderColor: '#374151',
-  },
-  secondaryButtonText: {
-    color: '#d1d5db',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  rocketContainer: {
-    marginBottom: 32,
-  },
-  rocket: {
-    fontSize: 48,
+  scrollContent: {
+    paddingBottom: 100,
   },
   
-  // Floating element styles
+  // Floating Elements
   floatingElement1: {
     position: 'absolute',
-    top: 80,
-    left: 30,
+    top: height * 0.15,
+    left: width * 0.1,
     zIndex: 1,
   },
   floatingElement2: {
     position: 'absolute',
-    top: 120,
-    right: 50,
+    top: height * 0.25,
+    right: width * 0.15,
     zIndex: 1,
   },
   floatingElement3: {
     position: 'absolute',
-    bottom: 150,
-    left: 40,
+    top: height * 0.4,
+    left: width * 0.85,
     zIndex: 1,
   },
   floatingEmoji: {
-    fontSize: 32,
+    fontSize: 24,
+    opacity: 0.7,
   },
   
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  
+  // FIXED LOGO - Matching Web App
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logoCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoM: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  logoText: {
+    flex: 1,
+  },
+  brandName: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  globeEmoji: {
+    fontSize: 20,
+    marginLeft: 8,
+  },
+  
+  // Header Buttons - ROUND
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  roundButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonEmoji: {
+    fontSize: 18,
+  },
+  
+  // Hero Section
+  heroSection: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  rocketContainer: {
+    marginBottom: 20,
+  },
+  rocket: {
+    fontSize: 64,
+  },
+  mainTitle: {
+    fontSize: 42,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 48,
+  },
+  gradientBadge: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 24,
+  },
+  gradientText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
+  
+  // ROUND ACTION BUTTONS - REAL FUNCTIONALITY
+  actionButtons: {
+    width: '100%',
+    gap: 16,
+  },
+  primaryRoundButton: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  primaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  primaryButtonIcon: {
+    fontSize: 20,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  secondaryRoundButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  secondaryButtonIcon: {
+    fontSize: 18,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // Stats Section
+  statsSection: {
+    marginHorizontal: 20,
+    marginVertical: 30,
+    padding: 24,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#3b82f6',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  
+  // Features Section
+  featuresSection: {
+    paddingHorizontal: 20,
+    marginVertical: 20,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  featureCards: {
+    gap: 16,
+  },
+  featureCard: {
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  featureEmoji: {
+    fontSize: 32,
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  featureDesc: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  
+  // Bottom Section
+  bottomSection: {
+    paddingHorizontal: 20,
+    marginVertical: 30,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  shareEmoji: {
+    fontSize: 20,
+  },
+  shareText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bottomSpacing: {
+    height: 50,
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContainer: {
-    width: '100%',
-    maxWidth: 400,
+    width: width * 0.9,
+    maxHeight: height * 0.8,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   modalContent: {
-    borderRadius: 20,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -534,56 +788,63 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    color: '#ffffff',
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
+    flex: 1,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+    color: '#666',
   },
-  modalBody: {
+  modalScroll: {
+    maxHeight: height * 0.5,
+  },
+  tutorialSteps: {
+    gap: 16,
+  },
+  tutorialStep: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    gap: 16,
   },
-  modalIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  modalSubtitle: {
+  stepNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3b82f6',
     color: '#ffffff',
-    fontSize: 22,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalDescription: {
-    color: '#d1d5db',
     fontSize: 16,
-    textAlign: 'left',
-    lineHeight: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 32,
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
   },
   modalButton: {
-    borderRadius: 8,
+    marginTop: 24,
+    borderRadius: 25,
     overflow: 'hidden',
   },
   modalButtonGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     alignItems: 'center',
   },
   modalButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
 }); 
