@@ -42,7 +42,7 @@ const faqData: FAQItem[] = [
   }
 ];
 
-export default function SupportPage() {
+export default function Support() {
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
 
   const toggleFAQ = (index: number) => {
@@ -50,117 +50,158 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-lg">M</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Meetopia Support</h1>
-              <p className="text-sm text-gray-600">We're here to help you connect</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Contact Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Get in Touch</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-blue-50 rounded-xl">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">💬</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">General Support</h3>
-              <p className="text-sm text-gray-600 mb-3">Questions about using Meetopia</p>
-              <a href="mailto:bferrell514@gmail.com" className="text-blue-600 hover:text-blue-700 font-medium">
-                bferrell514@gmail.com
-              </a>
-            </div>
-            
-            <div className="text-center p-6 bg-red-50 rounded-xl">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">🐛</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Bug Reports</h3>
-              <p className="text-sm text-gray-600 mb-3">Found a technical issue?</p>
-              <a href="mailto:bferrell514@gmail.com" className="text-red-600 hover:text-red-700 font-medium">
-                bferrell514@gmail.com
-              </a>
-            </div>
-            
-            <div className="text-center p-6 bg-green-50 rounded-xl">
-              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">💡</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Feedback</h3>
-              <p className="text-sm text-gray-600 mb-3">Share your ideas with us</p>
-              <a href="mailto:bferrell514@gmail.com" className="text-green-600 hover:text-green-700 font-medium">
-                bferrell514@gmail.com
-              </a>
-            </div>
-          </div>
-          
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">⏰</span>
-              <div>
-                <p className="font-medium text-gray-900">Response Time: Within 24 hours</p>
-                <p className="text-sm text-gray-600">Support Hours: Monday-Friday, 9 AM - 6 PM PST</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            {faqData.map((faq, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleFAQ(index)}
-                  className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
-                >
-                  <span className="font-medium text-gray-900">{faq.question}</span>
-                  <span className={`transform transition-transform ${expandedFAQ === index ? 'rotate-180' : ''}`}>
-                    ▼
-                  </span>
-                </button>
-                {expandedFAQ === index && (
-                  <div className="px-6 py-4 bg-white border-t border-gray-200">
-                    <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Additional Resources */}
-        <div className="mt-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
-          <h3 className="text-xl font-bold mb-4">Still Need Help?</h3>
-          <p className="mb-6 opacity-90">
-            Our support team is dedicated to ensuring you have the best experience with Meetopia.
-            Don't hesitate to reach out with any questions or concerns.
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="container mx-auto px-4 py-16 max-w-4xl">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
+            Support & Help
+          </h1>
+          <p className="text-gray-400 text-lg">
+            We're here to help you with Meetopia
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <a
-              href="mailto:bferrell514@gmail.com"
-              className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Contact Support
-            </a>
-            <a
-              href="/"
-              className="border border-white text-white px-6 py-3 rounded-lg font-medium hover:bg-white hover:text-blue-600 transition-colors"
-            >
-              Back to App
-            </a>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8 mb-12">
+          <div className="bg-gray-800/50 rounded-lg p-8">
+            <h2 className="text-2xl font-bold text-blue-400 mb-6">📞 Contact Us</h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-blue-300">Email Support</h3>
+                <p className="text-gray-300">bferrell514@gmail.com</p>
+                <p className="text-gray-400 text-sm">We typically respond within 24 hours</p>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-blue-300">App Information</h3>
+                <p className="text-gray-300">Meetopia Mobile App</p>
+                <p className="text-gray-400 text-sm">Social Networking • Video Chat</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 rounded-lg p-8">
+            <h2 className="text-2xl font-bold text-green-400 mb-6">🎥 Common Questions</h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-green-300">Camera Not Working?</h3>
+                <p className="text-gray-300 text-sm">Check camera permissions in iOS Settings → Meetopia → Camera</p>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-green-300">App Crashing?</h3>
+                <p className="text-gray-300 text-sm">Try restarting the app or updating to the latest version</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-8 mb-12">
+          <h2 className="text-2xl font-bold text-purple-400 mb-6">🛡️ Privacy & Safety</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-purple-300">Privacy Policy</h3>
+              <p className="text-gray-300 mb-4">
+                Read our comprehensive privacy policy to understand how we protect your information.
+              </p>
+              <a 
+                href="/privacy" 
+                className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                View Privacy Policy
+              </a>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-purple-300">Safety Features</h3>
+              <ul className="text-gray-300 space-y-1 text-sm">
+                <li>• No video recording or storage</li>
+                <li>• End-to-end encrypted connections</li>
+                <li>• Camera permissions you control</li>
+                <li>• Age-appropriate content (17+)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-lg p-8 mb-12">
+          <h2 className="text-2xl font-bold text-yellow-400 mb-6">🔧 Troubleshooting</h2>
+          
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-yellow-300">Camera Issues</h3>
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <ol className="list-decimal list-inside space-y-2 text-gray-300 text-sm">
+                  <li>Go to iOS Settings → Privacy & Security → Camera</li>
+                  <li>Find "Meetopia" and make sure it's enabled</li>
+                  <li>Restart the app and try again</li>
+                  <li>If still not working, restart your device</li>
+                </ol>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-yellow-300">Audio Problems</h3>
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <ol className="list-decimal list-inside space-y-2 text-gray-300 text-sm">
+                  <li>Check microphone permissions in iOS Settings</li>
+                  <li>Make sure your device isn't muted</li>
+                  <li>Test with other apps to verify microphone works</li>
+                  <li>Close other apps that might use the microphone</li>
+                </ol>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-yellow-300">App Performance</h3>
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <ol className="list-decimal list-inside space-y-2 text-gray-300 text-sm">
+                  <li>Close other apps to free up memory</li>
+                  <li>Make sure you have a stable internet connection</li>
+                  <li>Update to the latest version of Meetopia</li>
+                  <li>Restart your device if problems persist</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-lg p-8 mb-12">
+          <h2 className="text-2xl font-bold text-cyan-400 mb-6">📱 System Requirements</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-cyan-300">iOS Requirements</h3>
+              <ul className="text-gray-300 space-y-1 text-sm">
+                <li>• iOS 15.1 or later</li>
+                <li>• iPhone 6s or newer</li>
+                <li>• Camera and microphone access</li>
+                <li>• Internet connection (Wi-Fi or cellular)</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-3 text-cyan-300">Recommended</h3>
+              <ul className="text-gray-300 space-y-1 text-sm">
+                <li>• Strong Wi-Fi connection for best quality</li>
+                <li>• Good lighting for video calls</li>
+                <li>• Quiet environment for clear audio</li>
+                <li>• Latest iOS version</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 rounded-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-emerald-400 mb-4">Still Need Help?</h2>
+          <p className="text-gray-300 mb-6">
+            Can't find what you're looking for? We're here to help!
+          </p>
+          <div className="space-y-4">
+            <p className="text-gray-300">
+              <strong>Email:</strong> bferrell514@gmail.com
+            </p>
+            <p className="text-gray-400 text-sm">
+              Include your device model, iOS version, and a description of the issue for fastest support.
+            </p>
           </div>
         </div>
       </div>
