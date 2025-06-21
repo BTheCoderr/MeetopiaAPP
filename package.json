@@ -24,7 +24,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:test": "curl http://localhost:3000/api/db-test"
+    "db:test": "curl http://localhost:3000/api/db-test",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.79.0",
@@ -66,7 +68,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.3",
     "uuid": "^11.1.0",
-    "zod": "^3.25.51"
+    "zod": "^3.25.51",
+    "react-native": "0.79.4"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
