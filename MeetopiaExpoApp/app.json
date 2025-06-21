@@ -44,7 +44,9 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "eas": {}
+      "eas": {
+        "projectId": "37e69074-d079-4c60-a3c4-5d468645bcf1"
+      }
     },
     "privacy": {
       "privacyPolicyUrl": "https://meeetopia.vercel.app/privacy"
