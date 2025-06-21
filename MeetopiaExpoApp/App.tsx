@@ -3,7 +3,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 
 // Contexts
@@ -19,7 +19,7 @@ import FeaturesScreen from './src/screens/FeaturesScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 // Stack Navigator for Home and its sub-screens
 function HomeStack() {
@@ -32,6 +32,7 @@ function HomeStack() {
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="Features" component={FeaturesScreen} />
       <Stack.Screen name="Tutorial" component={TutorialScreen} />
+      <Stack.Screen name="VideoChat" component={VideoCallScreen} />
     </Stack.Navigator>
   );
 }

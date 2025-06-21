@@ -1,82 +1,61 @@
 {
   "expo": {
     "name": "Meetopia",
-    "slug": "meetopia-app",
+    "slug": "meetopia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/adaptive-icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#111827"
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.bferrell514.meetopiaapp",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.meetopia.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Meetopia uses your camera for video calls to connect you with new people around the world.",
-        "NSMicrophoneUsageDescription": "Meetopia uses your microphone for audio during video calls.",
-        "NSPhotoLibraryUsageDescription": "Meetopia may access your photo library to let you share images in conversations."
-      },
-      "requireFullScreen": true,
-      "privacyManifests": {
-        "NSPrivacyAccessedAPITypes": [
-          {
-            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryCamera",
-            "NSPrivacyAccessedAPITypeReasons": ["DDA9.1"]
-          },
-          {
-            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryMicrophone", 
-            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
-          }
-        ]
+        "NSCameraUsageDescription": "Meetopia needs camera access to enable video calls and connections with other users.",
+        "NSMicrophoneUsageDescription": "Meetopia needs microphone access to enable voice communication during video calls.",
+        "NSLocalNetworkUsageDescription": "Meetopia uses local network to provide the best video call experience."
       },
       "config": {
         "usesNonExemptEncryption": false
-      },
-      "associatedDomains": ["applinks:meetopia.vercel.app"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#111827"
+        "backgroundColor": "#FFFFFF"
       },
-      "package": "com.bferrell514.meetopiaapp",
+      "package": "com.meetopia.app",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Meetopia to access your camera for video calls."
-        }
-      ],
-      "expo-audio",
-      "expo-video",
-      "expo-web-browser"
-    ],
     "extra": {
       "eas": {
-        "projectId": "37e69074-d079-4c60-a3c4-5d468645bcf1"
+        "projectId": "your-project-id-here"
       }
     },
-    "privacy": "https://meetopia.vercel.app/privacy",
-    "primaryColor": "#6366f1",
-    "description": "Connect with amazing people around the world through secure video conversations. Every conversation is a new adventure waiting to unfold."
+    "privacy": {
+      "privacyPolicyUrl": "https://meetopia.vercel.app/privacy"
+    },
+    "category": "SOCIAL_NETWORKING",
+    "contentRights": {
+      "containsThirdPartyContent": false,
+      "usesAppleSignIn": false
+    },
+    "pricing": "FREE"
   }
 }

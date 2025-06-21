@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   Dimensions,
   Animated,
   Share,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import Logo from '../components/Logo';
 
 interface MarketingScreenProps {
   navigation: any;
@@ -193,12 +195,11 @@ const MarketingScreen: React.FC<MarketingScreenProps> = ({ navigation }) => {
               },
             ]}
           >
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoM}>M</Text>
-              </View>
-              <Text style={styles.logoGlow}>✨</Text>
-            </View>
+            <Logo 
+              size="lg" 
+              showText={false} 
+              isDarkTheme={isDark}
+            />
             
             <Text style={[styles.heroTitle, { color: textColor }]}>
               Connect Worldwide

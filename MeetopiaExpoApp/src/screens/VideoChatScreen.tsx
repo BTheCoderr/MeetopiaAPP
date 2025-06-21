@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Alert, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert,
+  StatusBar,
+  Dimensions,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation';
 
@@ -11,8 +20,16 @@ export default function VideoChatScreen({ route, navigation }: VideoChatScreenPr
   const [isConnected, setIsConnected] = useState(false);
   const [currentRoom, setCurrentRoom] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Local video controls
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  
+  // Remote user controls (NEW)
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
+  const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [windowMode, setWindowMode] = useState<'normal' | 'fullscreen' | 'pip'>('normal');
 
   // Generate random room on component mount
   useEffect(() => {
@@ -53,179 +70,207 @@ export default function VideoChatScreen({ route, navigation }: VideoChatScreenPr
     );
   };
 
+  // Local controls
   const toggleMute = () => setIsMuted(!isMuted);
   const toggleVideo = () => setIsVideoOff(!isVideoOff);
 
-  if (!isConnected) {
-    // Pre-call interface
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Video Chat</Text>
+  // NEW: Remote user controls
+  const toggleRemoteMute = () => {
+    setIsRemoteMuted(!isRemoteMuted);
+    Alert.alert(
+      isRemoteMuted ? 'Unmuted Friend' : 'Muted Friend',
+      isRemoteMuted ? 'You can now hear your friend' : "You won't hear your friend's audio"
+    );
+  };
+
+  const toggleRemoteVideo = () => {
+    setIsRemoteVideoOff(!isRemoteVideoOff);
+    Alert.alert(
+      isRemoteVideoOff ? 'Enabled Friend Video' : 'Disabled Friend Video',
+      isRemoteVideoOff ? 'You can now see your friend' : "You won't see your friend's video"
+    );
+  };
+
+  const toggleScreenShare = () => {
+    setIsScreenSharing(!isScreenSharing);
+    Alert.alert(
+      'Screen Sharing',
+      isScreenSharing ? 'Stopped screen sharing' : 'Started screen sharing'
+    );
+  };
+
+  const cycleWindowMode = () => {
+    const modes: Array<'normal' | 'fullscreen' | 'pip'> = ['normal', 'fullscreen', 'pip'];
+    const currentIndex = modes.indexOf(windowMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    setWindowMode(nextMode);
+    
+    Alert.alert(
+      'Window Mode',
+      `Switched to ${nextMode === 'pip' ? 'Picture-in-Picture' : nextMode} mode`
+    );
+  };
+
+  const showReportModal = () => {
+    Alert.alert(
+      'Report & Feedback',
+      'What would you like to report?',
+      [
+        { text: 'Report Inappropriate Behavior', onPress: () => Alert.alert('Reported', 'Thank you for your report') },
+        { text: 'Technical Issue', onPress: () => Alert.alert('Reported', 'We will look into this issue') },
+        { text: 'General Feedback', onPress: () => Alert.alert('Thanks!', 'Your feedback helps us improve') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#374151" />
+      
+      {/* Header with back button */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Video Chat</Text>
+        <View style={styles.connectionStatus}>
+          <View style={[styles.statusDot, { backgroundColor: isConnected ? '#10b981' : '#ef4444' }]} />
+          <Text style={styles.statusText}>{isConnected ? 'Connected' : 'Not Connected'}</Text>
         </View>
+      </View>
 
-        <View style={styles.videoContainer}>
-          <View style={styles.videoFrame}>
-            {/* Top Action Buttons */}
-            <View style={styles.topButtons}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.keepExploringButton]} 
-                onPress={handleKeepExploring}
-                disabled={isSearching}
-              >
-                <Text style={styles.actionButtonText}>
-                  {isSearching ? 'Finding...' : 'Keep Exploring!'}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.backToBaseButton]} 
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={styles.actionButtonText}>Back to Base</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.letUsKnowButton]} 
-                onPress={() => Alert.alert('Feedback', 'Thanks for your feedback!')}
-              >
-                <Text style={styles.actionButtonText}>Let Us Know!</Text>
-              </TouchableOpacity>
+      {/* ALWAYS VISIBLE: Action Buttons Bar */}
+      <View style={styles.topButtons}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.keepExploringButton]} 
+          onPress={handleKeepExploring}
+          disabled={isSearching}
+        >
+          <Text style={styles.actionButtonText}>
+            {isSearching ? 'Finding...' : 'Keep Exploring!'}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.backToBaseButton]} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.actionButtonText}>Back to Base</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.letUsKnowButton]} 
+          onPress={showReportModal}
+        >
+          <Text style={styles.actionButtonText}>Let Us Know!</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Video Container */}
+      <View style={styles.videoContainer}>
+        <View style={[styles.videoFrame, windowMode === 'fullscreen' && styles.fullscreenVideo]}>
+          
+          {/* Video Chat Area */}
+          <View style={styles.videoChatArea}>
+            <View style={styles.cameraIcon}>
+              <Text style={styles.cameraEmoji}>🎥</Text>
             </View>
-
-            {/* Video Chat Area */}
-            <View style={styles.videoChatArea}>
-              <View style={styles.cameraIcon}>
-                <Text style={styles.cameraEmoji}>🎥</Text>
+            
+            {isConnected ? (
+              <View style={styles.connectedContent}>
+                <Text style={styles.connectedTitle}>Connected to {currentRoom}</Text>
+                <Text style={styles.subtitle}>💬 Ready for your Meetopia adventure?</Text>
+                <Text style={styles.description}>Every conversation is a new adventure waiting to unfold.</Text>
               </View>
-
-              <Text style={styles.mainTitle}>Ready for your Meetopia</Text>
-              <Text style={styles.mainTitle}>adventure?</Text>
-              
-              <Text style={styles.subtitle}>
-                🌍 Connect with amazing people worldwide!
-              </Text>
-              <Text style={styles.description}>
-                Every conversation is a new adventure waiting to unfold.
-              </Text>
-
-              <View style={styles.ctaContainer}>
-                <Text style={styles.ctaText}>
-                  👆 Click "Keep Exploring!" to begin!
-                </Text>
+            ) : (
+              <View style={styles.waitingContent}>
+                <Text style={styles.mainTitle}>Ready for your Meetopia adventure?</Text>
+                <Text style={styles.subtitle}>🌍 Connect with amazing people worldwide</Text>
+                <Text style={styles.description}>Every conversation is a new adventure waiting to unfold.</Text>
+                <Text style={styles.callToAction}>👆 Click "Keep Exploring!" to begin! 👆</Text>
               </View>
-            </View>
-
-            {/* Bottom Controls */}
-            <View style={styles.bottomControls}>
-              <TouchableOpacity style={styles.controlIcon}>
-                <Text style={styles.controlEmoji}>🔊</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.controlIcon}>
-                <Text style={styles.controlEmoji}>💬</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.controlIcon}>
-                <Text style={styles.controlEmoji}>💻</Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
         </View>
+      </View>
 
-        <View style={styles.bottomSection}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputPlaceholder}>Type a message...</Text>
-            <TouchableOpacity style={styles.sendButton}>
-              <Text style={styles.sendIcon}>➤</Text>
+      {/* NEW: Extended Video Controls */}
+      <View style={styles.controlsContainer}>
+        {/* Local Controls Row */}
+        <View style={styles.controlRow}>
+          <Text style={styles.controlLabel}>Your Controls:</Text>
+          <View style={styles.controlButtons}>
+            <TouchableOpacity 
+              style={[styles.controlButton, isMuted && styles.controlButtonActive]} 
+              onPress={toggleMute}
+            >
+              <Text style={styles.controlIcon}>{isMuted ? '🔇' : '🎤'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.controlButton, isVideoOff && styles.controlButtonActive]} 
+              onPress={toggleVideo}
+            >
+              <Text style={styles.controlIcon}>{isVideoOff ? '📷' : '🎥'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.controlButton, isScreenSharing && styles.controlButtonActive]} 
+              onPress={toggleScreenShare}
+            >
+              <Text style={styles.controlIcon}>🖥️</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={cycleWindowMode}
+            >
+              <Text style={styles.controlIcon}>
+                {windowMode === 'fullscreen' ? '🖼️' : windowMode === 'pip' ? '📱' : '🔳'}
+              </Text>
             </TouchableOpacity>
           </View>
-          
-          <Text style={styles.roomInfo}>
-            Room: {currentRoom} {isSearching && '(searching...)'}
-          </Text>
         </View>
-      </SafeAreaView>
-    );
-  }
 
-  // FaceTime-style interface when connected
-  return (
-    <View style={styles.facetimeContainer}>
-      {/* Main video (remote person) */}
-      <View style={styles.mainVideo}>
-        <View style={styles.remoteVideoPlaceholder}>
-          <Text style={styles.remoteVideoText}>👤</Text>
-          <Text style={styles.remoteVideoLabel}>Connected User</Text>
-          <Text style={styles.connectionStatus}>🟢 Connected to {currentRoom}</Text>
-        </View>
-      </View>
-
-      {/* Picture-in-picture (your video) */}
-      <View style={styles.pipVideo}>
-        <View style={styles.localVideoPlaceholder}>
-          <Text style={styles.localVideoText}>📱</Text>
-          <Text style={styles.localVideoLabel}>You</Text>
-        </View>
-      </View>
-
-      {/* Top status bar */}
-      <View style={styles.statusBar}>
-        <TouchableOpacity style={styles.minimizeButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.minimizeText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.callDuration}>00:42</Text>
-        <View style={styles.statusIndicator}>
-          <Text style={styles.statusText}>🔒 Encrypted</Text>
+        {/* Friend Controls Row (NEW) */}
+        <View style={styles.controlRow}>
+          <Text style={styles.controlLabel}>Friend Controls:</Text>
+          <View style={styles.controlButtons}>
+            <TouchableOpacity 
+              style={[styles.controlButton, isRemoteMuted && styles.controlButtonActive]} 
+              onPress={toggleRemoteMute}
+            >
+              <Text style={styles.controlIcon}>{isRemoteMuted ? '🔇' : '🔊'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.controlButton, isRemoteVideoOff && styles.controlButtonActive]} 
+              onPress={toggleRemoteVideo}
+            >
+              <Text style={styles.controlIcon}>{isRemoteVideoOff ? '🙈' : '👁️'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={handleEndCall}
+            >
+              <Text style={styles.controlIcon}>📞</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* FaceTime controls */}
-      <View style={styles.facetimeControls}>
-        <TouchableOpacity 
-          style={[styles.facetimeButton, isMuted && styles.mutedButton]} 
-          onPress={toggleMute}
-        >
-          <Text style={styles.facetimeButtonIcon}>
-            {isMuted ? '🔇' : '🎤'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.facetimeButton, styles.endCallButton]} 
-          onPress={handleEndCall}
-        >
-          <Text style={styles.facetimeButtonIcon}>📞</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.facetimeButton, isVideoOff && styles.videoOffButton]} 
-          onPress={toggleVideo}
-        >
-          <Text style={styles.facetimeButtonIcon}>
-            {isVideoOff ? '📹' : '🎥'}
-          </Text>
-        </TouchableOpacity>
+      {/* Chat Input */}
+      <View style={styles.chatContainer}>
+        <View style={styles.chatInput}>
+          <Text style={styles.chatPlaceholder}>Type a message...</Text>
+          <TouchableOpacity style={styles.sendButton}>
+            <Text style={styles.sendIcon}>➤</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      {/* Additional controls */}
-      <View style={styles.additionalControls}>
-        <TouchableOpacity style={styles.smallControl}>
-          <Text style={styles.smallControlIcon}>🔄</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.smallControl}>
-          <Text style={styles.smallControlIcon}>💬</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.smallControl}>
-          <Text style={styles.smallControlIcon}>👥</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -237,6 +282,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: '#374151',
@@ -253,24 +299,31 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  videoContainer: {
     flex: 1,
-    padding: 16,
+    textAlign: 'center',
   },
-  videoFrame: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#6366f1',
-    overflow: 'hidden',
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 5,
+  },
+  statusText: {
+    color: '#ffffff',
+    fontSize: 12,
+  },
+  
+  // ALWAYS VISIBLE: Top Action Buttons
   topButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   actionButton: {
     paddingHorizontal: 16,
@@ -293,6 +346,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+
+  // Video Container
+  videoContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  videoFrame: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#6366f1',
+    overflow: 'hidden',
+  },
+  fullscreenVideo: {
+    borderRadius: 0,
+    margin: -16,
+  },
   videoChatArea: {
     flex: 1,
     justifyContent: 'center',
@@ -311,12 +382,27 @@ const styles = StyleSheet.create({
   cameraEmoji: {
     fontSize: 40,
   },
+  
+  // Content States
+  waitingContent: {
+    alignItems: 'center',
+  },
+  connectedContent: {
+    alignItems: 'center',
+  },
   mainTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1f2937',
     textAlign: 'center',
     lineHeight: 32,
+  },
+  connectedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#10b981',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
@@ -332,59 +418,69 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 20,
   },
-  ctaContainer: {
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  ctaText: {
-    fontSize: 14,
-    color: '#92400e',
-    fontWeight: '500',
+  callToAction: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f59e0b',
     textAlign: 'center',
+    marginTop: 16,
   },
-  bottomControls: {
+
+  // NEW: Extended Controls
+  controlsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: '#f9fafb',
+  },
+  controlRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  controlLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    flex: 1,
+  },
+  controlButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e5e7eb',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderWidth: 2,
+    borderColor: '#d1d5db',
+  },
+  controlButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#2563eb',
   },
   controlIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    fontSize: 16,
   },
-  controlEmoji: {
-    fontSize: 20,
-  },
-  bottomSection: {
-    backgroundColor: '#ffffff',
+
+  // Chat Input
+  chatContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#ffffff',
   },
-  inputContainer: {
+  chatInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 8,
   },
-  inputPlaceholder: {
+  chatPlaceholder: {
     flex: 1,
     color: '#9ca3af',
     fontSize: 16,
@@ -393,7 +489,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#3b82f6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -402,155 +498,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  roomInfo: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  
-  // FaceTime styles
-  facetimeContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  mainVideo: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-  },
-  remoteVideoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-  },
-  remoteVideoText: {
-    fontSize: 120,
-    marginBottom: 16,
-  },
-  remoteVideoLabel: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  connectionStatus: {
-    color: '#4ade80',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  pipVideo: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 120,
-    height: 160,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  localVideoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#374151',
-  },
-  localVideoText: {
-    fontSize: 40,
-    marginBottom: 4,
-  },
-  localVideoLabel: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statusBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+  navButton: {
+    backgroundColor: '#3B82F6',
     paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  minimizeButton: {
-    padding: 8,
-  },
-  minimizeText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  callDuration: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  statusIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  facetimeControls: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  facetimeButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 20,
-  },
-  facetimeButtonIcon: {
-    fontSize: 28,
-  },
-  endCallButton: {
-    backgroundColor: '#ef4444',
-  },
-  mutedButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.8)',
-  },
-  videoOffButton: {
-    backgroundColor: 'rgba(107, 114, 128, 0.8)',
-  },
-  additionalControls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  smallControl: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 12,
-  },
-  smallControlIcon: {
-    fontSize: 20,
+  navButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 }); 

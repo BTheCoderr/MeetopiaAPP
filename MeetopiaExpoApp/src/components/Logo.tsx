@@ -41,34 +41,29 @@ export default function Logo({
               <Stop offset="50%" stopColor="#8B5CF6" />
               <Stop offset="100%" stopColor="#EC4899" />
             </LinearGradient>
-            <LinearGradient id="innerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#60A5FA" />
-              <Stop offset="100%" stopColor="#A78BFA" />
-            </LinearGradient>
           </Defs>
           
           {/* Main circle with gradient */}
           <Circle cx="24" cy="24" r="22" fill="url(#logoGradient)" />
           
-          {/* Inner highlight circle */}
-          <Circle cx="24" cy="24" r="18" fill="url(#innerGradient)" opacity="0.8" />
+          {/* Inner circle for contrast */}
+          <Circle cx="24" cy="24" r="20" fill="rgba(255,255,255,0.1)" />
           
-          {/* Connection nodes - representing meeting people */}
-          <Circle cx="16" cy="16" r="3" fill="white" opacity="0.9" />
-          <Circle cx="32" cy="16" r="3" fill="white" opacity="0.9" />
-          <Circle cx="24" cy="32" r="3" fill="white" opacity="0.9" />
-          
-          {/* Connection lines */}
+          {/* T Letter - Top horizontal line */}
           <Path
-            d="M16 16 L32 16 M24 16 L24 32"
+            d="M12 16 L36 16"
             stroke="white"
-            strokeWidth="2"
-            opacity="0.7"
+            strokeWidth="4"
             strokeLinecap="round"
           />
           
-          {/* Center meeting point */}
-          <Circle cx="24" cy="20" r="2" fill="white" />
+          {/* T Letter - Vertical line */}
+          <Path
+            d="M24 16 L24 36"
+            stroke="white"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
         </Svg>
       </View>
 
@@ -88,7 +83,7 @@ export default function Logo({
               styles.titleOpia, 
               { 
                 fontSize: titleSize,
-                color: isDarkTheme ? '#ffffff' : '#1f2937'
+                color: isDarkTheme ? '#A78BFA' : '#8B5CF6'
               }
             ]}>
               opia

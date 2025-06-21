@@ -44,7 +44,14 @@ const nextConfig = {
   
   // Environment variables for build optimization
   env: {
-    DISABLE_VERCEL_ANALYTICS: 'true'
+    DISABLE_VERCEL_ANALYTICS: 'true',
+    // Development
+    NEXT_PUBLIC_SOCKET_URL: process.env.NODE_ENV === 'production' 
+      ? 'https://meetopiaapp.onrender.com'
+      : 'http://localhost:3003',
+    NEXT_PUBLIC_APP_URL: process.env.NODE_ENV === 'production'
+      ? 'https://meetopia.vercel.app'
+      : 'http://localhost:4000',
   },
 
   serverExternalPackages: [],
@@ -58,7 +65,11 @@ const nextConfig = {
     // Warning: This allows production builds to successfully complete even if
     // your project has TypeScript errors.
     ignoreBuildErrors: true,
-  }
+  },
+  experimental: {
+    esmExternals: 'loose',
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
 }
 
 module.exports = nextConfig 

@@ -9,6 +9,7 @@ import VideoCallScreen from '../screens/VideoCallScreen';
 import VideoChatScreen from '../screens/VideoChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MatchingScreen from '../screens/MatchingScreen';
+import ChatScreen from '../screens/ChatScreen';
 import SupportScreen from '../screens/SupportScreen';
 import MarketingScreen from '../screens/MarketingScreen';
 import AboutScreen from '../screens/AboutScreen';
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   VideoCall: { roomUrl?: string; roomId?: string };
   VideoChat: { roomUrl?: string; roomId?: string };
   Matching: undefined;
+  Chat: { roomId?: string; roomName?: string; participantName?: string; participantId?: string };
   Support: undefined;
   Marketing: undefined;
   About: undefined;
@@ -29,7 +31,6 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  VideoChat: { roomUrl?: string; roomId?: string };
   Profile: undefined;
 };
 
@@ -59,15 +60,6 @@ const TabNavigator = () => {
         options={{
           tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
             <TabBarIcon name="home" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VideoChat"
-        component={VideoChatScreen}
-        options={{
-          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-            <TabBarIcon name="video" focused={focused} color={color} />
           ),
         }}
       />
@@ -106,6 +98,13 @@ const MainStack = () => {
       <Stack.Screen 
         name="Matching" 
         component={MatchingScreen}
+        options={{
+          presentation: 'fullScreenModal',
+        }}
+      />
+      <Stack.Screen 
+        name="Chat" 
+        component={ChatScreen}
         options={{
           presentation: 'fullScreenModal',
         }}

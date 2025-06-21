@@ -60,10 +60,6 @@ export default function Logo({
                 <stop offset="50%" stopColor="#8B5CF6" />
                 <stop offset="100%" stopColor="#EC4899" />
               </linearGradient>
-              <linearGradient id="innerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#60A5FA" />
-                <stop offset="100%" stopColor="#A78BFA" />
-              </linearGradient>
             </defs>
             
             {/* Main circle with gradient */}
@@ -75,31 +71,29 @@ export default function Logo({
               className="drop-shadow-md"
             />
             
-            {/* Inner highlight circle */}
+            {/* Inner circle for contrast */}
             <circle
               cx="24"
               cy="24"
-              r="18"
-              fill="url(#innerGradient)"
-              opacity="0.8"
+              r="20"
+              fill="rgba(255,255,255,0.1)"
             />
             
-            {/* Connection nodes - representing meeting people */}
-            <circle cx="16" cy="16" r="3" fill="white" opacity="0.9" />
-            <circle cx="32" cy="16" r="3" fill="white" opacity="0.9" />
-            <circle cx="24" cy="32" r="3" fill="white" opacity="0.9" />
-            
-            {/* Connection lines */}
+            {/* T Letter - Top horizontal line */}
             <path
-              d="M16 16 L32 16 M24 16 L24 32"
+              d="M12 16 L36 16"
               stroke="white"
-              strokeWidth="2"
-              opacity="0.7"
+              strokeWidth="4"
               strokeLinecap="round"
             />
             
-            {/* Center meeting point */}
-            <circle cx="24" cy="20" r="2" fill="white" />
+            {/* T Letter - Vertical line */}
+            <path
+              d="M24 16 L24 36"
+              stroke="white"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
           </svg>
           
           {/* Animated glow effect */}

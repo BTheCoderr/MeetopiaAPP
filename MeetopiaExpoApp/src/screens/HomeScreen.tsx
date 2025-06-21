@@ -11,9 +11,11 @@ import {
   Animated,
   Share,
   Linking,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import Logo from '../components/Logo';
 
 interface HomeScreenProps {
   navigation: any;
@@ -25,9 +27,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const { isDark, toggleTheme } = useTheme();
   const [showTutorial, setShowTutorial] = useState(false);
   const [stats, setStats] = useState({
-    activeUsers: 2847,
-    connections: 15632,
-    countries: 89,
+    activeUsers: 127,
+    connections: 456,
+    countries: 12,
   });
   
   // Floating animations
@@ -91,11 +93,18 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Real functionality handlers
   const handleStartConnecting = () => {
-    navigation.navigate('Matching');
+    navigation.navigate('VideoChat');
   };
 
   const handleWatchDemo = () => {
-    navigation.navigate('VideoCall');
+    Alert.alert(
+      '🎬 Demo Preview',
+      'Welcome to Meetopia!\n\n✨ Features:\n• Instant video connections\n• Virtual backgrounds\n• 4K video quality\n• Secure & private\n• Global community\n\n🚀 Ready to try it yourself?',
+      [
+        { text: 'Start Connecting!', onPress: handleStartConnecting },
+        { text: 'Maybe Later', style: 'cancel' }
+      ]
+    );
   };
 
   const handleCreateProfile = () => {
@@ -190,17 +199,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         >
           {/* Header Navigation */}
           <View style={styles.header}>
-            {/* FIXED LOGO - Matching Web App */}
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoM}>M</Text>
-              </View>
-              <View style={styles.logoText}>
-                <Text style={[styles.brandName, { color: textColor }]}>Meetopia</Text>
-                <Text style={[styles.tagline, { color: subtitleColor }]}>Connect Worldwide</Text>
-              </View>
-              <Text style={styles.globeEmoji}>🌍</Text>
-            </View>
+            {/* PROPER LOGO COMPONENT */}
+            <Logo 
+              size="md" 
+              showText={true} 
+              isDarkTheme={isDark}
+            />
             
             {/* Top Action Buttons */}
             <View style={styles.headerButtons}>
@@ -501,49 +505,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-  },
-  
-  // FIXED LOGO - Matching Web App
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  logoCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoM: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1f2937',
-  },
-  logoText: {
-    flex: 1,
-  },
-  brandName: {
-    fontSize: 24,
-    fontWeight: '700',
-    lineHeight: 28,
-  },
-  tagline: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  globeEmoji: {
-    fontSize: 20,
-    marginLeft: 8,
   },
   
   // Header Buttons - ROUND
