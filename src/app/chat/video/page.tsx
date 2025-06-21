@@ -9,6 +9,7 @@ import { useReporting } from '@/hooks/useReporting'
 import Logo from '@/components/Logo'
 import { connectionManager } from '@/lib/connectionManager'
 import dynamic from 'next/dynamic'
+// VideoModeSelector and JitsiVideoChat removed - going straight to P2P for now
 
 // Define props interface for PictureInPicture
 interface PictureInPictureProps {
@@ -198,7 +199,6 @@ export default function VideoChatPage() {
   const [hasGrantedAudioPermission, setHasGrantedAudioPermission] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [previousPeers, setPreviousPeers] = useState<Set<string>>(new Set())
-  
   // CRITICAL FIX: Add ref to track current active peer connection
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
 
@@ -235,6 +235,8 @@ export default function VideoChatPage() {
     openReportModal,
     closeReportModal
   } = useReporting()
+
+  // Mode selection removed - going straight to P2P
   
   // Sync peerConnection state with ref
   useEffect(() => {
@@ -2323,6 +2325,7 @@ export default function VideoChatPage() {
     }
   }, [isPeerConnected, isDevMode, devConnectionStable])
 
+  // Going straight to P2P mode - no selector needed for now
   return (
     <div className={`relative min-h-screen transition-colors duration-500 ${
       isDarkTheme 
@@ -2456,7 +2459,7 @@ export default function VideoChatPage() {
           </button>
           
           <button 
-            onClick={handleLeaveChat}
+            onClick={() => window.location.href = '/'}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition-colors"
           >
             Back to Base

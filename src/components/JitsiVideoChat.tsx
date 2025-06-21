@@ -1,77 +1,197 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
-import { JitsiMeeting } from '@jitsi/react-sdk'
-import Logo from '@/components/Logo'
-import ReportModal from '@/components/ReportModal'
-import { useReporting } from '@/hooks/useReporting'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface JitsiVideoChatProps {
-  roomName?: string
-  displayName?: string
-  onLeave?: () => void
+  roomId: string
+  userName?: string
+  onParticipantJoined?: (participant: any) => void
+  onParticipantLeft?: (participant: any) => void
+  onMeetingEnded?: () => void
 }
 
-export default function JitsiVideoChat({ 
-  roomName = `meetopia-room-${Date.now()}`, 
-  displayName = 'Anonymous User',
-  onLeave 
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI: any
+  }
+}
+
+export default function JitsiVideoChat({
+  roomId,
+  userName = 'Anonymous',
+  onParticipantJoined,
+  onParticipantLeft,
+  onMeetingEnded
 }: JitsiVideoChatProps) {
-  const [isConnected, setIsConnected] = useState(false)
-  const [participants, setParticipants] = useState<any[]>([])
-  const [areControlsVisible, setAreControlsVisible] = useState(true)
-  const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null)
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
-  const [callDuration, setCallDuration] = useState(0)
-  const [connectionStartTime, setConnectionStartTime] = useState<Date | null>(null)
-  
   const jitsiContainerRef = useRef<HTMLDivElement>(null)
-  const apiRef = useRef<any>(null)
+  const jitsiApiRef = useRef<any>(null)
+  const router = useRouter()
   
-  const { handleReport: submitReport } = useReporting()
+  const [isLoading, setIsLoading] = useState(true)
+  const [participantCount, setParticipantCount] = useState(1)
+  const [showControls, setShowControls] = useState(true)
+  const [isConnected, setIsConnected] = useState(false)
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Timer for hiding controls after 10 seconds
   useEffect(() => {
-    if (isConnected && areControlsVisible) {
-      if (controlsTimer) {
-        clearTimeout(controlsTimer)
+    if (isConnected && participantCount > 1) {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
       }
       
-      const timer = setTimeout(() => {
-        setAreControlsVisible(false)
-      }, 10000) // Hide after 10 seconds
-      
-      setControlsTimer(timer)
+      hideTimerRef.current = setTimeout(() => {
+        setShowControls(false)
+      }, 10000) // 10 seconds like your web app
     }
     
     return () => {
-      if (controlsTimer) {
-        clearTimeout(controlsTimer)
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
       }
     }
-  }, [isConnected, areControlsVisible])
+  }, [isConnected, participantCount])
 
-  // Call duration timer
+  // Auto-disconnect when navigating away (like your web app)
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    
-    if (isConnected && connectionStartTime) {
-      interval = setInterval(() => {
-        const now = new Date()
-        const duration = Math.floor((now.getTime() - connectionStartTime.getTime()) / 1000)
-        setCallDuration(duration)
-      }, 1000)
-    }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval)
+    const handleBeforeUnload = () => {
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose()
       }
     }
-  }, [isConnected, connectionStartTime])
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
-  // Show controls when user interacts
-  const showControls = () => {
-    setAreControlsVisible(true)
+  // Load Jitsi Meet API
+  useEffect(() => {
+    const loadJitsiScript = () => {
+      if (window.JitsiMeetExternalAPI) {
+        initializeJitsi()
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://meet.jit.si/external_api.js'
+      script.async = true
+      script.onload = initializeJitsi
+      document.head.appendChild(script)
+    }
+
+    const initializeJitsi = () => {
+      if (!jitsiContainerRef.current || !window.JitsiMeetExternalAPI) return
+
+      const domain = 'meet.jit.si'
+      const options = {
+        roomName: `meetopia-${roomId}`,
+        width: '100%',
+        height: '100%',
+        parentNode: jitsiContainerRef.current,
+        userInfo: {
+          displayName: userName,
+          email: '' // Required by Jitsi
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          enableWelcomePage: false,
+          prejoinPageEnabled: false,
+          disableInviteFunctions: true,
+          toolbarButtons: [
+            'microphone',
+            'camera',
+            'desktop',
+            'chat',
+            'settings',
+            'filmstrip'
+          ]
+        },
+        interfaceConfigOverwrite: {
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          SHOW_BRAND_WATERMARK: false,
+          BRAND_WATERMARK_LINK: '',
+          SHOW_POWERED_BY: false,
+          DISPLAY_WELCOME_PAGE_CONTENT: false,
+          DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
+          APP_NAME: 'Meetopia',
+          NATIVE_APP_NAME: 'Meetopia',
+          DEFAULT_BACKGROUND: '#1a1a2e'
+        }
+      }
+
+      jitsiApiRef.current = new window.JitsiMeetExternalAPI(domain, options)
+
+      // Event listeners
+      jitsiApiRef.current.addEventListeners({
+        readyToClose: () => {
+          console.log('Jitsi meeting ended')
+          onMeetingEnded?.()
+          router.push('/')
+        },
+        participantJoined: (participant: any) => {
+          console.log('Participant joined:', participant)
+          setParticipantCount(prev => prev + 1)
+          onParticipantJoined?.(participant)
+          setIsConnected(true)
+          resetHideTimer()
+        },
+        participantLeft: (participant: any) => {
+          console.log('Participant left:', participant)
+          setParticipantCount(prev => Math.max(1, prev - 1))
+          onParticipantLeft?.(participant)
+        },
+        videoConferenceJoined: () => {
+          console.log('Video conference joined')
+          setIsLoading(false)
+          setIsConnected(true)
+          resetHideTimer()
+        },
+        videoConferenceLeft: () => {
+          console.log('Video conference left')
+          setIsConnected(false)
+          onMeetingEnded?.()
+        }
+      })
+
+      // Hide loading after a delay even if no events fire
+      setTimeout(() => setIsLoading(false), 3000)
+    }
+
+    loadJitsiScript()
+
+    return () => {
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose()
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
+      }
+    }
+  }, [roomId, userName])
+
+  // Reset hide timer
+  const resetHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+    }
+    
+    if (isConnected && participantCount > 1) {
+      setShowControls(true)
+      hideTimerRef.current = setTimeout(() => {
+        setShowControls(false)
+      }, 10000) // 10 seconds like your web app
+    }
+  }
+
+  // Handle video click
+  const handleVideoClick = () => {
+    if (!showControls && isConnected) {
+      resetHideTimer()
+    }
   }
 
   // Format call duration
@@ -81,208 +201,134 @@ export default function JitsiVideoChat({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Handle API ready
-  const handleApiReady = (externalApi: any) => {
-    apiRef.current = externalApi
-    
-    // Set up event listeners
-    externalApi.addEventListener('videoConferenceJoined', () => {
-      console.log('📹 Joined Jitsi meeting')
-      setIsConnected(true)
-      setConnectionStartTime(new Date())
-    })
-    
-    externalApi.addEventListener('videoConferenceLeft', () => {
-      console.log('👋 Left Jitsi meeting')
-      setIsConnected(false)
-      setConnectionStartTime(null)
-      setCallDuration(0)
-      if (onLeave) {
-        onLeave()
-      }
-    })
-    
-    externalApi.addEventListener('participantJoined', (event: any) => {
-      console.log('👤 Participant joined:', event.displayName)
-      // Update participants list
-      externalApi.getParticipantsInfo().then((participantsList: any[]) => {
-        setParticipants(participantsList)
-      })
-    })
-    
-    externalApi.addEventListener('participantLeft', (event: any) => {
-      console.log('👤 Participant left:', event.displayName)
-      // Update participants list
-      externalApi.getParticipantsInfo().then((participantsList: any[]) => {
-        setParticipants(participantsList)
-      })
-    })
-  }
-
   // Handle navigation actions
   const handleKeepExploring = () => {
-    if (apiRef.current) {
-      apiRef.current.executeCommand('hangup')
-    }
-    window.location.href = '/chat/video'
+    resetHideTimer()
+    // Add your exploration logic here
+    console.log('Keep exploring clicked!')
   }
 
   const handleBackToBase = () => {
-    if (apiRef.current) {
-      apiRef.current.executeCommand('hangup')
-    }
-    window.location.href = '/'
+    resetHideTimer()
+    router.push('/')
   }
 
   const handleLetUsKnow = () => {
-    setIsReportModalOpen(true)
+    resetHideTimer()
+    // Add your feedback logic here
+    console.log('Let us know clicked!')
   }
 
-  const handleReport = async (type: 'report' | 'improvement', reason: string, details: string) => {
-    try {
-      await submitReport(type, reason, details)
-      setIsReportModalOpen(false)
-      alert('Report submitted successfully!')
-    } catch (error) {
-      console.error('Failed to submit report:', error)
-      alert('Failed to submit report. Please try again.')
+  const handleEndCall = () => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('hangup')
     }
+    router.push('/')
   }
 
   return (
-    <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Jitsi Meet Container */}
-      <div 
-        ref={jitsiContainerRef}
-        className="absolute inset-0 w-full h-full"
-        onClick={showControls} // Show controls when clicking on video
-      >
-        <JitsiMeeting
-          domain="meet.jit.si"
-          roomName={roomName}
-          configOverwrite={{
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            enableWelcomePage: false,
-            prejoinPageEnabled: false,
-            disableModeratorIndicator: false,
-            enableEmailInStats: false,
-            toolbarButtons: [
-              'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-              'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-              'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-              'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-              'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-              'security'
-            ],
-          }}
-          interfaceConfigOverwrite={{
-            TOOLBAR_BUTTONS: [
-              'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-              'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-              'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-              'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-              'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-              'e2ee'
-            ],
-            SETTINGS_SECTIONS: ['devices', 'language', 'moderator', 'profile', 'calendar'],
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            SHOW_BRAND_WATERMARK: false,
-            BRAND_WATERMARK_LINK: '',
-            DEFAULT_BACKGROUND: '#474747',
-          }}
-          userInfo={{
-            displayName: displayName,
-            email: '',
-          }}
-          onApiReady={handleApiReady}
-          getIFrameRef={(iframeRef) => {
-            if (iframeRef) {
-              iframeRef.style.height = '100%';
-              iframeRef.style.width = '100%';
-            }
-          }}
-        />
-      </div>
+    <div className="relative w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-hidden">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <h2 className="text-white text-xl font-semibold mb-2">Setting up your meeting room...</h2>
+            <p className="text-white/70">Connecting to Jitsi Meet servers</p>
+          </div>
+        </div>
+      )}
 
-      {/* Meetopia Navigation Header - Always Visible */}
-      <div className={`absolute top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}>
-        <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
-          <Logo className="text-white" />
-          
-          {/* Navigation Buttons */}
+      {/* Your existing top navigation - only show when controls are visible */}
+      {showControls && (
+        <div className="absolute top-4 left-4 right-4 z-40 flex justify-between items-center">
           <div className="flex gap-3">
             <button
               onClick={handleKeepExploring}
-              className="px-4 py-2 bg-green-500/80 hover:bg-green-600/90 text-white rounded-lg font-medium transition-all duration-300 backdrop-blur-md border border-green-400/30 shadow-lg hover:scale-105"
+              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-green-400/30"
             >
               Keep Exploring! 🌟
             </button>
+            
             <button
               onClick={handleBackToBase}
-              className="px-4 py-2 bg-blue-500/80 hover:bg-blue-600/90 text-white rounded-lg font-medium transition-all duration-300 backdrop-blur-md border border-blue-400/30 shadow-lg hover:scale-105"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-blue-400/30"
             >
               Back to Base 🏠
             </button>
+            
             <button
               onClick={handleLetUsKnow}
-              className="px-4 py-2 bg-purple-500/80 hover:bg-purple-600/90 text-white rounded-lg font-medium transition-all duration-300 backdrop-blur-md border border-purple-400/30 shadow-lg hover:scale-105"
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-purple-400/30"
             >
-              Let Us Know! 📝
+              Let Us Know! 💬
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Connection Status & Call Duration */}
-      <div className={`absolute top-20 left-4 z-50 transition-all duration-300 ${
-        areControlsVisible ? 'opacity-100' : 'opacity-0'
-      }`}>
-        <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20">
-          <div className="flex items-center gap-2 text-white">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-yellow-400'}`} />
-            <span className="text-sm font-medium">
-              {isConnected ? `Connected • ${formatDuration(callDuration)}` : 'Connecting...'}
-            </span>
-          </div>
-          {participants.length > 0 && (
-            <div className="text-xs text-gray-300 mt-1">
-              {participants.length} participant{participants.length !== 1 ? 's' : ''} in call
+          {/* Connection Status */}
+          {isConnected && (
+            <div className="bg-black/30 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-white text-sm font-medium">
+                  {participantCount} participant{participantCount !== 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Jitsi Meet Container */}
+      <div 
+        ref={jitsiContainerRef} 
+        className="w-full h-full"
+        onClick={handleVideoClick}
+        style={{ 
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+        }}
+      />
+
+      {/* Your existing bottom controls - only show when controls are visible */}
+      {showControls && isConnected && (
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+          <div className="flex items-center gap-4 bg-black/40 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20">
+            <button
+              onClick={handleEndCall}
+              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-red-400/30 flex items-center gap-2"
+            >
+              <span>📞</span>
+              End Call
+            </button>
+            
+            <div className="text-white/70 text-sm">
+              Jitsi Meet • Enterprise Grade • Up to 50+ people
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tap to show hint */}
+      {!showControls && isConnected && (
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 opacity-50 hover:opacity-100 transition-opacity">
+          <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20">
+            <p className="text-white text-sm">Tap anywhere to show controls</p>
+          </div>
+        </div>
+      )}
 
       {/* Room Info */}
       <div className={`absolute top-20 right-4 z-50 transition-all duration-300 ${
-        areControlsVisible ? 'opacity-100' : 'opacity-0'
+        showControls ? 'opacity-100' : 'opacity-0'
       }`}>
         <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20">
           <div className="text-white text-sm">
-            <div className="font-medium">Room: {roomName}</div>
+            <div className="font-medium">Room: meetopia-{roomId}</div>
             <div className="text-xs text-gray-300">Powered by Jitsi Meet</div>
           </div>
         </div>
       </div>
-
-      {/* Report Modal */}
-      <ReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        onSubmit={handleReport}
-      />
-
-      {/* Instructions for showing controls */}
-      {!areControlsVisible && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-40">
-          <div className="bg-black/40 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20 text-white text-sm opacity-70">
-            Tap anywhere to show controls
-          </div>
-        </div>
-      )}
     </div>
   )
 } 

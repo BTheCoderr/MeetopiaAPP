@@ -44,12 +44,10 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "eas": {
-        "projectId": "your-project-id-here"
-      }
+      "eas": {}
     },
     "privacy": {
-      "privacyPolicyUrl": "https://meetopia.vercel.app/privacy"
+      "privacyPolicyUrl": "https://meeetopia.vercel.app/privacy"
     },
     "category": "SOCIAL_NETWORKING",
     "contentRights": {

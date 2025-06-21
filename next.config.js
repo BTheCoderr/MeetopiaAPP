@@ -54,7 +54,6 @@ const nextConfig = {
       : 'http://localhost:4000',
   },
 
-  serverExternalPackages: [],
   transpilePackages: ['socket.io-client'],
   eslint: {
     // Warning: This allows production builds to successfully complete even if
@@ -65,10 +64,6 @@ const nextConfig = {
     // Warning: This allows production builds to successfully complete even if
     // your project has TypeScript errors.
     ignoreBuildErrors: true,
-  },
-  experimental: {
-    esmExternals: 'loose',
-    serverComponentsExternalPackages: ['@prisma/client'],
   },
 }
 
