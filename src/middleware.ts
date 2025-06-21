@@ -33,6 +33,8 @@ const securityHeaders = {
 // Paths that don't require special protection
 const PUBLIC_PATHS = [
   '/',
+  '/privacy',
+  '/about',
   '/api/health',
   '/api/status',
   '/_next',
@@ -75,14 +77,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Block suspicious requests
-  const userAgent = request.headers.get('user-agent')?.toLowerCase() || ''
-  const suspiciousPatterns = ['curl', 'wget', 'python-requests', 'postman']
+  // Block suspicious requests (disabled for testing)
+  // const userAgent = request.headers.get('user-agent')?.toLowerCase() || ''
+  // const suspiciousPatterns = ['curl', 'wget', 'python-requests', 'postman']
   
-  if (suspiciousPatterns.some(pattern => userAgent.includes(pattern))) {
-    // Block obvious automated tools (but allow real browsers)
-    return new NextResponse('Forbidden', { status: 403 })
-  }
+  // if (suspiciousPatterns.some(pattern => userAgent.includes(pattern))) {
+  //   // Block obvious automated tools (but allow real browsers)
+  //   return new NextResponse('Forbidden', { status: 403 })
+  // }
 
   // Validate origin for sensitive routes
   if (pathname.startsWith('/chat/') || pathname.startsWith('/api/match')) {
