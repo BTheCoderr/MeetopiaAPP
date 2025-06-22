@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Meetopia",
-    "slug": "meetopia",
-    "version": "1.0.0",
+    "slug": "meetopia-app",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/adaptive-icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.meetopia.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "Meetopia needs camera access to enable video calls and connections with other users.",
         "NSMicrophoneUsageDescription": "Meetopia needs microphone access to enable voice communication during video calls.",
