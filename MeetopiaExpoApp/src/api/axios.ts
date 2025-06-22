@@ -1,10 +1,18 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
 // Environment-based API configuration
-const API_BASE_URL = __DEV__ 
-  ? 'http://10.225.6.23:3003'  // Development - Use your computer's IP
-  : 'https://meetopiaapp.onrender.com';  // Production
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    // Use Expo's manifest to get the correct development URL
+    const debuggerHost = Constants.expoConfig?.hostUri?.split(':').shift();
+    return debuggerHost ? `http://${debuggerHost}:3003` : 'http://localhost:3003';
+  }
+  return 'https://meetopiaapp.onrender.com'; // Production
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
