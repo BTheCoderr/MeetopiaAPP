@@ -47,15 +47,6 @@
       "eas": {
         "projectId": "37e69074-d079-4c60-a3c4-5d468645bcf1"
       }
-    },
-    "privacy": {
-      "privacyPolicyUrl": "https://meeetopia.vercel.app/privacy"
-    },
-    "category": "SOCIAL_NETWORKING",
-    "contentRights": {
-      "containsThirdPartyContent": false,
-      "usesAppleSignIn": false
-    },
-    "pricing": "FREE"
+    }
   }
 }
