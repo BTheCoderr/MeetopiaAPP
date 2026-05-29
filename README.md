@@ -1,6 +1,6 @@
 # Meetopia - Video Chat & Speed Dating App
 
-Meetopia is a modern video chat and speed dating application that allows users to connect with others through video and text chat.
+Meetopia is a modern random video chat and speed dating application that connects users through live video with optional in-call messaging.
 
 ## Features
 
@@ -69,8 +69,7 @@ npm start
 
 1. **Start Matching**
    - Choose between Regular Chat or Speed Dating mode
-   - Select Video Chat or Text Chat
-   - Click "Start Matching Now"
+   - Click "Start Matching Now" on the video chat page
 
 2. **During a Match**
    - In Speed Dating mode, a 3-minute timer will count down

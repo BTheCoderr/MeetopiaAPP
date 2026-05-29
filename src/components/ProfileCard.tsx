@@ -1,43 +1,68 @@
 import React from 'react'
 
 interface ProfileCardProps {
-  bio: string
-  interests: string[]
+  bio: string;
+  interests: string[];
+  name?: string;
+  age?: number;
+  gender?: string;
+  lookingFor?: string;
 }
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ bio, interests }) => {
+export default function ProfileCard({ 
+  bio, 
+  interests,
+  name, 
+  age,
+  gender,
+  lookingFor
+}: ProfileCardProps) {
+  // Format interests for display
+  const formattedInterests = interests.map(interest => 
+    interest.charAt(0).toUpperCase() + interest.slice(1)
+  )
+
   return (
-    <div className="bg-white rounded-lg overflow-hidden">
-      <div className="p-4">
-        <div className="mb-4">
-          <h4 className="text-sm text-gray-500 mb-1">About</h4>
-          {bio ? (
-            <p className="text-gray-700">{bio}</p>
-          ) : (
-            <p className="text-gray-400 italic">No bio provided</p>
-          )}
-        </div>
-        
-        <div>
-          <h4 className="text-sm text-gray-500 mb-2">Interests</h4>
-          {interests && interests.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {interests.map((interest, index) => (
-                <span 
-                  key={index} 
-                  className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm"
-                >
-                  {interest}
+    <div className="w-full">
+      {/* Name, age, gender section (if provided) */}
+      {(name || age || gender) && (
+        <div className="mb-2">
+          {name && (
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{name}</span>
+              {age && <span className="text-gray-600">{age}</span>}
+              {gender && (
+                <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                  {gender.charAt(0).toUpperCase() + gender.slice(1)}
                 </span>
-              ))}
+              )}
             </div>
-          ) : (
-            <p className="text-gray-400 italic">No interests shared</p>
+          )}
+          
+          {lookingFor && (
+            <div className="text-xs text-gray-500 mt-1">
+              Looking for: {lookingFor === 'both' ? 'Everyone' : lookingFor === 'male' ? 'Men' : 'Women'}
+            </div>
           )}
         </div>
+      )}
+      
+      {/* Bio section */}
+      <div className="mt-2">
+        <p className="text-sm text-gray-700 line-clamp-3">{bio}</p>
+      </div>
+      
+      {/* Interests tags */}
+      <div className="mt-3 flex flex-wrap gap-1">
+        {formattedInterests.map((interest, index) => (
+          <span 
+            key={index}
+            className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full"
+          >
+            {interest}
+          </span>
+        ))}
       </div>
     </div>
   )
-}
-
-export default ProfileCard 
+} 

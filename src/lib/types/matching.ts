@@ -1,6 +1,6 @@
 export interface Match {
   id: string
-  type: 'video' | 'text'
+  type: 'video'
   status: 'pending' | 'active' | 'ended'
   participants: string[]
   createdAt: Date
@@ -8,7 +8,7 @@ export interface Match {
 
 export interface MatchRequest {
   userId: string
-  type: 'video' | 'text'
+  type: 'video'
   filters?: {
     age?: number[]
     location?: string

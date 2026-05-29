@@ -4,8 +4,4 @@ interface MainLayoutProps {
   children: ReactNode;
 }
 
-interface ChatLayoutProps {
-  children: ReactNode;
-}
-
-export type { MainLayoutProps, ChatLayoutProps }; 
+export type { MainLayoutProps }; 

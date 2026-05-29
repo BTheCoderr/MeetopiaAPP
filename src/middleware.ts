@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   '/api/auth/signin',
   '/api/auth/signup',
   '/',
+  '/chat',
+  '/dating/profile',
+  '/dating/interests',
 ]
 
 export function middleware(request: NextRequest) {

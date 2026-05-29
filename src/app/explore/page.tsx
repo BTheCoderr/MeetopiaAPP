@@ -1,50 +1,86 @@
 'use client'
 import React from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/Layout/MainLayout'
 
 export default function ExplorePage() {
+  const router = useRouter()
+
+  const startRandomChat = () => {
+    // Go directly to video chat
+    router.push('/chat/video')
+  }
+
+  const startDating = () => {
+    // Go to dating profile first
+    router.push('/dating/profile')
+  }
+
   return (
     <MainLayout>
-      <div className="flex flex-col items-center justify-center min-h-[80vh] p-4 text-center">
-        <h1 className="text-3xl font-bold mb-8">Ready for your Meetopia adventure?</h1>
-        
-        <div className="grid grid-cols-1 gap-8 mb-8 w-full max-w-md">
-          {/* Random Chat Option */}
-          <div className="flex flex-col items-center p-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl shadow-lg hover:shadow-xl transition-all">
-            <h2 className="text-2xl font-bold text-white mb-3">Random Chat</h2>
-            <p className="text-white/80 mb-6">Meet new people for casual conversations</p>
-            <Link 
-              href="/match?mode=chat&video=true"
-              className="w-full px-6 py-4 bg-white text-blue-700 text-lg font-bold rounded-lg hover:bg-blue-50 transition-all shadow-md"
-            >
-              Start Chatting
-            </Link>
+      <div className="min-h-[80vh] bg-gray-50">
+        <div className="max-w-4xl mx-auto p-8">
+          <h1 className="text-3xl font-bold text-center mb-3">How do you want to connect?</h1>
+          <p className="text-lg text-center text-gray-600 mb-10">
+            Choose your experience and start chatting in seconds
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Random Video Chat Option */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 transition-all hover:shadow-lg">
+              <div className="h-48 bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <span className="text-6xl">🎥</span>
+              </div>
+              <div className="p-6">
+                <h2 className="text-xl font-bold mb-2">Random Video Chat</h2>
+                <p className="text-gray-600 mb-6 h-20">
+                  Connect with random people from around the world. Fast, anonymous, and no sign-up required.
+                </p>
+                <button 
+                  onClick={startRandomChat}
+                  className="w-full py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Start Random Chat
+                </button>
+              </div>
+            </div>
+
+            {/* Video Dating Option */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 transition-all hover:shadow-lg">
+              <div className="h-48 bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center">
+                <span className="text-6xl">❤️</span>
+              </div>
+              <div className="p-6">
+                <h2 className="text-xl font-bold mb-2">Video Dating</h2>
+                <p className="text-gray-600 mb-6 h-20">
+                  Meet people with shared interests through video dating. Create a quick profile to get matched better.
+                </p>
+                <button 
+                  onClick={startDating}
+                  className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  Try Video Dating
+                </button>
+              </div>
+            </div>
           </div>
           
-          {/* Video Dating Option */}
-          <div className="flex flex-col items-center p-8 bg-gradient-to-br from-pink-600 to-purple-700 rounded-xl shadow-lg hover:shadow-xl transition-all">
-            <h2 className="text-2xl font-bold text-white mb-3">Video Dating</h2>
-            <p className="text-white/80 mb-6">Find matches through face-to-face connections</p>
-            <Link 
-              href="/dating/profile"
-              className="w-full px-6 py-4 bg-white text-purple-700 text-lg font-bold rounded-lg hover:bg-purple-50 transition-all shadow-md"
-            >
-              Start Dating
-            </Link>
+          {/* Stats for social proof */}
+          <div className="mt-12 grid grid-cols-3 gap-4 text-center">
+            <div className="p-4 bg-white rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-blue-600">10,000+</p>
+              <p className="text-gray-600 text-sm">Daily Users</p>
+            </div>
+            <div className="p-4 bg-white rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-blue-600">5 sec</p>
+              <p className="text-gray-600 text-sm">Average Match Time</p>
+            </div>
+            <div className="p-4 bg-white rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-blue-600">100%</p>
+              <p className="text-gray-600 text-sm">Free to Use</p>
+            </div>
           </div>
         </div>
-
-        {/* Settings Button */}
-        <button 
-          className="mt-4 p-3 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-          onClick={() => document.getElementById('settings')?.classList.toggle('hidden')}
-        >
-          <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
       </div>
     </MainLayout>
   )

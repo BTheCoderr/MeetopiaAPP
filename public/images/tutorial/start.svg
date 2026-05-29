@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" fill="none" role="img" aria-label="Ready to Chat">
+  <rect width="400" height="240" rx="16" fill="#F3F4F6"/>
+  <rect x="48" y="32" width="304" height="120" rx="12" fill="#1C1C1E"/>
+  <circle cx="200" cy="88" r="32" fill="#374151"/>
+  <circle cx="200" cy="176" r="32" fill="#30D158"/>
+  <path d="M188 176h24M200 164v24" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <path d="M200 128v20" stroke="#30D158" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M168 152l32-20 32 20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="72" y="196" width="120" height="28" rx="14" fill="white" stroke="#E5E7EB"/>
+  <text x="132" y="215" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" fill="#6B7280">Space = next</text>
+  <rect x="208" y="196" width="120" height="28" rx="14" fill="#0A84FF" fill-opacity="0.1"/>
+  <text x="268" y="215" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#0A84FF">Make a Connection</text>
+</svg>

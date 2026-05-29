@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
     const { type, mode, blindDate, chatMode, bio, interests } = body
     
     // Validate inputs
-    if (!type || !['video', 'text'].includes(type)) {
+    if (!type || type !== 'video') {
       return NextResponse.json(
-        { error: 'Invalid type. Must be "video" or "text".' },
+        { error: 'Invalid type. Must be "video".' },
         { status: 400 }
       )
     }

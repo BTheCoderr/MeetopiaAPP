@@ -1,3 +1,5 @@
+import { getIceServers } from './iceServers'
+
 export class WebRTCService {
   private peerConnection: RTCPeerConnection
   private socket: any
@@ -5,6 +7,8 @@ export class WebRTCService {
   private connectionTimeout: NodeJS.Timeout | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 3
+  private currentPeerId: string | null = null
+  private currentRoomId: string | null = null
 
   constructor(socket: any) {
     this.socket = socket
@@ -12,16 +16,9 @@ export class WebRTCService {
   }
 
   private createPeerConnection() {
-    // Use multiple STUN/TURN servers for better connectivity
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
-      ],
-      iceCandidatePoolSize: 10 // Increase candidate pool for faster connections
+      iceServers: getIceServers(),
+      iceCandidatePoolSize: 10
     })
 
     pc.ontrack = this.handleTrack.bind(this)
@@ -91,8 +88,12 @@ export class WebRTCService {
   }
 
   private handleIceCandidate(event: RTCPeerConnectionIceEvent) {
-    if (event.candidate) {
-      this.socket.emit('ice-candidate', event.candidate)
+    if (event.candidate && this.currentPeerId && this.currentRoomId) {
+      this.socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        roomId: this.currentRoomId,
+        to: this.currentPeerId
+      })
     }
   }
 
@@ -118,7 +119,9 @@ export class WebRTCService {
       }))
       
       // Try to create a new offer
-      this.createOffer()
+      if (this.currentPeerId && this.currentRoomId) {
+        this.createOffer(this.currentPeerId, this.currentRoomId)
+      }
     } else {
       console.log('Max reconnection attempts reached')
       window.dispatchEvent(new CustomEvent('webrtc-failed'))
@@ -146,8 +149,10 @@ export class WebRTCService {
     }
   }
 
-  async createOffer() {
+  async createOffer(peerId: string, roomId: string) {
     try {
+      this.currentPeerId = peerId
+      this.currentRoomId = roomId
       this.setConnectionTimeout()
       const offer = await this.peerConnection.createOffer({
         offerToReceiveAudio: true,
@@ -155,7 +160,11 @@ export class WebRTCService {
         iceRestart: this.reconnectAttempts > 0 // Use ice restart for reconnection attempts
       })
       await this.peerConnection.setLocalDescription(offer)
-      this.socket.emit('offer', offer)
+      this.socket.emit('offer', {
+        offer,
+        roomId,
+        to: peerId
+      })
       return offer
     } catch (error) {
       console.error('Error creating offer:', error)
@@ -163,13 +172,19 @@ export class WebRTCService {
     }
   }
 
-  async handleOffer(offer: RTCSessionDescriptionInit) {
+  async handleOffer(offer: RTCSessionDescriptionInit, peerId: string, roomId: string) {
     try {
+      this.currentPeerId = peerId
+      this.currentRoomId = roomId
       this.setConnectionTimeout()
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
       const answer = await this.peerConnection.createAnswer()
       await this.peerConnection.setLocalDescription(answer)
-      this.socket.emit('answer', answer)
+      this.socket.emit('answer', {
+        answer,
+        roomId,
+        to: peerId
+      })
       return answer
     } catch (error) {
       console.error('Error handling offer:', error)
@@ -204,5 +219,7 @@ export class WebRTCService {
     }
     
     this.peerConnection.close()
+    this.currentPeerId = null
+    this.currentRoomId = null
   }
 }

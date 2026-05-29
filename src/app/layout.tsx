@@ -1,8 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -13,17 +10,31 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  title: 'Meetopia - Connect with People Worldwide',
-  description: 'A platform for meeting and chatting with people from around the world through video, text, or combined chat.',
-  keywords: 'video chat, text chat, meeting people, social platform, anonymous chat',
+  title: 'Meetopia - Random Video Chat with Strangers',
+  description: 'Connect with random people worldwide through instant video chat. No sign-up required, completely free, and anonymous. Just click and start chatting!',
+  keywords: 'video chat, random chat, meet strangers, omegle alternative, chatroulette, anonymous chat, video calls',
   authors: [{ name: 'Meetopia Team' }],
   robots: 'index, follow',
   openGraph: {
-    title: 'Meetopia - Connect with People Worldwide',
-    description: 'Meet and chat with people from around the world through video, text, or combined chat.',
+    title: 'Meetopia - Random Video Chat with Strangers',
+    description: 'Connect with random people through instant video chat. No sign-up required, completely free!',
     type: 'website',
     locale: 'en_US',
-    siteName: 'Meetopia'
+    siteName: 'Meetopia',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Meetopia - Random Video Chat App'
+      }
+    ]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Meetopia - Random Video Chat with Strangers',
+    description: 'Connect with random people through instant video chat. No sign-up required!',
+    images: ['/og-image.png']
   }
 }
 
@@ -34,7 +45,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   )
 }

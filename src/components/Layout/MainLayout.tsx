@@ -28,17 +28,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 Home
               </Link>
               <Link 
-                href="/test-video" 
+                href="/chat/video" 
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Test Video
+                Start Chat
               </Link>
-              <Link 
-                href="/test-chat" 
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.open('/test-camera.html', '_blank')
+                }}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Test Chat
-              </Link>
+                Test Camera
+              </a>
             </nav>
           </div>
         </div>
@@ -52,7 +56,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Footer */}
       <footer className="bg-white border-t mt-auto">
         <div className="container mx-auto px-4 py-4 text-center text-gray-500 text-sm">
-          &copy; {new Date().getFullYear()} Meetopia - Connect with people worldwide
+          &copy; {new Date().getFullYear()} Meetopia - Random video chat with strangers
         </div>
       </footer>
     </div>

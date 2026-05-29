@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { socket } from '../lib/socket-client'
 import { WebRTCService } from '../lib/webrtc'
 
 interface VideoCallProps {
@@ -11,6 +11,7 @@ interface VideoCallProps {
   setIsVideoOff: (off: boolean) => void
   blindDate: boolean
   peerId: string | null
+  onConnectionChange?: (status: boolean) => void
 }
 
 const VideoCall: React.FC<VideoCallProps> = ({
@@ -20,7 +21,8 @@ const VideoCall: React.FC<VideoCallProps> = ({
   isVideoOff,
   setIsVideoOff,
   blindDate,
-  peerId
+  peerId,
+  onConnectionChange
 }) => {
   // Refs for video elements
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -33,6 +35,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
   const [isConnecting, setIsConnecting] = useState<boolean>(true)
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
+  const [remotePeerId, setRemotePeerId] = useState<string | null>(null)
   
   // State for UI controls
   const [showControls, setShowControls] = useState<boolean>(true)
@@ -41,13 +44,9 @@ const VideoCall: React.FC<VideoCallProps> = ({
   
   // Initialize WebRTC connection
   useEffect(() => {
-    // Create socket connection for signaling
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
-    const socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    })
+    if (!socket.connected) {
+      socket.connect();
+    }
     
     // Create WebRTC service
     const webRTCService = new WebRTCService(socket)
@@ -59,28 +58,82 @@ const VideoCall: React.FC<VideoCallProps> = ({
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
       }
-    })
+    }).catch(err => {
+      console.error("Error starting local stream:", err);
+    });
     
     // Handle remote stream event
     const handleRemoteStream = (event: CustomEvent) => {
+      console.log("Remote stream received!");
       setRemoteStream(event.detail.stream)
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.detail.stream
       }
       setIsConnecting(false)
       setIsConnected(true)
-    }
-    
-    window.addEventListener('remote-stream', handleRemoteStream as EventListener)
-    
-    // Create or answer offer when peer is available
-    if (peerId) {
-      setIsConnecting(true)
-      if (socket.id && peerId > socket.id) {
-        // We create the offer
-        webRTCService.createOffer()
+      // Call the callback to update parent component
+      if (onConnectionChange) {
+        onConnectionChange(true);
       }
     }
+    
+    // Listen for socket connection events
+    socket.on('connect', () => {
+      console.log("Socket connected to server");
+      socket.emit('join-room', { roomId });
+    });
+    
+    // Listen for start-call event from server
+    socket.on('start-call', ({ users }) => {
+      console.log("Start call event received", users);
+      // Find the other user in the room
+      const otherUserId = users.find((id: string) => id !== socket.id);
+      if (otherUserId && socket.id) {
+        setRemotePeerId(otherUserId);
+        // Initiate call if our ID is greater than peer ID
+        if (socket.id > otherUserId) {
+          console.log("Initiating call to", otherUserId);
+          webRTCService.createOffer(otherUserId, roomId);
+        }
+      }
+    });
+    
+    // Handle offer from peer
+    socket.on('offer', async ({ offer, from }) => {
+      console.log("Received offer from", from);
+      setRemotePeerId(from);
+      await webRTCService.handleOffer(offer, from, roomId);
+    });
+    
+    // Handle answer from peer
+    socket.on('answer', async ({ answer, from }) => {
+      console.log("Received answer from", from);
+      await webRTCService.handleAnswer(answer);
+    });
+    
+    // Handle ICE candidates
+    socket.on('ice-candidate', async ({ candidate, from }) => {
+      console.log("Received ICE candidate from", from);
+      await webRTCService.addIceCandidate(candidate);
+    });
+    
+    // Handle peer disconnection
+    socket.on('peer-left', ({ peerId }) => {
+      console.log("Peer left:", peerId);
+      setRemotePeerId(null);
+      setIsConnected(false);
+      setIsConnecting(true);
+      setRemoteStream(null);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+      // Call the callback to update parent component
+      if (onConnectionChange) {
+        onConnectionChange(false);
+      }
+    });
+    
+    window.addEventListener('remote-stream', handleRemoteStream as EventListener)
     
     // Handle blur for blind dates
     if (blindDate) {
@@ -92,10 +145,20 @@ const VideoCall: React.FC<VideoCallProps> = ({
     // Cleanup on unmount
     return () => {
       webRTCService.cleanup()
-      socket.close()
+      socket.off('connect');
+      socket.off('start-call');
+      socket.off('offer');
+      socket.off('answer');
+      socket.off('ice-candidate');
+      socket.off('peer-left');
+      socket.emit('leave-room', { roomId });
       window.removeEventListener('remote-stream', handleRemoteStream as EventListener)
+      // Reset connection state on unmount
+      if (onConnectionChange) {
+        onConnectionChange(false);
+      }
     }
-  }, [roomId, peerId, blindDate])
+  }, [roomId, blindDate, onConnectionChange])
   
   // Update mute/video state in the stream
   useEffect(() => {
@@ -143,6 +206,13 @@ const VideoCall: React.FC<VideoCallProps> = ({
     }
   }
   
+  // Effect to update parent component when isConnected changes
+  useEffect(() => {
+    if (onConnectionChange) {
+      onConnectionChange(isConnected);
+    }
+  }, [isConnected, onConnectionChange]);
+
   return (
     <div 
       className="relative w-full h-[70vh] md:h-[60vh] bg-black rounded-lg overflow-hidden"
