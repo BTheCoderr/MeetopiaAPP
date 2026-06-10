@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import TypingIndicator from '@/components/TypingIndicator'
 import type { ChatMessage } from '@/types/videoChat'
+import { videoChatLayout } from './videoChatLayout'
 
 interface MessageBarProps {
   messages: ChatMessage[]
@@ -40,7 +41,7 @@ export default function MessageBar({
   const hasBubbles = showBubbles && (recentMessages.length > 0 || isPeerTyping)
 
   return (
-    <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[min(calc(100%-2rem),22rem)] sm:w-[min(100%,24rem)] px-4 z-20 pointer-events-none">
+    <div className={videoChatLayout.messagePill}>
       <AnimatePresence>
         {hasBubbles && (
           <motion.div

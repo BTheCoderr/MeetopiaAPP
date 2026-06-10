@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { BandwidthQuality } from '@/types/videoChat'
 import PictureInPicture, { type PictureInPictureProps } from './PictureInPicture'
+import { videoChatLayout } from './videoChatLayout'
 
 /** A idle | B searching | connecting (matched, no remote track yet) | C connected | D → idle/searching */
 export type VideoStageMode = 'idle' | 'searching' | 'connecting' | 'connected'
@@ -123,7 +124,7 @@ export default function VideoStage({
           autoPlay
           playsInline
           muted
-          className={`absolute inset-0 w-full h-full object-cover -scale-x-100 transition-opacity duration-300 ${
+          className={`${videoChatLayout.mainVideo} -scale-x-100 transition-opacity duration-300 ${
             isCameraOff ? 'opacity-0' : 'opacity-100'
           }`}
         />
@@ -154,7 +155,7 @@ export default function VideoStage({
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          className={`absolute inset-0 w-full h-full object-cover transition-[filter] duration-300 ${
+          className={`${videoChatLayout.mainVideo} transition-[filter] duration-300 ${
             blurRemoteVideo ? 'blur-xl' : ''
           }`}
         />
@@ -174,7 +175,7 @@ export default function VideoStage({
         {mode === 'idle' && (
           <motion.div
             key="idle-overlay"
-            className="absolute inset-x-0 bottom-[calc(11rem+env(safe-area-inset-bottom))] flex justify-center px-6 pointer-events-none z-[3]"
+            className={videoChatLayout.idleHint}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -210,7 +211,7 @@ export default function VideoStage({
 
       {/* C. Connected — status chips */}
       {hasRemote && (
-        <div className={`absolute top-[calc(3.75rem+env(safe-area-inset-top))] left-3 sm:left-4 flex flex-wrap gap-2 z-[3] transition-opacity duration-300 ${
+        <div className={`${videoChatLayout.statusChips} transition-opacity duration-300 ${
           areControlsVisible ? 'opacity-100' : 'opacity-0'
         }`}>
           <div className="px-2.5 py-1 rounded-full bg-black/35 backdrop-blur-md border border-white/10">
@@ -240,7 +241,7 @@ export default function VideoStage({
 
       {/* Safety controls — only when connected */}
       {hasRemote && areControlsVisible && (
-        <div className="fixed top-[calc(9.25rem+env(safe-area-inset-top))] sm:top-[calc(10rem+env(safe-area-inset-top))] right-3 sm:right-4 flex gap-2 z-[3]">
+        <div className={videoChatLayout.safetyControls}>
           <button
             onClick={onToggleBlur}
             className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 shadow-lg transition-colors ${

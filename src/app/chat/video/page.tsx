@@ -14,6 +14,7 @@ import ControlBar from '@/components/video-chat/ControlBar'
 import VideoStage from '@/components/video-chat/VideoStage'
 import ChatPanel from '@/components/video-chat/ChatPanel'
 import VideoChatModals from '@/components/video-chat/VideoChatModals'
+import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 
 export default function VideoChatPage() {
   const searchParams = useSearchParams()
@@ -144,7 +145,7 @@ export default function VideoChatPage() {
   }, [chat, media, state, handleNextPerson])
 
   return (
-    <div className="relative min-h-[100dvh] h-[100dvh] w-full overflow-hidden bg-black">
+    <div className={videoChatLayout.root}>
       <VideoChatHeader
         isDarkTheme={state.isDarkTheme}
         setIsDarkTheme={state.setIsDarkTheme}

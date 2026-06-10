@@ -1,5 +1,7 @@
 'use client'
 
+import { videoChatLayout } from './videoChatLayout'
+
 export interface PictureInPictureProps {
   localVideoRef: React.RefObject<HTMLVideoElement | null>
   pipStream?: MediaStream | null
@@ -28,7 +30,7 @@ export default function PictureInPicture({
 
   return (
     <div
-      className={`fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 w-[7.5rem] sm:w-[9.5rem] md:w-[11rem] aspect-video rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/25 transition-opacity duration-300 ${
+      className={`${videoChatLayout.pip} shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/25 transition-opacity duration-300 ${
         areControlsVisible ? 'opacity-100' : 'opacity-90'
       }`}
     >
@@ -37,7 +39,7 @@ export default function PictureInPicture({
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover -scale-x-100 ${pipPaused ? 'opacity-0' : 'opacity-100'}`}
+        className={`absolute inset-0 h-full w-full object-cover object-center -scale-x-100 ${pipPaused ? 'opacity-0' : 'opacity-100'}`}
       />
       {pipPaused && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1c1c1e] gap-1">

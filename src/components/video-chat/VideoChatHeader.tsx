@@ -1,6 +1,7 @@
 'use client'
 
 import VideoConnectionStatusBar from './ConnectionStatus'
+import { videoChatLayout } from './videoChatLayout'
 
 interface VideoChatHeaderProps {
   isDarkTheme: boolean
@@ -27,7 +28,7 @@ export default function VideoChatHeader({
 }: VideoChatHeaderProps) {
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-30 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-6 pointer-events-none bg-gradient-to-b from-black/55 via-black/20 to-transparent">
+      <div className={`${videoChatLayout.header} px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 pointer-events-none bg-gradient-to-b from-black/55 via-black/20 to-transparent`}>
         <div className="flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-2.5">
             <button
