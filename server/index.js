@@ -3,15 +3,26 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-  : ['http://localhost:3000', 'http://localhost:3003'];
+const normalizeOrigin = (origin) =>
+  origin ? origin.trim().replace(/\/$/, '') : origin;
+
+const allowedOrigins = (process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3003']
+)
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 const corsOriginCheck = (origin, callback) => {
-  if (!origin || allowedOrigins.includes(origin)) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin)) {
+    console.log('[CORS] Allowed origin:', normalizedOrigin || '(no origin)');
     return callback(null, true);
   }
-  console.warn('[CORS] Blocked origin:', origin);
+
+  console.warn('[CORS] Blocked origin:', normalizedOrigin);
+  console.warn('[CORS] Allowed origins:', allowedOrigins);
   return callback(new Error('Not allowed by CORS'));
 };
 
