@@ -3,15 +3,28 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : ['http://localhost:3000', 'http://localhost:3003'];
+
+const corsOriginCheck = (origin, callback) => {
+  if (!origin || allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  console.warn('[CORS] Blocked origin:', origin);
+  return callback(new Error('Not allowed by CORS'));
+};
+
 const app = express();
-app.use(cors());
+app.use(cors({ origin: corsOriginCheck, credentials: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3003"],
-    methods: ["GET", "POST"]
-  }
+    origin: corsOriginCheck,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 // Legacy explicit-room flow (/room/[roomId], join-room) — separate from /chat/video random matching.
@@ -278,4 +291,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3003;
 server.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`);
+  console.log('[CORS] Allowed origins:', allowedOrigins.join(', ') || '(none — set CORS_ORIGINS)');
 });
