@@ -15,12 +15,55 @@ Separate iOS/Android app. Does **not** replace the Next.js web app.
 cd apps/mobile
 cp .env.example .env
 npm install
-npx expo install expo-dev-client react-native-safe-area-context
+# WebRTC requires @config-plugins/react-native-webrtc (not the raw package as a plugin)
+npx expo install @config-plugins/react-native-webrtc react-native-webrtc@124.0.4
+eas login
+eas init   # sets projectId in app.config.ts extra.eas.projectId
 ```
 
 Set `EXPO_PUBLIC_SOCKET_URL` to your signaling server (LAN IP for device testing, HTTPS for production).
 
-## Development build (required — not Expo Go)
+## Quick test (no EAS cloud build)
+
+**Easiest:** use the web app on your phone — `http://YOUR_LAN_IP:3000/chat/video` with `npm run dev` at repo root. No native build needed.
+
+**Native app (local only):**
+
+```bash
+# Terminal 1 — repo root
+cd ~/Desktop/MeetopiaAPP && npm run dev
+
+# Terminal 2 — mobile (real iPhone via USB; Simulator has no camera)
+cd ~/Desktop/MeetopiaAPP/apps/mobile
+npm install
+echo "EXPO_PUBLIC_SOCKET_URL=http://192.168.1.152:3003" > .env
+npx expo config                    # must exit 0
+npx expo run:ios -d                # builds locally, installs on device (Xcode required)
+# then optionally:
+npx expo start --dev-client
+```
+
+Do **not** run `eas build` unless you want a cloud/TestFlight build.
+
+Do **not** paste comments or TypeScript into the terminal — run one command per line.
+
+### If `expo start` says missing `expo-asset`
+
+```bash
+npx expo install expo-asset expo-font
+```
+
+### If `eas build` says `Invalid UUID appId`
+
+`app.config.ts` still has `REPLACE_WITH_EAS_PROJECT_ID`. Either skip EAS and use `expo run:ios -d`, or run:
+
+```bash
+eas init
+```
+
+(answer prompts only — no `#` comments on the same line)
+
+## EAS / TestFlight (later)
 
 ```bash
 eas build --profile development --platform ios

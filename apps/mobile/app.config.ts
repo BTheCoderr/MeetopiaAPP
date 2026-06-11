@@ -31,8 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    'expo-asset',
+    'expo-font',
     [
-      'react-native-webrtc',
+      '@config-plugins/react-native-webrtc',
       {
         cameraPermission: 'Allow Meetopia to access your camera for video chat.',
         microphonePermission: 'Allow Meetopia to access your microphone for video chat.',
