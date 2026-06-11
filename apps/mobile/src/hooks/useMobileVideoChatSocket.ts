@@ -1,14 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert } from 'react-native'
-import { MediaStream, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc'
+import {
+  MediaStream,
+  RTCIceCandidate,
+  RTCPeerConnection,
+  RTCSessionDescription,
+} from 'react-native-webrtc'
 import { Socket } from 'socket.io-client'
 import type { UserProfile } from '@/types/videoChat'
 import { getSocket } from '@/lib/socket'
 
 const LOG = '[Mobile:Signaling]'
 
+type SignalingSessionDescription = {
+  type: string
+  sdp: string
+}
+
+type IceCandidateInit = ConstructorParameters<typeof RTCIceCandidate>[0]
+
 function isUsable(pc: RTCPeerConnection): boolean {
   return pc.signalingState !== 'closed' && pc.connectionState !== 'closed'
+}
+
+function toSessionDescription(init: SignalingSessionDescription): RTCSessionDescription {
+  if (!init.sdp) {
+    throw new Error('Missing SDP in session description')
+  }
+  return new RTCSessionDescription({ type: init.type, sdp: init.sdp })
 }
 
 interface Options {
@@ -36,7 +55,7 @@ export function useMobileVideoChatSocket({
 
   const pcRef = useRef(peerConnection)
   const peerRef = useRef<string | null>(null)
-  const pendingIce = useRef<RTCIceCandidateInit[]>([])
+  const pendingIce = useRef<IceCandidateInit[]>([])
   const isCallerRef = useRef(false)
 
   useEffect(() => {
@@ -77,12 +96,12 @@ export function useMobileVideoChatSocket({
       batch.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error))
     }
 
-    const onTrack = (event: RTCTrackEvent) => {
+    const onTrack = (event: { streams: readonly MediaStream[] }) => {
       const ms = event.streams[0]
       if (ms) setRemoteStream(ms)
     }
 
-    const onIce = (event: RTCPeerConnectionIceEvent) => {
+    const onIce = (event: { candidate: RTCIceCandidate | null }) => {
       if (!event.candidate) return
       const peerId = peerRef.current
       if (!peerId) return
@@ -126,13 +145,13 @@ export function useMobileVideoChatSocket({
       }
     }
 
-    const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit; from: string }) => {
+    const handleCallMade = async ({ offer, from }: { offer: SignalingSessionDescription; from: string }) => {
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
       peerRef.current = from
       setCurrentPeer(from)
       try {
-        await activePc.setRemoteDescription(new RTCSessionDescription(offer))
+        await activePc.setRemoteDescription(toSessionDescription(offer))
         drain()
         const answer = await activePc.createAnswer()
         await activePc.setLocalDescription(answer)
@@ -142,18 +161,18 @@ export function useMobileVideoChatSocket({
       }
     }
 
-    const handleAnswerMade = async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
+    const handleAnswerMade = async ({ answer }: { answer: SignalingSessionDescription }) => {
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
       try {
-        await activePc.setRemoteDescription(new RTCSessionDescription(answer))
+        await activePc.setRemoteDescription(toSessionDescription(answer))
         drain()
       } catch (err) {
         console.error(LOG, 'set answer failed', err)
       }
     }
 
-    const handleIceCandidate = ({ candidate }: { candidate: RTCIceCandidateInit }) => {
+    const handleIceCandidate = ({ candidate }: { candidate: IceCandidateInit }) => {
       if (pc.remoteDescription) {
         pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
       } else {
