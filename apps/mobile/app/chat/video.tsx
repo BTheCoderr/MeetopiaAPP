@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { useMemo, useState, useEffect } from 'react'
+import { View, Text, StyleSheet, Alert } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useEffect } from 'react'
 import VideoStage from '@/components/video/VideoStage'
 import MessageBar from '@/components/video/MessageBar'
 import ControlBar from '@/components/video/ControlBar'
@@ -14,6 +13,15 @@ import { useMobileVideoChatSocket } from '@/hooks/useMobileVideoChatSocket'
 import { useMobileVideoChatMessages } from '@/hooks/useMobileVideoChatMessages'
 import { getSocket } from '@/lib/socket'
 import type { UserProfile } from '@/types/videoChat'
+
+const DEFAULT_DATING_PROFILE: UserProfile = {
+  name: 'Guest',
+  age: 25,
+  gender: 'other',
+  lookingFor: 'everyone',
+  interests: [],
+  bio: '',
+}
 
 export default function VideoChatScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>()
@@ -32,10 +40,12 @@ export default function VideoChatScreen() {
       if (raw) {
         try {
           setUserProfile(JSON.parse(raw) as UserProfile)
+          return
         } catch {
-          /* ignore */
+          /* fall through */
         }
       }
+      setUserProfile(DEFAULT_DATING_PROFILE)
     })
   }, [isDating])
 
@@ -60,6 +70,7 @@ export default function VideoChatScreen() {
       t.enabled = !next
     })
     setIsMuted(next)
+    chat.emitStreamState('audio', !next)
   }
 
   const toggleCamera = () => {
@@ -69,6 +80,15 @@ export default function VideoChatScreen() {
       t.enabled = !next
     })
     setIsCameraOff(next)
+    chat.emitStreamState('video', !next)
+  }
+
+  const handleReport = () => {
+    Alert.alert(
+      'Report or get help',
+      'If someone is inappropriate, leave the chat and report from the web app support flow. Full in-app reporting ships with TestFlight.',
+      [{ text: 'OK' }],
+    )
   }
 
   return (
@@ -92,6 +112,9 @@ export default function VideoChatScreen() {
           </Text>
           <Text style={[styles.status, chat.isSocketConnected ? styles.online : styles.offline]}>
             {chat.isSocketConnected ? '●' : '○'}
+          </Text>
+          <Text style={styles.report} onPress={handleReport}>
+            ?
           </Text>
         </View>
       </SafeAreaView>
@@ -138,6 +161,7 @@ const styles = StyleSheet.create({
   logo: { color: '#fff', fontSize: 18, fontWeight: '600' },
   brand: { color: '#0A84FF' },
   status: { fontSize: 14, width: 32, textAlign: 'right' },
+  report: { color: 'rgba(255,255,255,0.7)', fontSize: 18, width: 28, textAlign: 'center' },
   online: { color: '#30D158' },
   offline: { color: '#FF453A' },
   errorBanner: {

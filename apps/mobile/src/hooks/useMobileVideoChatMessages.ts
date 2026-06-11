@@ -47,6 +47,28 @@ export function useMobileVideoChatMessages({ socket, currentPeer }: Options) {
     setIsPeerTyping(false)
   }, [currentPeer])
 
+  useEffect(() => {
+    if (!currentPeer || messages.length === 0) return
+    const unreadIds = messages.filter(m => m.sender === 'peer' && !m.read).map(m => m.id)
+    if (unreadIds.length === 0) return
+    socket.emit('mark-messages-read', { messageIds: unreadIds, to: currentPeer })
+    setMessages(prev =>
+      prev.map(m => (unreadIds.includes(m.id) ? { ...m, read: true, readAt: Date.now() } : m)),
+    )
+  }, [messages, currentPeer, socket])
+
+  useEffect(() => {
+    const onRead = ({ messageIds }: { messageIds: string[] }) => {
+      setMessages(prev =>
+        prev.map(m => (messageIds.includes(m.id) ? { ...m, read: true, readAt: Date.now() } : m)),
+      )
+    }
+    socket.on('message-read', onRead)
+    return () => {
+      socket.off('message-read', onRead)
+    }
+  }, [socket])
+
   const handleMessageChange = useCallback(
     (text: string) => {
       setNewMessage(text)

@@ -62,16 +62,24 @@ export function useMobileVideoChatSocket({
     pcRef.current = peerConnection
   }, [peerConnection])
 
-  useEffect(() => {
-    peerRef.current = currentPeer
-  }, [currentPeer])
+  const resetPeerState = useCallback(() => {
+    peerRef.current = null
+    setCurrentPeer(null)
+    setRemoteStream(null)
+    setIsPeerConnected(false)
+    setIsSearching(false)
+    pendingIce.current = []
+    isCallerRef.current = false
+  }, [])
 
   useEffect(() => {
     const onConnect = () => {
+      console.log(LOG, 'socket connected')
       setIsSocketConnected(true)
       setError(null)
     }
     const onDisconnect = () => {
+      console.log(LOG, 'socket disconnected')
       setIsSocketConnected(false)
       setCurrentPeer(null)
       setRemoteStream(null)
@@ -164,9 +172,14 @@ export function useMobileVideoChatSocket({
     const handleAnswerMade = async ({ answer }: { answer: SignalingSessionDescription }) => {
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
+      if (activePc.signalingState === 'stable' && activePc.remoteDescription) {
+        console.log(LOG, 'answer ignored — already stable')
+        return
+      }
       try {
         await activePc.setRemoteDescription(toSessionDescription(answer))
         drain()
+        setIsPeerConnected(true)
       } catch (err) {
         console.error(LOG, 'set answer failed', err)
       }
@@ -181,12 +194,9 @@ export function useMobileVideoChatSocket({
     }
 
     const handlePeerLeft = () => {
-      peerRef.current = null
-      setCurrentPeer(null)
-      setRemoteStream(null)
-      setIsPeerConnected(false)
-      setIsSearching(false)
-      pendingIce.current = []
+      console.log(LOG, 'peer-left')
+      resetPeerState()
+      restartConnection()
     }
 
     socket.on('user-found', handleUserFound)
@@ -205,7 +215,26 @@ export function useMobileVideoChatSocket({
       socket.off('ice-candidate', handleIceCandidate)
       socket.off('peer-left', handlePeerLeft)
     }
-  }, [peerConnection, socket, isDating, userProfile])
+  }, [peerConnection, socket, isDating, userProfile, restartConnection, resetPeerState])
+
+  useEffect(() => {
+    const onRemoteStreamState = ({ type, state }: { type: 'audio' | 'video'; state: boolean }) => {
+      console.log(LOG, 'remote stream-state', type, state)
+    }
+    socket.on('stream-state-change', onRemoteStreamState)
+    return () => {
+      socket.off('stream-state-change', onRemoteStreamState)
+    }
+  }, [socket])
+
+  const emitStreamState = useCallback(
+    (type: 'audio' | 'video', enabled: boolean) => {
+      const peerId = peerRef.current
+      if (!peerId || !socket.connected) return
+      socket.emit('stream-state-change', { type, state: enabled, to: peerId })
+    },
+    [socket],
+  )
 
   const handleStartChat = useCallback(() => {
     if (!socket.connected || !stream) return
@@ -241,13 +270,12 @@ export function useMobileVideoChatSocket({
         style: 'destructive',
         onPress: () => {
           socket.emit('leave-chat')
-          setCurrentPeer(null)
-          setRemoteStream(null)
-          setIsSearching(false)
+          resetPeerState()
+          restartConnection()
         },
       },
     ])
-  }, [socket])
+  }, [socket, resetPeerState, restartConnection])
 
   return {
     isSocketConnected,
@@ -259,5 +287,6 @@ export function useMobileVideoChatSocket({
     handleStartChat,
     handleNextPerson,
     handleLeaveChat,
+    emitStreamState,
   }
 }
