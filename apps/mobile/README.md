@@ -47,6 +47,16 @@ Do **not** run `eas build` unless you want a cloud/TestFlight build.
 
 Do **not** paste comments or TypeScript into the terminal — run one command per line.
 
+### TypeScript / IDE shows errors but typecheck passes
+
+The web app root `tsconfig.json` **excludes** `apps/mobile`. Mobile uses its own config under `apps/mobile/tsconfig.json`.
+
+If the Problems panel still shows old JSX/WebRTC errors (e.g. 72 stale errors):
+
+1. Run the real check: `cd apps/mobile && npm run typecheck`
+2. In VS Code: **Cmd+Shift+P** → **TypeScript: Restart TS Server**
+3. Ensure workspace TypeScript is **5.4+** (repo root `node_modules/typescript`)
+
 ### If `expo start` says missing `expo-asset`
 
 ```bash

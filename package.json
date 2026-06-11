@@ -29,7 +29,6 @@
     "framer-motion": "^12.5.0",
     "jsonwebtoken": "^9.0.2",
     "next": "14.0.4",
-    "next-auth": "^4.24.5",
     "postcss": "^8.4.49",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
