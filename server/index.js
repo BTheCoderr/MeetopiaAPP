@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 
 const normalizeOrigin = (origin) =>
-  origin ? origin.trim().replace(/\/$/, '') : origin;
+  origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
 
 const allowedOrigins = (process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',')
@@ -29,6 +29,14 @@ const corsOriginCheck = (origin, callback) => {
 const app = express();
 app.use(cors({ origin: corsOriginCheck, credentials: true }));
 
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    nodeEnv: process.env.NODE_ENV,
+    allowedOrigins,
+  });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -36,6 +44,21 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+});
+
+// Ensure ACAO on Engine.io polling/WebSocket handshake responses (not always set by callback alone).
+io.engine.on('headers', (headers, req) => {
+  const normalizedOrigin = normalizeOrigin(req.headers.origin);
+  if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+    headers['Access-Control-Allow-Origin'] = normalizedOrigin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+    console.log('[CORS] Engine headers for origin:', normalizedOrigin);
+  } else if (!normalizedOrigin) {
+    console.log('[CORS] Engine headers (no origin)');
+  } else {
+    console.warn('[CORS] Engine headers blocked:', normalizedOrigin);
+    console.warn('[CORS] Allowed origins:', allowedOrigins);
+  }
 });
 
 // Legacy explicit-room flow (/room/[roomId], join-room) — separate from /chat/video random matching.
@@ -302,5 +325,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3003;
 server.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`);
-  console.log('[CORS] Allowed origins:', allowedOrigins.join(', ') || '(none — set CORS_ORIGINS)');
+  console.log('[CORS] CORS_ORIGINS env:', process.env.CORS_ORIGINS || '(not set — localhost fallback)');
+  console.log('[CORS] Allowed origins:', allowedOrigins.join(', ') || '(none)');
 });
