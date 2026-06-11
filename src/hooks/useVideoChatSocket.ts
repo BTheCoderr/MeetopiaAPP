@@ -72,8 +72,11 @@ export function useVideoChatSocket({
   }, [currentPeer])
 
   useEffect(() => {
-    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003', {
-      transports: ['websocket'],
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
+    console.log(LOG, 'socket URL', socketUrl)
+
+    const newSocket = io(socketUrl, {
+      transports: ['polling', 'websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 10000,
@@ -82,9 +85,18 @@ export function useVideoChatSocket({
     socketRef.current = newSocket
 
     newSocket.on('connect', () => {
-      console.log(LOG, 'socket connected', newSocket.id)
+      const transport = newSocket.io.engine?.transport?.name ?? 'unknown'
+      console.log(LOG, 'socket connected', newSocket.id, 'transport', transport)
       setIsSocketConnected(true)
       setError(null)
+
+      newSocket.io.engine?.on('upgrade', (transport) => {
+        console.log(LOG, 'transport upgraded to', transport.name)
+      })
+    })
+
+    newSocket.on('connect_error', (err) => {
+      console.error(LOG, 'connect_error', err.message)
     })
 
     newSocket.on('disconnect', () => {
