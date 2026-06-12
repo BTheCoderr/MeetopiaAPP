@@ -41,7 +41,7 @@ export default function MessageBar({
           style={styles.input}
           value={value}
           onChangeText={onChange}
-          placeholder={disabled ? 'Connect to chat…' : 'Type a message…'}
+          placeholder={disabled ? 'Mutual ✨ unlocks chat…' : 'Type a message…'}
           placeholderTextColor="rgba(255,255,255,0.45)"
           editable={!disabled}
         />

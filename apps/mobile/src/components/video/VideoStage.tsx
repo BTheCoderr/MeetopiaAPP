@@ -42,7 +42,7 @@ export default function VideoStage({
       {(isSearching || (hasPeer && !hasRemote)) && (
         <View style={styles.overlay}>
           <Text style={styles.overlayText}>
-            {hasPeer && !hasRemote ? 'Connecting video…' : 'Looking for someone…'}
+            {hasPeer && !hasRemote ? 'Connecting video…' : 'Looking for someone who matches your intent…'}
           </Text>
         </View>
       )}

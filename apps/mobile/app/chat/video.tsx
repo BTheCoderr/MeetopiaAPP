@@ -1,67 +1,65 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, Alert } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import VideoStage from '@/components/video/VideoStage'
 import MessageBar from '@/components/video/MessageBar'
 import ControlBar from '@/components/video/ControlBar'
+import ProfileCard from '@/components/video/ProfileCard'
+import ChemistryTimer from '@/components/video/ChemistryTimer'
+import ReportModal, { type ReportCategory } from '@/components/safety/ReportModal'
 import { layout } from '@/components/video/mobileLayout'
 import { useMobileMedia } from '@/hooks/useMobileMedia'
 import { useMobilePeerConnection } from '@/hooks/useMobilePeerConnection'
 import { useMobileVideoChatSocket } from '@/hooks/useMobileVideoChatSocket'
 import { useMobileVideoChatMessages } from '@/hooks/useMobileVideoChatMessages'
-import { getSocket } from '@/lib/socket'
-import type { UserProfile } from '@/types/videoChat'
-
-const DEFAULT_DATING_PROFILE: UserProfile = {
-  name: 'Guest',
-  age: 25,
-  gender: 'other',
-  lookingFor: 'everyone',
-  interests: [],
-  bio: '',
-}
+import { isOnboardingComplete, getStoredProfile, blockUser } from '@/lib/onboardingStorage'
+import { toSignalingProfile } from '@/types/profile'
 
 export default function VideoChatScreen() {
-  const { mode } = useLocalSearchParams<{ mode?: string }>()
-  const isDating = mode === 'dating'
   const router = useRouter()
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [ready, setReady] = useState(false)
+  const [signalingProfile, setSignalingProfile] = useState<Record<string, unknown> | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [timerActive, setTimerActive] = useState(false)
 
   const { stream, error: mediaError } = useMobileMedia()
   const { peerConnection, restartConnection } = useMobilePeerConnection(stream)
 
   useEffect(() => {
-    if (!isDating) return
-    AsyncStorage.getItem('datingProfileFormatted').then(raw => {
-      if (raw) {
-        try {
-          setUserProfile(JSON.parse(raw) as UserProfile)
-          return
-        } catch {
-          /* fall through */
-        }
+    isOnboardingComplete().then(ok => {
+      if (!ok) {
+        router.replace('/onboarding/age-gate')
+        return
       }
-      setUserProfile(DEFAULT_DATING_PROFILE)
+      getStoredProfile().then(p => {
+        if (!p) {
+          router.replace('/onboarding/profile')
+          return
+        }
+        setSignalingProfile(toSignalingProfile(p))
+        setReady(true)
+      })
     })
-  }, [isDating])
+  }, [router])
 
   const chat = useMobileVideoChatSocket({
     stream,
     peerConnection,
     restartConnection,
-    isDating,
-    userProfile,
+    signalingProfile,
   })
 
-  const socket = useMemo(() => getSocket(), [])
   const messages = useMobileVideoChatMessages({
-    socket,
-    currentPeer: chat.currentPeer,
+    socket: chat.socket,
+    currentPeer: chat.mutualVibe ? chat.currentPeer : null,
   })
+
+  useEffect(() => {
+    setTimerActive(Boolean(chat.currentPeer))
+  }, [chat.currentPeer])
 
   const toggleMute = () => {
     if (!stream) return
@@ -83,12 +81,34 @@ export default function VideoChatScreen() {
     chat.emitStreamState('video', !next)
   }
 
-  const handleReport = () => {
-    Alert.alert(
-      'Report or get help',
-      'If someone is inappropriate, leave the chat and report from the web app support flow. Full in-app reporting ships with TestFlight.',
-      [{ text: 'OK' }],
-    )
+  const handleBlock = () => {
+    const peer = chat.currentPeer
+    if (!peer) return
+    Alert.alert('Block user?', 'They will be skipped and cannot reconnect this session.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Block',
+        style: 'destructive',
+        onPress: async () => {
+          await blockUser(peer)
+          chat.reportUser('blocked')
+          socketLeaveAndSkip()
+        },
+      },
+    ])
+  }
+
+  const socketLeaveAndSkip = () => {
+    chat.handleNextPerson()
+  }
+
+  const onReportSubmit = (category: ReportCategory) => {
+    chat.reportUser(category)
+    Alert.alert('Report submitted', 'Our team reviews reports. Leave the chat if you feel unsafe.')
+  }
+
+  if (!ready) {
+    return <View style={styles.loading} />
   }
 
   return (
@@ -107,16 +127,17 @@ export default function VideoChatScreen() {
           <Text style={styles.back} onPress={() => router.back()}>
             ←
           </Text>
-          <Text style={styles.logo}>
-            <Text style={styles.brand}>Meet</Text>opia
-          </Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.logo}>
+              <Text style={styles.brand}>Meet</Text>opia
+            </Text>
+            <ChemistryTimer active={timerActive} />
+          </View>
           <Text style={[styles.status, chat.isSocketConnected ? styles.online : styles.offline]}>
             {chat.isSocketConnected ? '●' : '○'}
           </Text>
-          <Text style={styles.report} onPress={handleReport}>
-            ?
-          </Text>
         </View>
+        <ProfileCard profile={chat.peerProfile} visible={Boolean(chat.currentPeer)} />
       </SafeAreaView>
 
       {(mediaError || chat.error) && (
@@ -130,7 +151,7 @@ export default function VideoChatScreen() {
         value={messages.newMessage}
         onChange={messages.handleMessageChange}
         onSend={messages.handleSendMessage}
-        disabled={!chat.currentPeer}
+        disabled={!chat.mutualVibe}
         isPeerTyping={messages.isPeerTyping}
       />
 
@@ -138,35 +159,40 @@ export default function VideoChatScreen() {
         hasPeer={Boolean(chat.currentPeer)}
         isSearching={chat.isSearching}
         isSocketConnected={chat.isSocketConnected}
+        canStart={Boolean(stream && signalingProfile)}
         onStart={chat.handleStartChat}
         onNext={chat.handleNextPerson}
         onLeave={chat.handleLeaveChat}
         onToggleMute={toggleMute}
         onToggleCamera={toggleCamera}
+        onVibe={chat.sendVibe}
+        onReport={() => setReportOpen(true)}
+        onBlock={handleBlock}
         isMuted={isMuted}
         isCameraOff={isCameraOff}
+        myVibeSent={chat.myVibeSent}
+        mutualVibe={chat.mutualVibe}
       />
+
+      <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} onSubmit={onReportSubmit} />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
+  loading: { flex: 1, backgroundColor: '#000' },
   header: { ...layout.header },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerCenter: { flex: 1, alignItems: 'center' },
   back: { color: '#fff', fontSize: 22, width: 32 },
   logo: { color: '#fff', fontSize: 18, fontWeight: '600' },
   brand: { color: '#0A84FF' },
   status: { fontSize: 14, width: 32, textAlign: 'right' },
-  report: { color: 'rgba(255,255,255,0.7)', fontSize: 18, width: 28, textAlign: 'center' },
   online: { color: '#30D158' },
   offline: { color: '#FF453A' },
   errorBanner: {
     position: 'absolute',
-    top: 100,
+    top: 120,
     left: 16,
     right: 16,
     backgroundColor: 'rgba(127,29,29,0.85)',

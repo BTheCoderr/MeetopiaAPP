@@ -233,11 +233,12 @@ io.on('connection', (socket) => {
     removeFromMatchQueues(socket.id);
   });
 
-  socket.on('call-user', ({ offer, to }) => {
+  socket.on('call-user', ({ offer, to, profile }) => {
     console.log(`[Signaling] call-user ${socket.id} -> ${to}`);
     socket.to(to).emit('call-made', {
       offer,
-      from: socket.id
+      from: socket.id,
+      profile: profile || null,
     });
   });
 
@@ -309,6 +310,16 @@ io.on('connection', (socket) => {
       from: socket.id
     });
     console.log(`User ${socket.id} marked messages as read: ${messageIds.length} messages`);
+  });
+
+  socket.on('vibe-tap', ({ to }) => {
+    if (!to) return;
+    socket.to(to).emit('vibe-tap', { from: socket.id });
+    console.log(`[Signaling] vibe-tap ${socket.id} -> ${to}`);
+  });
+
+  socket.on('report-user', (payload) => {
+    console.log(`[Signaling] report-user from ${socket.id}:`, payload);
   });
 
   socket.on('reconnect-attempt', ({ to }) => {

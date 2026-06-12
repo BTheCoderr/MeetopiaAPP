@@ -7,26 +7,31 @@ import {
   RTCSessionDescription,
 } from 'react-native-webrtc'
 import { Socket } from 'socket.io-client'
-import type { UserProfile } from '@/types/videoChat'
+import { getBlockedUsers, addVibeMatch } from '@/lib/onboardingStorage'
 import { getSocket } from '@/lib/socket'
 
 const LOG = '[Mobile:Signaling]'
 
-type SignalingSessionDescription = {
-  type: string
-  sdp: string
-}
-
+type SignalingSessionDescription = { type: string; sdp: string }
 type IceCandidateInit = ConstructorParameters<typeof RTCIceCandidate>[0]
+
+export type PeerProfilePayload = {
+  name?: string
+  age?: number
+  city?: string
+  intent?: string
+  prompt?: string
+  bio?: string
+  gender?: string
+  lookingFor?: string
+}
 
 function isUsable(pc: RTCPeerConnection): boolean {
   return pc.signalingState !== 'closed' && pc.connectionState !== 'closed'
 }
 
 function toSessionDescription(init: SignalingSessionDescription): RTCSessionDescription {
-  if (!init.sdp) {
-    throw new Error('Missing SDP in session description')
-  }
+  if (!init.sdp) throw new Error('Missing SDP in session description')
   return new RTCSessionDescription({ type: init.type, sdp: init.sdp })
 }
 
@@ -34,43 +39,58 @@ interface Options {
   stream: MediaStream | null
   peerConnection: RTCPeerConnection | null
   restartConnection: () => void
-  isDating: boolean
-  userProfile: UserProfile | null
+  signalingProfile: Record<string, unknown> | null
 }
 
 export function useMobileVideoChatSocket({
   stream,
   peerConnection,
   restartConnection,
-  isDating,
-  userProfile,
+  signalingProfile,
 }: Options) {
   const [socket] = useState<Socket>(() => getSocket())
   const [isSocketConnected, setIsSocketConnected] = useState(false)
   const [currentPeer, setCurrentPeer] = useState<string | null>(null)
+  const [peerProfile, setPeerProfile] = useState<PeerProfilePayload | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isPeerConnected, setIsPeerConnected] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [myVibeSent, setMyVibeSent] = useState(false)
+  const [peerVibeReceived, setPeerVibeReceived] = useState(false)
 
   const pcRef = useRef(peerConnection)
   const peerRef = useRef<string | null>(null)
   const pendingIce = useRef<IceCandidateInit[]>([])
-  const isCallerRef = useRef(false)
+  const blockedRef = useRef<string[]>([])
+
+  const mutualVibe = myVibeSent && peerVibeReceived
 
   useEffect(() => {
     pcRef.current = peerConnection
   }, [peerConnection])
 
+  useEffect(() => {
+    getBlockedUsers().then(ids => {
+      blockedRef.current = ids
+    })
+  }, [])
+
+  const resetVibeState = useCallback(() => {
+    setMyVibeSent(false)
+    setPeerVibeReceived(false)
+  }, [])
+
   const resetPeerState = useCallback(() => {
     peerRef.current = null
     setCurrentPeer(null)
+    setPeerProfile(null)
     setRemoteStream(null)
     setIsPeerConnected(false)
     setIsSearching(false)
     pendingIce.current = []
-    isCallerRef.current = false
-  }, [])
+    resetVibeState()
+  }, [resetVibeState])
 
   useEffect(() => {
     const onConnect = () => {
@@ -81,9 +101,7 @@ export function useMobileVideoChatSocket({
     const onDisconnect = () => {
       console.log(LOG, 'socket disconnected')
       setIsSocketConnected(false)
-      setCurrentPeer(null)
-      setRemoteStream(null)
-      setIsSearching(false)
+      resetPeerState()
     }
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
@@ -92,7 +110,25 @@ export function useMobileVideoChatSocket({
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
     }
+  }, [socket, resetPeerState])
+
+  useEffect(() => {
+    const onVibe = ({ from }: { from: string }) => {
+      if (from === peerRef.current) {
+        setPeerVibeReceived(true)
+      }
+    }
+    socket.on('vibe-tap', onVibe)
+    return () => {
+      socket.off('vibe-tap', onVibe)
+    }
   }, [socket])
+
+  useEffect(() => {
+    if (mutualVibe && currentPeer) {
+      addVibeMatch(currentPeer).catch(console.error)
+    }
+  }, [mutualVibe, currentPeer])
 
   useEffect(() => {
     const pc = peerConnection
@@ -100,8 +136,9 @@ export function useMobileVideoChatSocket({
 
     const drain = () => {
       if (!pc.remoteDescription) return
-      const batch = pendingIce.current.splice(0)
-      batch.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error))
+      pendingIce.current.splice(0).forEach(c =>
+        pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error),
+      )
     }
 
     const onTrack = (event: { streams: readonly MediaStream[] }) => {
@@ -113,10 +150,7 @@ export function useMobileVideoChatSocket({
       if (!event.candidate) return
       const peerId = peerRef.current
       if (!peerId) return
-      socket.emit('ice-candidate', {
-        candidate: event.candidate.toJSON(),
-        to: peerId,
-      })
+      socket.emit('ice-candidate', { candidate: event.candidate.toJSON(), to: peerId })
     }
 
     const onState = () => {
@@ -131,33 +165,61 @@ export function useMobileVideoChatSocket({
     pc.addEventListener('icecandidate', onIce)
     pc.addEventListener('connectionstatechange', onState)
 
-    const handleUserFound = async ({ partnerId }: { partnerId: string }) => {
+    const skipBlockedPeer = (partnerId: string) => {
+      if (!blockedRef.current.includes(partnerId)) return false
+      console.log(LOG, 'blocked peer skipped', partnerId)
+      setIsSearching(true)
+      if (signalingProfile) {
+        socket.emit('find-next-user', { mode: 'dating', profile: signalingProfile })
+      }
+      return true
+    }
+
+    const handleUserFound = async ({
+      partnerId,
+      profile,
+    }: {
+      partnerId: string
+      profile?: PeerProfilePayload
+    }) => {
+      if (skipBlockedPeer(partnerId)) return
       const activePc = pcRef.current
       if (!socket.id || !activePc || !isUsable(activePc)) return
+
       peerRef.current = partnerId
       setCurrentPeer(partnerId)
+      setPeerProfile(profile ?? null)
       setIsSearching(false)
+      resetVibeState()
       pendingIce.current = []
+
       if (partnerId <= socket.id) return
       try {
         const offer = await activePc.createOffer({})
         await activePc.setLocalDescription(offer)
-        if (isDating && userProfile) {
-          socket.emit('call-user', { offer, to: partnerId, profile: userProfile })
-        } else {
-          socket.emit('call-user', { offer, to: partnerId })
-        }
+        socket.emit('call-user', { offer, to: partnerId, profile: signalingProfile ?? profile })
       } catch (err) {
         console.error(LOG, 'offer failed', err)
         setError('Failed to connect video')
       }
     }
 
-    const handleCallMade = async ({ offer, from }: { offer: SignalingSessionDescription; from: string }) => {
+    const handleCallMade = async ({
+      offer,
+      from,
+      profile,
+    }: {
+      offer: SignalingSessionDescription
+      from: string
+      profile?: PeerProfilePayload
+    }) => {
+      if (skipBlockedPeer(from)) return
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
       peerRef.current = from
       setCurrentPeer(from)
+      setPeerProfile(profile ?? null)
+      resetVibeState()
       try {
         await activePc.setRemoteDescription(toSessionDescription(offer))
         drain()
@@ -172,10 +234,7 @@ export function useMobileVideoChatSocket({
     const handleAnswerMade = async ({ answer }: { answer: SignalingSessionDescription }) => {
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
-      if (activePc.signalingState === 'stable' && activePc.remoteDescription) {
-        console.log(LOG, 'answer ignored — already stable')
-        return
-      }
+      if (activePc.signalingState === 'stable' && activePc.remoteDescription) return
       try {
         await activePc.setRemoteDescription(toSessionDescription(answer))
         drain()
@@ -215,17 +274,7 @@ export function useMobileVideoChatSocket({
       socket.off('ice-candidate', handleIceCandidate)
       socket.off('peer-left', handlePeerLeft)
     }
-  }, [peerConnection, socket, isDating, userProfile, restartConnection, resetPeerState])
-
-  useEffect(() => {
-    const onRemoteStreamState = ({ type, state }: { type: 'audio' | 'video'; state: boolean }) => {
-      console.log(LOG, 'remote stream-state', type, state)
-    }
-    socket.on('stream-state-change', onRemoteStreamState)
-    return () => {
-      socket.off('stream-state-change', onRemoteStreamState)
-    }
-  }, [socket])
+  }, [peerConnection, socket, signalingProfile, restartConnection, resetPeerState, resetVibeState])
 
   const emitStreamState = useCallback(
     (type: 'audio' | 'video', enabled: boolean) => {
@@ -237,33 +286,25 @@ export function useMobileVideoChatSocket({
   )
 
   const handleStartChat = useCallback(() => {
-    if (!socket.connected || !stream) return
+    if (!socket.connected || !stream || !signalingProfile) return
     setIsSearching(true)
-    if (isDating && userProfile) {
-      socket.emit('find-user', { mode: 'dating', profile: userProfile })
-    } else {
-      socket.emit('find-user')
-    }
-  }, [socket, stream, isDating, userProfile])
+    socket.emit('find-user', { mode: 'dating', profile: signalingProfile })
+  }, [socket, stream, signalingProfile])
 
   const handleNextPerson = useCallback(() => {
     pendingIce.current = []
-    if (currentPeer) restartConnection()
-    setIsPeerConnected(false)
-    setCurrentPeer(null)
-    setRemoteStream(null)
+    restartConnection()
+    resetPeerState()
     setIsSearching(true)
     setTimeout(() => {
-      if (isDating && userProfile) {
-        socket.emit('find-next-user', { mode: 'dating', profile: userProfile })
-      } else {
-        socket.emit('find-next-user')
+      if (signalingProfile) {
+        socket.emit('find-next-user', { mode: 'dating', profile: signalingProfile })
       }
     }, 350)
-  }, [currentPeer, restartConnection, socket, isDating, userProfile])
+  }, [restartConnection, resetPeerState, socket, signalingProfile])
 
   const handleLeaveChat = useCallback(() => {
-    Alert.alert('Leave chat?', 'Return to home?', [
+    Alert.alert('Leave Chemistry Check?', 'You will return to the home screen.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Leave',
@@ -277,16 +318,40 @@ export function useMobileVideoChatSocket({
     ])
   }, [socket, resetPeerState, restartConnection])
 
+  const sendVibe = useCallback(() => {
+    const peerId = peerRef.current
+    if (!peerId || myVibeSent) return
+    setMyVibeSent(true)
+    socket.emit('vibe-tap', { to: peerId })
+  }, [socket, myVibeSent])
+
+  const reportUser = useCallback(
+    (reason: string) => {
+      const peerId = peerRef.current
+      if (!peerId) return
+      socket.emit('report-user', { reason, reportedUserId: peerId, timestamp: Date.now() })
+      console.log(LOG, 'report-user', reason, peerId)
+    },
+    [socket],
+  )
+
   return {
+    socket,
     isSocketConnected,
     currentPeer,
+    peerProfile,
     remoteStream,
     isPeerConnected,
     isSearching,
     error,
+    myVibeSent,
+    peerVibeReceived,
+    mutualVibe,
     handleStartChat,
     handleNextPerson,
     handleLeaveChat,
     emitStreamState,
+    sendVibe,
+    reportUser,
   }
 }
