@@ -23,11 +23,20 @@ Last verified after `cleanup/mobile-types-and-audit` branch work.
 
 ## Mobile (`apps/mobile/`)
 
-**26 vulnerabilities** (9 moderate, 17 high) — mostly Expo / Metro / `@expo/*` / `xcode` transitive.
+**0 vulnerabilities** after targeted `overrides` in `package.json` (March 2026):
 
-**Safe `npm audit fix`:** no material reduction without breaking changes.
+| Override | Reason |
+|----------|--------|
+| `expo@~52.0.46` | Prevent nested Expo 56 peer install |
+| `@xmldom/xmldom@0.9.10` | XML injection / DoS in plist tooling |
+| `tar@7.5.16` | Path traversal in `@expo/cli` cache |
+| `uuid@11.1.1` | Buffer bounds in `xcode` / `@expo/rudder-sdk-node` |
+| `postcss@8.5.15` | XSS in metro CSS stringify |
+| `ajv@8.18.0` | ReDoS in dev-launcher |
 
-**Recommended future fix:** Expo SDK upgrade (`expo install --fix` on new SDK) — do not force during live web MVP.
+**Do not** run `npm audit fix --force` on mobile — it jumps to Expo SDK 56 and breaks the pinned WebRTC stack.
+
+After changing overrides: `rm -rf node_modules package-lock.json && npm install && npm audit && npm run typecheck`.
 
 ## Mobile TypeScript
 
