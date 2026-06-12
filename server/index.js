@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { saveReport, readRecentReports, notifyReportEmail, sessionIdFor } = require('./reportsStore');
+const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
@@ -35,16 +35,23 @@ app.get('/health', (req, res) => {
     ok: true,
     nodeEnv: process.env.NODE_ENV,
     allowedOrigins,
+    reports: getReportBackendStatus(),
   });
 });
 
-app.get('/admin/reports', (req, res) => {
+app.get('/admin/reports', async (req, res) => {
   const token = process.env.REPORT_ADMIN_TOKEN;
   if (!token || req.query.token !== token) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
-  return res.json({ reports: readRecentReports(limit) });
+  try {
+    const reports = await readRecentReports(limit);
+    return res.json({ reports, backend: getReportBackendStatus() });
+  } catch (err) {
+    console.error('[Reports] admin fetch failed', err);
+    return res.status(500).json({ error: 'Failed to load reports' });
+  }
 });
 
 const server = http.createServer(app);
@@ -335,7 +342,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const record = saveReport({
+    saveReport({
       reporterSocketId: socket.id,
       reportedSocketId,
       category: payload.category || payload.reason || 'other',
@@ -343,10 +350,11 @@ io.on('connection', (socket) => {
       reporterProfile: payload.reporterProfile || null,
       reportedProfile: payload.reportedProfile || null,
       sessionId: payload.sessionId || sessionIdFor(socket.id, reportedSocketId),
-    });
-
-    console.log(`[Signaling] report-user from ${socket.id}:`, record.id, record.category);
-    notifyReportEmail(record).catch((err) => console.error('[Reports] notify failed', err));
+    })
+      .then((record) => {
+        console.log(`[Signaling] report-user from ${socket.id}:`, record.id, record.category);
+      })
+      .catch((err) => console.error('[Reports] save failed', err));
   });
 
   socket.on('reconnect-attempt', ({ to }) => {

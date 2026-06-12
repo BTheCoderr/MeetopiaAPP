@@ -20,7 +20,7 @@ Meetopia is a **video-first dating and meeting app** for real chemistry (not ano
 | First name, age, city, gender, intent, prompt | Matching and profile card during Chemistry Check | Device (AsyncStorage); backend persistence Phase 2 |
 | Camera / microphone streams | Live video Chemistry Check | Ephemeral WebRTC; not recorded by Meetopia |
 | Socket ID | Signaling and matching | Render signaling server (session) |
-| Reports (category + reported user ID) | Safety moderation | JSONL on Render + email via Resend |
+| Reports (category + reported user ID) | Safety moderation | Supabase `mobile_reports` + Resend email (+ JSONL fallback) |
 | Block list | Prevent re-match on device | AsyncStorage (profile fingerprint + socket ID) |
 | 18+ confirmation flag | Age gate compliance | Device (AsyncStorage) |
 | Vibe / mutual match state | Unlock chat after mutual Vibe | Device (AsyncStorage) |

@@ -52,8 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      // Run `eas init` and replace before cloud builds
-      projectId: 'REPLACE_WITH_EAS_PROJECT_ID',
+      projectId: '37e69074-d079-4c60-a3c4-5d468645bcf1',
     },
     socketUrl: process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:3003',
   },

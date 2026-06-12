@@ -32,6 +32,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# accidental EAS init at repo root (use apps/mobile/)
+/app.json
+/eas.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

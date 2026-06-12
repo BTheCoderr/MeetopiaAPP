@@ -66,7 +66,7 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 ## Network & backend
 
 - [ ] Connects to `EXPO_PUBLIC_SOCKET_URL` (Render production)
-- [ ] Report creates JSONL entry + email (when Resend configured)
+- [ ] Report creates Supabase row + support email (when configured)
 - [ ] Reconnect after background/foreground (best effort)
 - [ ] No CORS errors on web (regression check — web unchanged)
 
@@ -81,17 +81,17 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 - Profile/matches stored locally only
 - No push notifications
 - No payments
-- Reports logged server-side; no admin dashboard yet
+- Reports stored in Supabase + email notification when configured
 - No AI moderation / auto-blur
 
-- Reports stored in JSONL + email notification when configured
+- Reports stored in Supabase + email notification when configured
 
 ## External TestFlight / App Store blockers
 
 Before external review, confirm:
 
 1. [ ] Live policy URLs: `/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`
-2. [ ] Report persistence (JSONL) + Resend email on Render
+2. [ ] Report persistence: Supabase `mobile_reports` + Resend email on Render
 3. [ ] Block persists on device (profile fingerprint + socket ID)
 4. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
 5. [ ] No false safety claims (no AI moderation / auto-blur / verified users)

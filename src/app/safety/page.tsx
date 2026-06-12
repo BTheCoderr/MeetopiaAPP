@@ -53,7 +53,7 @@ export default function SafetyPage() {
           title: 'What happens after you report',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>Your report is stored on our server with category, timestamp, and session info.</li>
+              <li>Your report is stored in our database (Supabase) with category, timestamp, and session info.</li>
               <li>Our team is notified by email for review.</li>
               <li>Underage reports are prioritized when triaged.</li>
               <li>Leave the chat if you feel unsafe — you are not required to stay.</li>

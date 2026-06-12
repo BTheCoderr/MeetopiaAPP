@@ -12,9 +12,17 @@ services:
         value: 3003
       - key: CORS_ORIGINS
         value: https://meetopia-live.netlify.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: REPORT_NOTIFY_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REPORT_FROM_EMAIL
+        sync: false
+      - key: REPORT_ADMIN_TOKEN
+        sync: false
     healthCheckPath: /health
-    autoDeploy: true
-    disk:
-      name: tmp
-      mountPath: /tmp
-      sizeGB: 1 
+    autoDeploy: true 

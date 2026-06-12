@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { supabaseConfigured, insertReport, fetchRecentReports } = require('./reportsDb');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.jsonl');
@@ -17,14 +18,8 @@ function sessionIdFor(reporterSocketId, reportedSocketId) {
   return `${ids[0]}:${ids[1]}`;
 }
 
-/**
- * @param {object} input
- * @returns {object} saved report record
- */
-function saveReport(input) {
-  ensureDataDir();
-
-  const record = {
+function buildRecord(input) {
+  return {
     id: randomUUID(),
     reporterSocketId: input.reporterSocketId,
     reportedSocketId: input.reportedSocketId,
@@ -35,22 +30,22 @@ function saveReport(input) {
     sessionId: input.sessionId || sessionIdFor(input.reporterSocketId, input.reportedSocketId),
     status: 'new',
   };
-
-  fs.appendFileSync(REPORTS_FILE, `${JSON.stringify(record)}\n`, 'utf8');
-  console.log('[Reports] saved', record.id, record.category);
-  return record;
 }
 
-function readRecentReports(limit = 50) {
+function saveReportJsonl(record) {
+  ensureDataDir();
+  fs.appendFileSync(REPORTS_FILE, `${JSON.stringify(record)}\n`, 'utf8');
+  console.log('[Reports:JSONL] saved', record.id, record.category);
+}
+
+function readRecentReportsJsonl(limit = 50) {
   ensureDataDir();
   if (!fs.existsSync(REPORTS_FILE)) return [];
 
-  const lines = fs
+  return fs
     .readFileSync(REPORTS_FILE, 'utf8')
     .split('\n')
-    .filter(Boolean);
-
-  return lines
+    .filter(Boolean)
     .slice(-limit)
     .map((line) => {
       try {
@@ -61,6 +56,41 @@ function readRecentReports(limit = 50) {
     })
     .filter(Boolean)
     .reverse();
+}
+
+/**
+ * Primary: Supabase. Fallback: JSONL (ephemeral on Render). Always attempt email after save.
+ */
+async function saveReport(input) {
+  const record = buildRecord(input);
+
+  if (supabaseConfigured()) {
+    try {
+      const saved = await insertReport(record);
+      await notifyReportEmail(saved || record);
+      return saved || record;
+    } catch (err) {
+      console.error('[Reports:Supabase] insert failed, falling back to JSONL', err.message);
+    }
+  } else {
+    console.warn('[Reports] SUPABASE_URL not set — using JSONL only (not durable on Render)');
+  }
+
+  saveReportJsonl(record);
+  await notifyReportEmail(record);
+  return record;
+}
+
+async function readRecentReports(limit = 50) {
+  if (supabaseConfigured()) {
+    try {
+      const rows = await fetchRecentReports(limit);
+      if (rows) return rows;
+    } catch (err) {
+      console.error('[Reports:Supabase] fetch failed, falling back to JSONL', err.message);
+    }
+  }
+  return readRecentReportsJsonl(limit);
 }
 
 function profileSummary(profile) {
@@ -79,10 +109,13 @@ async function notifyReportEmail(record) {
     return;
   }
 
+  const storage = supabaseConfigured() ? 'Supabase (primary)' : 'JSONL fallback only';
+
   const body = [
     `New Meetopia report: ${record.category}`,
     '',
     `Report ID: ${record.id}`,
+    `Storage: ${storage}`,
     `Time: ${new Date(record.timestamp).toISOString()}`,
     `Session: ${record.sessionId || '(unknown)'}`,
     '',
@@ -92,7 +125,8 @@ async function notifyReportEmail(record) {
     `Reported socket: ${record.reportedSocketId}`,
     `Reported profile: ${profileSummary(record.reportedProfile)}`,
     '',
-    'Review process: https://meetopia-live.netlify.app/safety',
+    'Review: Supabase table mobile_reports, or GET /admin/reports',
+    'Process: https://meetopia-live.netlify.app/safety',
   ].join('\n');
 
   try {
@@ -121,9 +155,18 @@ async function notifyReportEmail(record) {
   }
 }
 
+function getReportBackendStatus() {
+  return {
+    supabase: supabaseConfigured(),
+    email: Boolean(process.env.RESEND_API_KEY && process.env.REPORT_NOTIFY_EMAIL),
+    jsonlFallback: true,
+  };
+}
+
 module.exports = {
   saveReport,
   readRecentReports,
   notifyReportEmail,
   sessionIdFor,
+  getReportBackendStatus,
 };
