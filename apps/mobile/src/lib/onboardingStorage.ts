@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { profileFingerprint } from '@/types/profile'
 import type { MeetopiaIntent, MeetopiaProfile } from '@/types/profile'
 
 const KEYS = {
@@ -8,6 +9,13 @@ const KEYS = {
   blockedUsers: 'meetopia_blocked_users',
   vibeMatches: 'meetopia_vibe_matches',
 } as const
+
+export type BlockedEntry = {
+  fingerprint: string
+  socketId?: string
+  blockedAt: number
+  label?: string
+}
 
 export async function isAgeVerified(): Promise<boolean> {
   return (await AsyncStorage.getItem(KEYS.ageVerified)) === 'true'
@@ -49,21 +57,74 @@ export async function isOnboardingComplete(): Promise<boolean> {
   return age && !!profile && !!intent
 }
 
-export async function getBlockedUsers(): Promise<string[]> {
+async function readBlockedRaw(): Promise<BlockedEntry[]> {
   const raw = await AsyncStorage.getItem(KEYS.blockedUsers)
   if (!raw) return []
   try {
-    return JSON.parse(raw) as string[]
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    if (parsed.length > 0 && typeof parsed[0] === 'string') {
+      const migrated: BlockedEntry[] = parsed.map((socketId: string) => ({
+        fingerprint: `socket_${socketId}`,
+        socketId,
+        blockedAt: Date.now(),
+      }))
+      await AsyncStorage.setItem(KEYS.blockedUsers, JSON.stringify(migrated))
+      return migrated
+    }
+    return parsed as BlockedEntry[]
   } catch {
     return []
   }
 }
 
-export async function blockUser(socketId: string): Promise<void> {
-  const list = await getBlockedUsers()
-  if (!list.includes(socketId)) {
-    await AsyncStorage.setItem(KEYS.blockedUsers, JSON.stringify([...list, socketId]))
+export async function getBlockedEntries(): Promise<BlockedEntry[]> {
+  return readBlockedRaw()
+}
+
+/** @deprecated use getBlockedEntries */
+export async function getBlockedUsers(): Promise<string[]> {
+  const entries = await getBlockedEntries()
+  return entries.map(e => e.socketId).filter((id): id is string => Boolean(id))
+}
+
+export function isBlockedEntry(
+  entries: BlockedEntry[],
+  socketId?: string | null,
+  profile?: Record<string, unknown> | null,
+): boolean {
+  const fp = profileFingerprint(profile ?? null)
+  return entries.some(
+    e =>
+      (socketId && e.socketId === socketId) ||
+      (fp && e.fingerprint === fp) ||
+      (socketId && e.fingerprint === `socket_${socketId}`),
+  )
+}
+
+export async function isBlocked(
+  socketId?: string | null,
+  profile?: Record<string, unknown> | null,
+): Promise<boolean> {
+  const entries = await getBlockedEntries()
+  return isBlockedEntry(entries, socketId, profile)
+}
+
+export async function blockUser(
+  socketId: string,
+  profile?: Record<string, unknown> | null,
+): Promise<void> {
+  const entries = await readBlockedRaw()
+  const fingerprint = profileFingerprint(profile ?? null) ?? `socket_${socketId}`
+  if (isBlockedEntry(entries, socketId, profile)) return
+
+  const next: BlockedEntry = {
+    fingerprint,
+    socketId,
+    blockedAt: Date.now(),
+    label: typeof profile?.name === 'string' ? profile.name : undefined,
   }
+  await AsyncStorage.setItem(KEYS.blockedUsers, JSON.stringify([...entries, next]))
 }
 
 export async function addVibeMatch(peerId: string): Promise<void> {

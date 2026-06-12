@@ -20,8 +20,8 @@ Meetopia is a **video-first dating and meeting app** for real chemistry (not ano
 | First name, age, city, gender, intent, prompt | Matching and profile card during Chemistry Check | Device (AsyncStorage); backend persistence Phase 2 |
 | Camera / microphone streams | Live video Chemistry Check | Ephemeral WebRTC; not recorded by Meetopia |
 | Socket ID | Signaling and matching | Render signaling server (session) |
-| Reports (category + reported user ID) | Safety moderation | Server log; review workflow Phase 2 |
-| Block list | Prevent re-match in session | Device (AsyncStorage) |
+| Reports (category + reported user ID) | Safety moderation | JSONL on Render + email via Resend |
+| Block list | Prevent re-match on device | AsyncStorage (profile fingerprint + socket ID) |
 | 18+ confirmation flag | Age gate compliance | Device (AsyncStorage) |
 | Vibe / mutual match state | Unlock chat after mutual Vibe | Device (AsyncStorage) |
 
@@ -41,7 +41,7 @@ Copy is configured in `apps/mobile/app.config.ts` and the `@config-plugins/react
 - **Report** — categories: nudity/sexual content, harassment, hate/threats, spam/scam, underage user, other.
 - **Block** — leaves chat immediately; blocked socket IDs skipped for the session; stored locally.
 - **Leave** — confirmation before exiting Chemistry Check.
-- **Account deletion** — placeholder in Settings (local wipe MVP; backend deletion Phase 2).
+- **Account deletion** — Settings → **Delete local profile & data** (device-only MVP).
 
 See also: [SAFETY_MODERATION_PLAN.md](./SAFETY_MODERATION_PLAN.md), [COMMUNITY_GUIDELINES.md](./COMMUNITY_GUIDELINES.md).
 

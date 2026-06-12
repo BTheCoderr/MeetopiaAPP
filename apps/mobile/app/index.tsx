@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import { Link, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { isOnboardingComplete, getStoredProfile } from '@/lib/onboardingStorage'
+import { isAgeVerified, isOnboardingComplete, getStoredProfile } from '@/lib/onboardingStorage'
 import { intentLabel } from '@/types/profile'
 
 export default function HomeScreen() {
@@ -10,19 +10,27 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [profileName, setProfileName] = useState<string | null>(null)
   const [intent, setIntent] = useState<string | null>(null)
+  const [canStartLive, setCanStartLive] = useState(false)
 
   useEffect(() => {
-    isOnboardingComplete().then(ok => {
-      if (!ok) {
+    isAgeVerified().then(ageOk => {
+      if (!ageOk) {
         router.replace('/onboarding/age-gate')
         return
       }
-      getStoredProfile().then(p => {
-        if (p) {
-          setProfileName(p.name)
-          setIntent(intentLabel(p.intent))
+      isOnboardingComplete().then(complete => {
+        setCanStartLive(complete)
+        if (complete) {
+          getStoredProfile().then(p => {
+            if (p) {
+              setProfileName(p.name)
+              setIntent(intentLabel(p.intent))
+            }
+            setLoading(false)
+          })
+        } else {
+          setLoading(false)
         }
-        setLoading(false)
       })
     })
   }, [router])
@@ -47,9 +55,23 @@ export default function HomeScreen() {
         </Text>
       ) : null}
 
-      <Link href="/chat/video" asChild>
-        <TouchableOpacity style={styles.primaryBtn}>
-          <Text style={styles.primaryText}>Start Chemistry Check</Text>
+      {canStartLive ? (
+        <Link href="/chat/video" asChild>
+          <TouchableOpacity style={styles.primaryBtn}>
+            <Text style={styles.primaryText}>Start Chemistry Check</Text>
+          </TouchableOpacity>
+        </Link>
+      ) : (
+        <Link href="/onboarding/profile" asChild>
+          <TouchableOpacity style={styles.primaryBtn}>
+            <Text style={styles.primaryText}>Complete profile to start</Text>
+          </TouchableOpacity>
+        </Link>
+      )}
+
+      <Link href="/chat/video?demo=1" asChild>
+        <TouchableOpacity style={styles.demoBtn}>
+          <Text style={styles.demoText}>Try Demo Mode</Text>
         </TouchableOpacity>
       </Link>
 
@@ -90,6 +112,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   primaryText: { color: '#fff', fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  demoBtn: {
+    backgroundColor: 'rgba(255,214,10,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,214,10,0.45)',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+  },
+  demoText: { color: '#FFD60A', fontSize: 16, fontWeight: '600', textAlign: 'center' },
   secondaryBtn: {
     backgroundColor: 'rgba(255,255,255,0.12)',
     paddingVertical: 14,

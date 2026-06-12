@@ -30,7 +30,12 @@ Redeploy after changing `NEXT_PUBLIC_*` (inlined at build time).
 ```env
 PORT=3003
 NODE_ENV=production
-CORS_ORIGINS=https://meetopia-app.vercel.app,https://meetopia-signaling.onrender.com
+CORS_ORIGINS=https://meetopia-live.netlify.app,https://meetopiaapp.onrender.com
+# Report handling (optional but recommended for App Store)
+REPORT_NOTIFY_EMAIL=you@example.com
+RESEND_API_KEY=re_...
+REPORT_FROM_EMAIL=reports@yourdomain.com
+REPORT_ADMIN_TOKEN=long-random-token
 ```
 
 **Blocker:** [`server/index.js`](../server/index.js) Socket.IO `cors.origin` must include production frontend HTTPS origins. Wire `CORS_ORIGINS` env before go-live (Render sets it; server code must read it).

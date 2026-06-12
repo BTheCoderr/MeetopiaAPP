@@ -1,23 +1,23 @@
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { clearLocalAccountData } from '@/lib/onboardingStorage'
 
-const PLACEHOLDER_URL = 'https://meetopia-live.netlify.app'
+const SITE_URL = 'https://meetopia-live.netlify.app'
 
 export default function SettingsScreen() {
   const router = useRouter()
 
   const open = (path: string) => {
-    Linking.openURL(`${PLACEHOLDER_URL}${path}`).catch(() => {
-      Alert.alert('Link unavailable', 'Add production policy URLs before App Store submission.')
+    Linking.openURL(`${SITE_URL}${path}`).catch(() => {
+      Alert.alert('Could not open link', 'Check your connection and try again.')
     })
   }
 
-  const onDeleteAccount = () => {
+  const onDeleteLocalProfile = () => {
     Alert.alert(
-      'Delete account data',
-      'This removes your local Meetopia profile, matches, and blocked list on this device. Server-side account deletion will be wired when auth backend is live.',
+      'Delete local profile & data',
+      'This removes your Meetopia profile, matches, and blocked list on this device only. There is no server account yet.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -25,7 +25,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await clearLocalAccountData()
-            Alert.alert('Deleted', 'Local account data cleared.')
+            Alert.alert('Deleted', 'Local profile and data cleared on this device.')
             router.replace('/onboarding/age-gate')
           },
         },
@@ -43,16 +43,17 @@ export default function SettingsScreen() {
 
         <Row label="Privacy Policy" onPress={() => open('/privacy')} />
         <Row label="Terms of Service" onPress={() => open('/terms')} />
-        <Row label="Community Guidelines" onPress={() => Alert.alert('Guidelines', 'See docs/COMMUNITY_GUIDELINES.md in repo until hosted URL is live.')} />
-        <Row label="Support" onPress={() => Linking.openURL('mailto:support@meetopia.app')} />
+        <Row label="Community Guidelines" onPress={() => open('/community-guidelines')} />
+        <Row label="Safety & Reporting" onPress={() => open('/safety')} />
+        <Row label="Support" onPress={() => open('/support')} />
 
-        <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteAccount}>
-          <Text style={styles.dangerText}>Delete account data</Text>
+        <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteLocalProfile}>
+          <Text style={styles.dangerText}>Delete local profile & data</Text>
         </TouchableOpacity>
 
         <Text style={styles.note}>
-          Account deletion on device clears local profile and safety data. Full server-side deletion requires
-          authenticated accounts (planned).
+          Deleting local profile and data clears onboarding, profile, blocks, and matches on this device.
+          Server-side account deletion will be available when authenticated accounts launch.
         </Text>
       </ScrollView>
     </SafeAreaView>

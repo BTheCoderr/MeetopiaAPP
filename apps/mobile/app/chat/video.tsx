@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, Alert } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import VideoStage from '@/components/video/VideoStage'
 import MessageBar from '@/components/video/MessageBar'
@@ -12,12 +12,21 @@ import { layout } from '@/components/video/mobileLayout'
 import { useMobileMedia } from '@/hooks/useMobileMedia'
 import { useMobilePeerConnection } from '@/hooks/useMobilePeerConnection'
 import { useMobileVideoChatSocket } from '@/hooks/useMobileVideoChatSocket'
+import { useDemoVideoChat } from '@/hooks/useDemoVideoChat'
 import { useMobileVideoChatMessages } from '@/hooks/useMobileVideoChatMessages'
-import { isOnboardingComplete, getStoredProfile, blockUser } from '@/lib/onboardingStorage'
+import {
+  isOnboardingComplete,
+  isAgeVerified,
+  getStoredProfile,
+  blockUser,
+} from '@/lib/onboardingStorage'
 import { toSignalingProfile } from '@/types/profile'
 
 export default function VideoChatScreen() {
   const router = useRouter()
+  const { demo } = useLocalSearchParams<{ demo?: string }>()
+  const isDemo = demo === '1'
+
   const [ready, setReady] = useState(false)
   const [signalingProfile, setSignalingProfile] = useState<Record<string, unknown> | null>(null)
   const [isMuted, setIsMuted] = useState(false)
@@ -29,6 +38,17 @@ export default function VideoChatScreen() {
   const { peerConnection, restartConnection } = useMobilePeerConnection(stream)
 
   useEffect(() => {
+    if (isDemo) {
+      isAgeVerified().then(ok => {
+        if (!ok) {
+          router.replace('/onboarding/age-gate')
+          return
+        }
+        setReady(true)
+      })
+      return
+    }
+
     isOnboardingComplete().then(ok => {
       if (!ok) {
         router.replace('/onboarding/age-gate')
@@ -43,19 +63,31 @@ export default function VideoChatScreen() {
         setReady(true)
       })
     })
-  }, [router])
+  }, [router, isDemo])
 
-  const chat = useMobileVideoChatSocket({
+  const liveChat = useMobileVideoChatSocket({
     stream,
     peerConnection,
     restartConnection,
     signalingProfile,
+    enabled: !isDemo,
   })
 
-  const messages = useMobileVideoChatMessages({
-    socket: chat.socket,
-    currentPeer: chat.mutualVibe ? chat.currentPeer : null,
+  const demoChat = useDemoVideoChat({ enabled: isDemo, stream })
+
+  const chat = isDemo ? demoChat : liveChat
+
+  const liveMessages = useMobileVideoChatMessages({
+    socket: liveChat.socket,
+    currentPeer: liveChat.mutualVibe ? liveChat.currentPeer : null,
+    enabled: !isDemo,
   })
+
+  const messages = isDemo ? demoChat.messages : liveMessages.messages
+  const newMessage = isDemo ? demoChat.newMessage : liveMessages.newMessage
+  const handleMessageChange = isDemo ? demoChat.handleMessageChange : liveMessages.handleMessageChange
+  const handleSendMessage = isDemo ? demoChat.handleSendMessage : liveMessages.handleSendMessage
+  const isPeerTyping = isDemo ? demoChat.isPeerTyping : liveMessages.isPeerTyping
 
   useEffect(() => {
     setTimerActive(Boolean(chat.currentPeer))
@@ -84,27 +116,32 @@ export default function VideoChatScreen() {
   const handleBlock = () => {
     const peer = chat.currentPeer
     if (!peer) return
-    Alert.alert('Block user?', 'They will be skipped and cannot reconnect this session.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Block',
-        style: 'destructive',
-        onPress: async () => {
-          await blockUser(peer)
-          chat.reportUser('blocked')
-          socketLeaveAndSkip()
+    Alert.alert(
+      'Block user?',
+      "They won't be matched with you again on this device.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            await blockUser(peer, chat.peerProfile ?? undefined)
+            await chat.refreshBlockedList()
+            chat.handleNextPerson()
+          },
         },
-      },
-    ])
-  }
-
-  const socketLeaveAndSkip = () => {
-    chat.handleNextPerson()
+      ],
+    )
   }
 
   const onReportSubmit = (category: ReportCategory) => {
     chat.reportUser(category)
-    Alert.alert('Report submitted', 'Our team reviews reports. Leave the chat if you feel unsafe.')
+    if (!isDemo) {
+      Alert.alert(
+        'Report submitted',
+        'Meetopia logs reports for review. Leave the chat if you feel unsafe.',
+      )
+    }
   }
 
   if (!ready) {
@@ -120,6 +157,8 @@ export default function VideoChatScreen() {
         isSearching={chat.isSearching}
         hasPeer={Boolean(chat.currentPeer)}
         isCameraOff={isCameraOff}
+        hideConnectingOverlay={isDemo && Boolean(chat.currentPeer)}
+        overlayHint={isDemo && chat.isSearching ? 'Demo Mode — finding simulated match…' : undefined}
       />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
@@ -131,6 +170,7 @@ export default function VideoChatScreen() {
             <Text style={styles.logo}>
               <Text style={styles.brand}>Meet</Text>opia
             </Text>
+            {isDemo && <Text style={styles.demoBadge}>Demo Mode</Text>}
             <ChemistryTimer active={timerActive} />
           </View>
           <Text style={[styles.status, chat.isSocketConnected ? styles.online : styles.offline]}>
@@ -140,6 +180,14 @@ export default function VideoChatScreen() {
         <ProfileCard profile={chat.peerProfile} visible={Boolean(chat.currentPeer)} />
       </SafeAreaView>
 
+      {isDemo && (
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>
+            Demo Mode — no real users connected. Simulated match for App Review testing.
+          </Text>
+        </View>
+      )}
+
       {(mediaError || chat.error) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{mediaError ?? chat.error}</Text>
@@ -147,19 +195,19 @@ export default function VideoChatScreen() {
       )}
 
       <MessageBar
-        messages={messages.messages}
-        value={messages.newMessage}
-        onChange={messages.handleMessageChange}
-        onSend={messages.handleSendMessage}
+        messages={messages}
+        value={newMessage}
+        onChange={handleMessageChange}
+        onSend={handleSendMessage}
         disabled={!chat.mutualVibe}
-        isPeerTyping={messages.isPeerTyping}
+        isPeerTyping={isPeerTyping}
       />
 
       <ControlBar
         hasPeer={Boolean(chat.currentPeer)}
         isSearching={chat.isSearching}
         isSocketConnected={chat.isSocketConnected}
-        canStart={Boolean(stream && signalingProfile)}
+        canStart={Boolean(stream && (isDemo || signalingProfile))}
         onStart={chat.handleStartChat}
         onNext={chat.handleNextPerson}
         onLeave={chat.handleLeaveChat}
@@ -187,9 +235,23 @@ const styles = StyleSheet.create({
   back: { color: '#fff', fontSize: 22, width: 32 },
   logo: { color: '#fff', fontSize: 18, fontWeight: '600' },
   brand: { color: '#0A84FF' },
+  demoBadge: { color: '#FFD60A', fontSize: 12, fontWeight: '600', marginTop: 2 },
   status: { fontSize: 14, width: 32, textAlign: 'right' },
   online: { color: '#30D158' },
   offline: { color: '#FF453A' },
+  demoBanner: {
+    position: 'absolute',
+    top: 100,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(255,214,10,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,214,10,0.4)',
+    padding: 10,
+    borderRadius: 10,
+    zIndex: 40,
+  },
+  demoBannerText: { color: '#FFD60A', fontSize: 12, textAlign: 'center', lineHeight: 17 },
   errorBanner: {
     position: 'absolute',
     top: 120,

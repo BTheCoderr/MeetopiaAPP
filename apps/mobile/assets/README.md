@@ -1,11 +1,15 @@
 # App assets (TestFlight / App Store)
 
-Add before EAS production build:
+| File | Status | Purpose |
+|------|--------|---------|
+| `icon.png` | Present (1024×1024) | App Store icon |
+| `splash.png` | Present | Launch splash |
+| `adaptive-icon.png` | Present (1024×1024) | Android adaptive icon |
 
-| File | Size | Purpose |
-|------|------|---------|
-| `icon.png` | 1024×1024 | App Store icon |
-| `splash.png` | 1284×2778 recommended | Launch splash |
-| `adaptive-icon.png` | 1024×1024 | Android adaptive icon |
+Referenced from `app.config.ts`. Replace with final brand assets before App Store marketing submission if desired.
 
-Referenced from `app.config.ts`. Until these exist, local `expo run:ios` may use Expo defaults.
+## EAS project ID
+
+Before cloud builds, run `eas init` in `apps/mobile` and replace `REPLACE_WITH_EAS_PROJECT_ID` in `app.config.ts`.
+
+See [README.md](../README.md) and [docs/APP_STORE_READINESS.md](../../docs/APP_STORE_READINESS.md).

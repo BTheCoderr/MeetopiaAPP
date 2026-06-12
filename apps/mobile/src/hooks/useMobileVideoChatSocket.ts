@@ -7,8 +7,14 @@ import {
   RTCSessionDescription,
 } from 'react-native-webrtc'
 import { Socket } from 'socket.io-client'
-import { getBlockedUsers, addVibeMatch } from '@/lib/onboardingStorage'
+import {
+  getBlockedEntries,
+  isBlockedEntry,
+  addVibeMatch,
+  type BlockedEntry,
+} from '@/lib/onboardingStorage'
 import { getSocket } from '@/lib/socket'
+import type { ReportCategory } from '@/components/safety/ReportModal'
 
 const LOG = '[Mobile:Signaling]'
 
@@ -40,6 +46,7 @@ interface Options {
   peerConnection: RTCPeerConnection | null
   restartConnection: () => void
   signalingProfile: Record<string, unknown> | null
+  enabled?: boolean
 }
 
 export function useMobileVideoChatSocket({
@@ -47,6 +54,7 @@ export function useMobileVideoChatSocket({
   peerConnection,
   restartConnection,
   signalingProfile,
+  enabled = true,
 }: Options) {
   const [socket] = useState<Socket>(() => getSocket())
   const [isSocketConnected, setIsSocketConnected] = useState(false)
@@ -61,8 +69,9 @@ export function useMobileVideoChatSocket({
 
   const pcRef = useRef(peerConnection)
   const peerRef = useRef<string | null>(null)
+  const peerProfileRef = useRef<PeerProfilePayload | null>(null)
   const pendingIce = useRef<IceCandidateInit[]>([])
-  const blockedRef = useRef<string[]>([])
+  const blockedRef = useRef<BlockedEntry[]>([])
 
   const mutualVibe = myVibeSent && peerVibeReceived
 
@@ -70,11 +79,14 @@ export function useMobileVideoChatSocket({
     pcRef.current = peerConnection
   }, [peerConnection])
 
-  useEffect(() => {
-    getBlockedUsers().then(ids => {
-      blockedRef.current = ids
-    })
+  const refreshBlockedList = useCallback(async () => {
+    blockedRef.current = await getBlockedEntries()
   }, [])
+
+  useEffect(() => {
+    if (!enabled) return
+    refreshBlockedList()
+  }, [enabled, refreshBlockedList])
 
   const resetVibeState = useCallback(() => {
     setMyVibeSent(false)
@@ -83,6 +95,7 @@ export function useMobileVideoChatSocket({
 
   const resetPeerState = useCallback(() => {
     peerRef.current = null
+    peerProfileRef.current = null
     setCurrentPeer(null)
     setPeerProfile(null)
     setRemoteStream(null)
@@ -93,6 +106,8 @@ export function useMobileVideoChatSocket({
   }, [resetVibeState])
 
   useEffect(() => {
+    if (!enabled) return
+
     const onConnect = () => {
       console.log(LOG, 'socket connected')
       setIsSocketConnected(true)
@@ -110,9 +125,11 @@ export function useMobileVideoChatSocket({
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
     }
-  }, [socket, resetPeerState])
+  }, [socket, resetPeerState, enabled])
 
   useEffect(() => {
+    if (!enabled) return
+
     const onVibe = ({ from }: { from: string }) => {
       if (from === peerRef.current) {
         setPeerVibeReceived(true)
@@ -122,15 +139,15 @@ export function useMobileVideoChatSocket({
     return () => {
       socket.off('vibe-tap', onVibe)
     }
-  }, [socket])
+  }, [socket, enabled])
 
   useEffect(() => {
-    if (mutualVibe && currentPeer) {
-      addVibeMatch(currentPeer).catch(console.error)
-    }
-  }, [mutualVibe, currentPeer])
+    if (!enabled || !mutualVibe || !currentPeer) return
+    addVibeMatch(currentPeer).catch(console.error)
+  }, [mutualVibe, currentPeer, enabled])
 
   useEffect(() => {
+    if (!enabled) return
     const pc = peerConnection
     if (!pc) return
 
@@ -165,8 +182,8 @@ export function useMobileVideoChatSocket({
     pc.addEventListener('icecandidate', onIce)
     pc.addEventListener('connectionstatechange', onState)
 
-    const skipBlockedPeer = (partnerId: string) => {
-      if (!blockedRef.current.includes(partnerId)) return false
+    const skipBlockedPeer = (partnerId: string, profile?: PeerProfilePayload) => {
+      if (!isBlockedEntry(blockedRef.current, partnerId, profile ?? null)) return false
       console.log(LOG, 'blocked peer skipped', partnerId)
       setIsSearching(true)
       if (signalingProfile) {
@@ -182,11 +199,12 @@ export function useMobileVideoChatSocket({
       partnerId: string
       profile?: PeerProfilePayload
     }) => {
-      if (skipBlockedPeer(partnerId)) return
+      if (skipBlockedPeer(partnerId, profile)) return
       const activePc = pcRef.current
       if (!socket.id || !activePc || !isUsable(activePc)) return
 
       peerRef.current = partnerId
+      peerProfileRef.current = profile ?? null
       setCurrentPeer(partnerId)
       setPeerProfile(profile ?? null)
       setIsSearching(false)
@@ -213,10 +231,11 @@ export function useMobileVideoChatSocket({
       from: string
       profile?: PeerProfilePayload
     }) => {
-      if (skipBlockedPeer(from)) return
+      if (skipBlockedPeer(from, profile)) return
       const activePc = pcRef.current
       if (!activePc || !isUsable(activePc)) return
       peerRef.current = from
+      peerProfileRef.current = profile ?? null
       setCurrentPeer(from)
       setPeerProfile(profile ?? null)
       resetVibeState()
@@ -274,24 +293,34 @@ export function useMobileVideoChatSocket({
       socket.off('ice-candidate', handleIceCandidate)
       socket.off('peer-left', handlePeerLeft)
     }
-  }, [peerConnection, socket, signalingProfile, restartConnection, resetPeerState, resetVibeState])
+  }, [
+    peerConnection,
+    socket,
+    signalingProfile,
+    restartConnection,
+    resetPeerState,
+    resetVibeState,
+    enabled,
+  ])
 
   const emitStreamState = useCallback(
-    (type: 'audio' | 'video', enabled: boolean) => {
+    (type: 'audio' | 'video', enabledFlag: boolean) => {
+      if (!enabled) return
       const peerId = peerRef.current
       if (!peerId || !socket.connected) return
-      socket.emit('stream-state-change', { type, state: enabled, to: peerId })
+      socket.emit('stream-state-change', { type, state: enabledFlag, to: peerId })
     },
-    [socket],
+    [socket, enabled],
   )
 
   const handleStartChat = useCallback(() => {
-    if (!socket.connected || !stream || !signalingProfile) return
+    if (!enabled || !socket.connected || !stream || !signalingProfile) return
     setIsSearching(true)
     socket.emit('find-user', { mode: 'dating', profile: signalingProfile })
-  }, [socket, stream, signalingProfile])
+  }, [socket, stream, signalingProfile, enabled])
 
   const handleNextPerson = useCallback(() => {
+    if (!enabled) return
     pendingIce.current = []
     restartConnection()
     resetPeerState()
@@ -301,7 +330,7 @@ export function useMobileVideoChatSocket({
         socket.emit('find-next-user', { mode: 'dating', profile: signalingProfile })
       }
     }, 350)
-  }, [restartConnection, resetPeerState, socket, signalingProfile])
+  }, [restartConnection, resetPeerState, socket, signalingProfile, enabled])
 
   const handleLeaveChat = useCallback(() => {
     Alert.alert('Leave Chemistry Check?', 'You will return to the home screen.', [
@@ -310,48 +339,58 @@ export function useMobileVideoChatSocket({
         text: 'Leave',
         style: 'destructive',
         onPress: () => {
-          socket.emit('leave-chat')
+          if (enabled) socket.emit('leave-chat')
           resetPeerState()
           restartConnection()
         },
       },
     ])
-  }, [socket, resetPeerState, restartConnection])
+  }, [socket, resetPeerState, restartConnection, enabled])
 
   const sendVibe = useCallback(() => {
+    if (!enabled) return
     const peerId = peerRef.current
     if (!peerId || myVibeSent) return
     setMyVibeSent(true)
     socket.emit('vibe-tap', { to: peerId })
-  }, [socket, myVibeSent])
+  }, [socket, myVibeSent, enabled])
 
   const reportUser = useCallback(
-    (reason: string) => {
+    (category: ReportCategory | string) => {
+      if (!enabled) return
       const peerId = peerRef.current
       if (!peerId) return
-      socket.emit('report-user', { reason, reportedUserId: peerId, timestamp: Date.now() })
-      console.log(LOG, 'report-user', reason, peerId)
+      socket.emit('report-user', {
+        category,
+        reportedUserId: peerId,
+        reportedSocketId: peerId,
+        timestamp: Date.now(),
+        reporterProfile: signalingProfile,
+        reportedProfile: peerProfileRef.current,
+      })
+      console.log(LOG, 'report-user', category, peerId)
     },
-    [socket],
+    [socket, signalingProfile, enabled],
   )
 
   return {
     socket,
-    isSocketConnected,
-    currentPeer,
-    peerProfile,
-    remoteStream,
-    isPeerConnected,
-    isSearching,
-    error,
-    myVibeSent,
-    peerVibeReceived,
-    mutualVibe,
+    isSocketConnected: enabled ? isSocketConnected : false,
+    currentPeer: enabled ? currentPeer : null,
+    peerProfile: enabled ? peerProfile : null,
+    remoteStream: enabled ? remoteStream : null,
+    isPeerConnected: enabled ? isPeerConnected : false,
+    isSearching: enabled ? isSearching : false,
+    error: enabled ? error : null,
+    myVibeSent: enabled ? myVibeSent : false,
+    peerVibeReceived: enabled ? peerVibeReceived : false,
+    mutualVibe: enabled ? mutualVibe : false,
     handleStartChat,
     handleNextPerson,
     handleLeaveChat,
     emitStreamState,
     sendVibe,
     reportUser,
+    refreshBlockedList,
   }
 }

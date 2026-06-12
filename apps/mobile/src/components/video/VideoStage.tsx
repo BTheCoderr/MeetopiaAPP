@@ -10,6 +10,8 @@ interface Props {
   isSearching: boolean
   hasPeer: boolean
   isCameraOff: boolean
+  hideConnectingOverlay?: boolean
+  overlayHint?: string
 }
 
 export default function VideoStage({
@@ -19,6 +21,8 @@ export default function VideoStage({
   isSearching,
   hasPeer,
   isCameraOff,
+  hideConnectingOverlay,
+  overlayHint,
 }: Props) {
   const hasRemote = isPeerConnected && !!remoteStream
   const pipStream = hasRemote ? localStream : null
@@ -39,10 +43,13 @@ export default function VideoStage({
       {pipStream && (
         <PictureInPicture stream={pipStream} isCameraOff={isCameraOff} />
       )}
-      {(isSearching || (hasPeer && !hasRemote)) && (
+      {(isSearching || (hasPeer && !hasRemote && !hideConnectingOverlay)) && (
         <View style={styles.overlay}>
           <Text style={styles.overlayText}>
-            {hasPeer && !hasRemote ? 'Connecting video…' : 'Looking for someone who matches your intent…'}
+            {overlayHint ??
+              (hasPeer && !hasRemote
+                ? 'Connecting video…'
+                : 'Looking for someone who matches your intent…')}
           </Text>
         </View>
       )}

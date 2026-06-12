@@ -24,8 +24,8 @@ export default function ReportModal({ visible, onClose, onSubmit }: Props) {
         <View style={styles.sheet}>
           <Text style={styles.title}>Report user</Text>
           <Text style={styles.subtitle}>
-            Reports are reviewed by our team. Repeat offenders may be banned. Call emergency services if
-            you are in immediate danger.
+            Meetopia logs reports for review. Leave the chat if you feel unsafe. Call emergency
+            services if you are in immediate danger.
           </Text>
           <ScrollView>
             {REPORT_CATEGORIES.map(cat => (

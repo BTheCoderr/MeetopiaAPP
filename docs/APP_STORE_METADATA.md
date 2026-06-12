@@ -58,14 +58,15 @@ Likely **17+** based on:
 
 **Do not hardcode the final rating** — complete Apple’s questionnaire in App Store Connect.
 
-## URLs (placeholders — update before submission)
+## URLs (live on Netlify)
 
 | Field | URL |
 |-------|-----|
-| Support URL | `https://meetopia-live.netlify.app/support` *(placeholder)* |
-| Privacy Policy URL | `https://meetopia-live.netlify.app/privacy` *(placeholder)* |
-| Terms of Service URL | `https://meetopia-live.netlify.app/terms` *(placeholder)* |
-| Community Guidelines URL | Host from repo `docs/COMMUNITY_GUIDELINES.md` or site page *(placeholder)* |
+| Support URL | `https://meetopia-live.netlify.app/support` |
+| Privacy Policy URL | `https://meetopia-live.netlify.app/privacy` |
+| Terms of Service URL | `https://meetopia-live.netlify.app/terms` |
+| Community Guidelines URL | `https://meetopia-live.netlify.app/community-guidelines` |
+| Safety & Reporting URL | `https://meetopia-live.netlify.app/safety` |
 
 ## Marketing URL (optional)
 

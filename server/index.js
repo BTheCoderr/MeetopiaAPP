@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { saveReport, readRecentReports, notifyReportEmail, sessionIdFor } = require('./reportsStore');
 
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
@@ -35,6 +36,15 @@ app.get('/health', (req, res) => {
     nodeEnv: process.env.NODE_ENV,
     allowedOrigins,
   });
+});
+
+app.get('/admin/reports', (req, res) => {
+  const token = process.env.REPORT_ADMIN_TOKEN;
+  if (!token || req.query.token !== token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+  return res.json({ reports: readRecentReports(limit) });
 });
 
 const server = http.createServer(app);
@@ -318,8 +328,25 @@ io.on('connection', (socket) => {
     console.log(`[Signaling] vibe-tap ${socket.id} -> ${to}`);
   });
 
-  socket.on('report-user', (payload) => {
-    console.log(`[Signaling] report-user from ${socket.id}:`, payload);
+  socket.on('report-user', (payload = {}) => {
+    const reportedSocketId = payload.reportedUserId || payload.reportedSocketId;
+    if (!reportedSocketId) {
+      console.warn('[Signaling] report-user missing reported user id');
+      return;
+    }
+
+    const record = saveReport({
+      reporterSocketId: socket.id,
+      reportedSocketId,
+      category: payload.category || payload.reason || 'other',
+      timestamp: payload.timestamp || Date.now(),
+      reporterProfile: payload.reporterProfile || null,
+      reportedProfile: payload.reportedProfile || null,
+      sessionId: payload.sessionId || sessionIdFor(socket.id, reportedSocketId),
+    });
+
+    console.log(`[Signaling] report-user from ${socket.id}:`, record.id, record.category);
+    notifyReportEmail(record).catch((err) => console.error('[Reports] notify failed', err));
   });
 
   socket.on('reconnect-attempt', ({ to }) => {

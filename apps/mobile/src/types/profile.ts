@@ -49,3 +49,24 @@ export function toSignalingProfile(p: MeetopiaProfile) {
 export function intentLabel(intent: MeetopiaIntent): string {
   return INTENT_OPTIONS.find(o => o.id === intent)?.label ?? intent
 }
+
+/** Stable key for blocking the same profile across socket reconnects. */
+export function profileFingerprint(profile: Record<string, unknown> | null | undefined): string | null {
+  if (!profile) return null
+  const key = [
+    profile.name,
+    profile.age,
+    profile.city,
+    profile.gender,
+    profile.intent,
+    profile.prompt ?? profile.bio,
+  ]
+    .map(v => String(v ?? '').trim().toLowerCase())
+    .join('|')
+  if (!key.replace(/\|/g, '')) return null
+  let hash = 5381
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 33) ^ key.charCodeAt(i)
+  }
+  return `fp_${(hash >>> 0).toString(36)}`
+}

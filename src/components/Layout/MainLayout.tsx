@@ -55,8 +55,25 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       {/* Footer */}
       <footer className="bg-white border-t mt-auto">
-        <div className="container mx-auto px-4 py-4 text-center text-gray-500 text-sm">
-          &copy; {new Date().getFullYear()} Meetopia - Random video chat with strangers
+        <div className="container mx-auto px-4 py-6 text-center text-gray-500 text-sm space-y-2">
+          <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <Link href="/privacy" className="hover:text-gray-900 transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-gray-900 transition-colors">
+              Terms
+            </Link>
+            <Link href="/community-guidelines" className="hover:text-gray-900 transition-colors">
+              Guidelines
+            </Link>
+            <Link href="/support" className="hover:text-gray-900 transition-colors">
+              Support
+            </Link>
+            <Link href="/safety" className="hover:text-gray-900 transition-colors">
+              Safety
+            </Link>
+          </nav>
+          <p>&copy; {new Date().getFullYear()} Meetopia — Video-first dating and real chemistry</p>
         </div>
       </footer>
     </div>

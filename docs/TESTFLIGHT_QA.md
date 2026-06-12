@@ -46,18 +46,27 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 - [ ] Report modal: all six categories
 - [ ] Report shows confirmation (no false “AI reviewed instantly” copy)
 - [ ] Block: confirmation, leaves chat, skips blocked user on rematch
-- [ ] Settings: Delete account clears local data and returns to age gate
+- [ ] Settings: Delete local profile clears data and returns to age gate
 
 ## Settings & legal links
 
-- [ ] Privacy Policy link opens (placeholder OK for beta)
-- [ ] Terms link opens (placeholder OK for beta)
-- [ ] Community guidelines accessible
-- [ ] Support contact (mailto or URL)
+- [ ] Privacy Policy link opens (`/privacy`)
+- [ ] Terms link opens (`/terms`)
+- [ ] Community Guidelines link opens (`/community-guidelines`)
+- [ ] Safety & Reporting link opens (`/safety`)
+- [ ] Support page opens (`/support`)
+
+## Demo Mode (App Review)
+
+- [ ] Home shows **Try Demo Mode** after age gate
+- [ ] Demo banner visible during simulated Chemistry Check
+- [ ] Simulated match, Vibe, and chat unlock without second device
+- [ ] Report in demo shows demo-only message (no false server claim)
 
 ## Network & backend
 
 - [ ] Connects to `EXPO_PUBLIC_SOCKET_URL` (Render production)
+- [ ] Report creates JSONL entry + email (when Resend configured)
 - [ ] Reconnect after background/foreground (best effort)
 - [ ] No CORS errors on web (regression check — web unchanged)
 
@@ -74,6 +83,21 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 - No payments
 - Reports logged server-side; no admin dashboard yet
 - No AI moderation / auto-blur
+
+- Reports stored in JSONL + email notification when configured
+
+## External TestFlight / App Store blockers
+
+Before external review, confirm:
+
+1. [ ] Live policy URLs: `/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`
+2. [ ] Report persistence (JSONL) + Resend email on Render
+3. [ ] Block persists on device (profile fingerprint + socket ID)
+4. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
+5. [ ] No false safety claims (no AI moderation / auto-blur / verified users)
+6. [ ] `assets/icon.png`, `splash.png`, `adaptive-icon.png` present
+7. [ ] EAS `projectId` replaced after `eas init`
+8. [ ] Physical iPhone QA completed (this checklist)
 
 ## Sign-off
 
