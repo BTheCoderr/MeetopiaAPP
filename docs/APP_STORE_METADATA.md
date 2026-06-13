@@ -33,13 +33,17 @@ Meetopia is video-first dating and meeting for people who want **real chemistry*
 
 Meetopia uses your camera and microphone for live video conversations. We do not record your calls on our servers.
 
-Questions or feedback during beta? Contact support@meetopia.app
+Questions or feedback during beta? Contact ermias6822@gmail.com
 
 ## Keywords (100 chars max, comma-separated)
 
+**Use in App Store Connect (MVP — no verified profiles / AI moderation claims):**
+
 ```
-dating,video dating,meet people,singles,chemistry,chat,friends,local dating
+dating,video dating,chemistry,meet people,singles,chat,local dating,new friends
 ```
+
+**Do not use:** `verified profiles`, `compatibility matching`, `safe dating`, `meaningful dating`, or other claims for features not live in MVP.
 
 ## Category
 
@@ -58,19 +62,39 @@ Likely **17+** based on:
 
 **Do not hardcode the final rating** — complete Apple’s questionnaire in App Store Connect.
 
-## URLs (live on Netlify)
+## App Store Connect — paste these URLs
 
 | Field | URL |
 |-------|-----|
-| Support URL | `https://meetopia-live.netlify.app/support` |
-| Privacy Policy URL | `https://meetopia-live.netlify.app/privacy` |
-| Terms of Service URL | `https://meetopia-live.netlify.app/terms` |
-| Community Guidelines URL | `https://meetopia-live.netlify.app/community-guidelines` |
-| Safety & Reporting URL | `https://meetopia-live.netlify.app/safety` |
+| **Support URL** | `https://meetopia-live.netlify.app/support` |
+| **Marketing URL** | `https://meetopia-live.netlify.app` |
+| **Privacy Policy URL** | `https://meetopia-live.netlify.app/privacy` |
+| **Terms of Service** | `https://meetopia-live.netlify.app/terms` |
+| **Community Guidelines** | `https://meetopia-live.netlify.app/community-guidelines` |
+| **Safety & Reporting** | `https://meetopia-live.netlify.app/safety` |
 
-## Marketing URL (optional)
+Mobile Settings opens the same URLs via `apps/mobile/src/config/links.ts`.
 
-`https://meetopia-live.netlify.app`
+## Description — App Store Connect paste (honest MVP)
+
+Meetopia is video-first dating for people who want real chemistry — not endless swiping.
+
+**How it works**
+
+1. Create a lightweight local profile and choose your dating intent.  
+2. Start a **Chemistry Check**: a short live video conversation.  
+3. Tap **Vibe** if you feel a connection. When you both do, chat unlocks.  
+4. Skip anytime, **report**, or **block** users who make you uncomfortable.
+
+**MVP limits (this beta)**
+
+- No payments, push notifications, AI moderation, or automatic video blur  
+- Profile stored on device until authenticated accounts launch  
+- Reports logged for review — not instant AI review  
+
+Meetopia uses your camera and microphone for live video. We do not record your calls on our servers.
+
+Questions during beta? Contact ermias6822@gmail.com
 
 ## Copyright
 
@@ -91,7 +115,7 @@ Please exercise:
 
 Known MVP limits: local-only profile storage, no push notifications, no payments. Reports are logged for review — no AI moderation yet.
 
-Send feedback to support@meetopia.app
+Send feedback to ermias6822@gmail.com
 
 ## Screenshot storyboard (suggested)
 

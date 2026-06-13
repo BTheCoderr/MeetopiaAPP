@@ -27,7 +27,7 @@ Demo Mode is clearly labeled and does **not** connect to real users or the live 
 3. Allow camera/microphone on both.
 4. Test video, Vibe, chat unlock, skip, report, and block.
 
-If live matching is difficult during review, use **Demo Mode** or email **support@meetopia.app** to schedule a live test window.
+If live matching is difficult during review, use **Demo Mode** or email **ermias6822@gmail.com** to schedule a live test window.
 
 ## Signaling backend
 
@@ -47,21 +47,26 @@ Production signaling: `https://meetopiaapp.onrender.com`
 - Block (persists on device by profile fingerprint)
 - Delete local profile & data in Settings
 
-## Policy URLs
+## Public website URLs (App Store Connect + Settings)
 
-- Privacy: https://meetopia-live.netlify.app/privacy
-- Terms: https://meetopia-live.netlify.app/terms
-- Guidelines: https://meetopia-live.netlify.app/community-guidelines
-- Support: https://meetopia-live.netlify.app/support
-- Safety: https://meetopia-live.netlify.app/safety
+| Field | URL |
+|-------|-----|
+| Marketing / Home | https://meetopia-live.netlify.app |
+| Support | https://meetopia-live.netlify.app/support |
+| Privacy Policy | https://meetopia-live.netlify.app/privacy |
+| Terms | https://meetopia-live.netlify.app/terms |
+| Community Guidelines | https://meetopia-live.netlify.app/community-guidelines |
+| Safety & Reporting | https://meetopia-live.netlify.app/safety |
+
+Mobile Settings imports these from `apps/mobile/src/config/links.ts`.
 
 ## Contact for review support
 
-support@meetopia.app
+ermias6822@gmail.com
 
 ## Notes
 
 - No payments or subscriptions in this build.
 - No push notifications in this build.
 - Profile data is stored locally on device (no server account yet).
-- Reports are stored server-side and emailed to the Meetopia team for review.
+- Reports are stored in Supabase for review (no email alerts in this build).

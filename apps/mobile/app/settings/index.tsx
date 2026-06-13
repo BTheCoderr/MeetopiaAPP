@@ -1,15 +1,14 @@
 import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { PUBLIC_LINKS } from '@/config/links'
 import { clearLocalAccountData } from '@/lib/onboardingStorage'
-
-const SITE_URL = 'https://meetopia-live.netlify.app'
 
 export default function SettingsScreen() {
   const router = useRouter()
 
-  const open = (path: string) => {
-    Linking.openURL(`${SITE_URL}${path}`).catch(() => {
+  const open = (url: string) => {
+    Linking.openURL(url).catch(() => {
       Alert.alert('Could not open link', 'Check your connection and try again.')
     })
   }
@@ -41,11 +40,14 @@ export default function SettingsScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
 
-        <Row label="Privacy Policy" onPress={() => open('/privacy')} />
-        <Row label="Terms of Service" onPress={() => open('/terms')} />
-        <Row label="Community Guidelines" onPress={() => open('/community-guidelines')} />
-        <Row label="Safety & Reporting" onPress={() => open('/safety')} />
-        <Row label="Support" onPress={() => open('/support')} />
+        <Row label="Privacy Policy" onPress={() => open(PUBLIC_LINKS.privacy)} />
+        <Row label="Terms of Service" onPress={() => open(PUBLIC_LINKS.terms)} />
+        <Row
+          label="Community Guidelines"
+          onPress={() => open(PUBLIC_LINKS.communityGuidelines)}
+        />
+        <Row label="Safety & Reporting" onPress={() => open(PUBLIC_LINKS.safety)} />
+        <Row label="Support" onPress={() => open(PUBLIC_LINKS.support)} />
 
         <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteLocalProfile}>
           <Text style={styles.dangerText}>Delete local profile & data</Text>

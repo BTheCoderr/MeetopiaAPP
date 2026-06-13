@@ -43,7 +43,29 @@ npx expo run:ios -d                # builds locally, installs on device (Xcode r
 npx expo start --dev-client
 ```
 
-Do **not** run `eas build` unless you want a cloud/TestFlight build.
+Do **not** use Expo Go — this app uses WebRTC and requires a **development build** (`expo-dev-client`). Expo Go on your phone is SDK 54; this project is SDK 52, and Expo Go cannot run WebRTC anyway.
+
+### Expo Go error (SDK 54 vs SDK 52)
+
+If you see *"Project is incompatible with this version of Expo Go"*:
+
+1. Do **not** press `s` to switch to Expo Go.
+2. Install a **dev build** once (EAS cloud — no CocoaPods on your Mac):
+
+```bash
+cd apps/mobile
+eas build --profile development --platform ios
+```
+
+3. After install, run `npm start` and open the **Meetopia dev app** on your phone (not Expo Go).
+
+### EAS slug mismatch
+
+If `eas build` says slug does not match `meetopia-app`, ensure `app.config.ts` has `slug: 'meetopia-app'` (matches your EAS project).
+
+### CocoaPods / `expo run:ios`
+
+Local `expo run:ios` needs Xcode + CocoaPods. If pod install fails, skip it and use `eas build` above instead.
 
 Do **not** paste comments or TypeScript into the terminal — run one command per line.
 

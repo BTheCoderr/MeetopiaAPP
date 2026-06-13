@@ -50,11 +50,11 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 
 ## Settings & legal links
 
-- [ ] Privacy Policy link opens (`/privacy`)
-- [ ] Terms link opens (`/terms`)
-- [ ] Community Guidelines link opens (`/community-guidelines`)
-- [ ] Safety & Reporting link opens (`/safety`)
-- [ ] Support page opens (`/support`)
+- [ ] Privacy Policy — https://meetopia-live.netlify.app/privacy
+- [ ] Terms — https://meetopia-live.netlify.app/terms
+- [ ] Community Guidelines — https://meetopia-live.netlify.app/community-guidelines
+- [ ] Safety & Reporting — https://meetopia-live.netlify.app/safety
+- [ ] Support — https://meetopia-live.netlify.app/support
 
 ## Demo Mode (App Review)
 
@@ -84,13 +84,11 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 - Reports stored in Supabase + email notification when configured
 - No AI moderation / auto-blur
 
-- Reports stored in Supabase + email notification when configured
-
 ## External TestFlight / App Store blockers
 
 Before external review, confirm:
 
-1. [ ] Live policy URLs: `/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`
+1. [ ] Live policy URLs on https://meetopia-live.netlify.app (`/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`)
 2. [ ] Report persistence: Supabase `mobile_reports` + Resend email on Render
 3. [ ] Block persists on device (profile fingerprint + socket ID)
 4. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import ContactEmail from '@/components/ContactEmail'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -22,10 +23,7 @@ export default function SupportPage() {
           title: 'Contact us',
           body: (
             <p>
-              Email:{' '}
-              <a href="mailto:support@meetopia.app" className="text-blue-600 hover:underline">
-                support@meetopia.app
-              </a>
+              Email: <ContactEmail />
               <br />
               We aim to respond within <strong>2 business days</strong>.
             </p>

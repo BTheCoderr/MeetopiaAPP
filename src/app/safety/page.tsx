@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import ContactEmail from '@/components/ContactEmail'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -106,10 +107,7 @@ export default function SafetyPage() {
           title: 'Contact',
           body: (
             <p>
-              Safety concerns:{' '}
-              <a href="mailto:support@meetopia.app" className="text-blue-600 hover:underline">
-                support@meetopia.app
-              </a>
+              Safety concerns: <ContactEmail />
             </p>
           ),
         },

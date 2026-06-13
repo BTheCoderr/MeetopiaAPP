@@ -2,6 +2,19 @@
 
 Use this document for App Store Privacy Nutrition Labels, Privacy Policy drafting, and internal compliance review. **Not legal advice** — have counsel review before publication.
 
+## Public policy URLs (live)
+
+| Page | URL |
+|------|-----|
+| Home | https://meetopia-live.netlify.app |
+| Privacy Policy | https://meetopia-live.netlify.app/privacy |
+| Terms of Service | https://meetopia-live.netlify.app/terms |
+| Community Guidelines | https://meetopia-live.netlify.app/community-guidelines |
+| Support | https://meetopia-live.netlify.app/support |
+| Safety & Reporting | https://meetopia-live.netlify.app/safety |
+
+Mobile app Settings opens the same URLs (`apps/mobile/src/config/links.ts`).
+
 ## Summary
 
 Meetopia is a video-first dating and meeting app. We collect information needed to match you for live video Chemistry Checks and to keep the community safe.

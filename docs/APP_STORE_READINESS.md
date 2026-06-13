@@ -59,10 +59,12 @@ See also: [SAFETY_MODERATION_PLAN.md](./SAFETY_MODERATION_PLAN.md), [COMMUNITY_G
 - [ ] Description and keywords
 - [ ] Primary category recommendation (Lifestyle)
 - [ ] Age rating questionnaire (expect 17+; final rating from Apple)
-- [ ] Privacy Policy URL (placeholder until hosted)
-- [ ] Terms of Service URL (placeholder)
-- [ ] Community Guidelines URL (placeholder)
-- [ ] Support URL / contact email (placeholder)
+- [ ] Privacy Policy URL — `https://meetopia-live.netlify.app/privacy`
+- [ ] Terms of Service URL — `https://meetopia-live.netlify.app/terms`
+- [ ] Community Guidelines URL — `https://meetopia-live.netlify.app/community-guidelines`
+- [ ] Support URL — `https://meetopia-live.netlify.app/support`
+- [ ] Marketing URL — `https://meetopia-live.netlify.app`
+- [ ] Safety URL — `https://meetopia-live.netlify.app/safety`
 - [ ] App icon 1024×1024 (`apps/mobile/assets/icon.png`)
 - [ ] Screenshots (6.7", 6.5", iPad if supporting tablet)
 - [ ] Export compliance / encryption questionnaire

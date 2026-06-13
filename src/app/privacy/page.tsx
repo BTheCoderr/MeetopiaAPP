@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import ContactEmail from '@/components/ContactEmail'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Meetopia',
@@ -103,15 +104,7 @@ export default function PrivacyPage() {
           title: 'Contact',
           body: (
             <p>
-              Support:{' '}
-              <a href="mailto:support@meetopia.app" className="text-blue-600 hover:underline">
-                support@meetopia.app
-              </a>
-              <br />
-              Privacy:{' '}
-              <a href="mailto:privacy@meetopia.app" className="text-blue-600 hover:underline">
-                privacy@meetopia.app
-              </a>
+              Support &amp; privacy requests: <ContactEmail />
             </p>
           ),
         },

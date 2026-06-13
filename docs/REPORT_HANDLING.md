@@ -9,9 +9,9 @@ How in-app reports are stored and reviewed.
 3. Server persists the report (priority order):
    - **Primary:** Supabase Postgres table `mobile_reports`
    - **Fallback:** append to `server/data/reports.jsonl` (ephemeral on Render — not for production)
-4. Server sends an email via Resend to support (when configured).
+4. *(Optional later)* Server sends an email via Resend when `RESEND_API_KEY` is configured.
 
-For **external TestFlight / App Store review**, configure **Supabase + Resend** on Render.
+For **external TestFlight / App Store review**, configure **Supabase** on Render. Email alerts are optional.
 
 ## Supabase setup (recommended)
 
@@ -21,7 +21,7 @@ For **external TestFlight / App Store review**, configure **Supabase + Resend** 
    - `SUPABASE_URL` — Project URL
    - `SUPABASE_SERVICE_ROLE_KEY` — service role key (server only, never in mobile app)
 
-Verify `/health` returns `"reports": { "supabase": true, "email": true, ... }`.
+Verify `/health` returns `"reports": { "supabase": true, ... }`. Email can stay `false` until you add Resend later.
 
 ## Report record shape
 
@@ -47,9 +47,9 @@ Status values: `new`, `reviewed`, `actioned` (update in Supabase SQL editor or d
 |----------|----------|---------|
 | `SUPABASE_URL` | **Yes (external TF)** | Durable report storage |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Yes (external TF)** | Server-side insert/read |
-| `REPORT_NOTIFY_EMAIL` | **Yes (external TF)** | Inbox for new report alerts |
-| `RESEND_API_KEY` | **Yes (external TF)** | Resend API key |
-| `REPORT_FROM_EMAIL` | Optional | Verified sender, e.g. `reports@yourdomain.com` |
+| `REPORT_NOTIFY_EMAIL` | Optional | Inbox for new report alerts (Resend) |
+| `RESEND_API_KEY` | Optional | Resend API key |
+| `REPORT_FROM_EMAIL` | Optional | Sender, e.g. `Meetopia Reports <onboarding@resend.dev>` |
 | `REPORT_ADMIN_TOKEN` | Optional | Protects `GET /admin/reports` |
 
 See [`server/.env.example`](../server/.env.example).
