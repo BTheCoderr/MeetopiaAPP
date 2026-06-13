@@ -62,5 +62,21 @@ target 'Meetopia' do
         end
       end
     end
+
+    # Xcode 26.4+ breaks fmt 11.0.2 (bundled with RN 0.76) — disable consteval in pod header.
+    fmt_base = File.join(installer.sandbox.root, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      content = File.read(fmt_base)
+      unless content.include?('Xcode 26 workaround')
+        patched = content.gsub(
+          /^(#elif defined\(__cpp_consteval\)\n# define FMT_USE_CONSTEVAL) 1/,
+          "// Xcode 26 workaround: disable consteval\n\\1 0"
+        )
+        if patched != content
+          File.chmod(0o644, fmt_base)
+          File.write(fmt_base, patched)
+        end
+      end
+    end
   end
 end
