@@ -3,7 +3,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config'
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Meetopia',
-  slug: 'meetopia',
+  owner: 'bferrell514',
+  slug: 'meetopia-app',
   version: '1.0.0',
   orientation: 'portrait',
   scheme: 'meetopia',
@@ -17,8 +18,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.baheemferrell.meetopia',
-    buildNumber: '1',
+    bundleIdentifier: 'com.meetopia.app',
+    buildNumber: '14',
     infoPlist: {
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
@@ -27,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    package: 'com.baheemferrell.meetopia',
+    package: 'com.meetopia.app',
     versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
