@@ -40,6 +40,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
 
+        <Row label="Meetopia website" onPress={() => open(PUBLIC_LINKS.home)} />
         <Row label="Privacy Policy" onPress={() => open(PUBLIC_LINKS.privacy)} />
         <Row label="Terms of Service" onPress={() => open(PUBLIC_LINKS.terms)} />
         <Row

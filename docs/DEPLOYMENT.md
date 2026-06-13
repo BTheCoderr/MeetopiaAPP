@@ -4,23 +4,25 @@
 
 | Service | Target | Config |
 |---------|--------|--------|
-| **Frontend** | Vercel | Root Next.js app (`npm run build`) |
-| **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) |
+| **Frontend** | Netlify | Root Next.js app (`npm run build`) — https://meetopia-live.netlify.app |
+| **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) — https://meetopiaapp.onrender.com |
 
-Historical URLs from [`.env.render`](../.env.render):
+**App Store / public links:** use `https://meetopia-live.netlify.app` only. Do not use `meeetopia.netlify.app` or `/marketing` (redirects to home).
+
+Historical URLs (deprecated):
 - Frontend: `https://meetopia-app.vercel.app`
 - Signaling: `https://meetopia-signaling.onrender.com`
 
 ## Production environment
 
-### Frontend (Vercel)
+### Frontend (Netlify)
 
 ```env
-NEXT_PUBLIC_SOCKET_URL=https://meetopia-signaling.onrender.com
+NEXT_PUBLIC_SITE_URL=https://meetopia-live.netlify.app
+NEXT_PUBLIC_SOCKET_URL=https://meetopiaapp.onrender.com
 NEXT_PUBLIC_TURN_URL=turn:your-turn-server.com:3478
 NEXT_PUBLIC_TURN_USERNAME=...
 NEXT_PUBLIC_TURN_CREDENTIAL=...
-NEXT_PUBLIC_URL=https://meetopia-app.vercel.app
 ```
 
 Redeploy after changing `NEXT_PUBLIC_*` (inlined at build time).
@@ -31,10 +33,9 @@ Redeploy after changing `NEXT_PUBLIC_*` (inlined at build time).
 PORT=3003
 NODE_ENV=production
 CORS_ORIGINS=https://meetopia-live.netlify.app,https://meetopiaapp.onrender.com
-# Report handling (optional but recommended for App Store)
-REPORT_NOTIFY_EMAIL=you@example.com
-RESEND_API_KEY=re_...
-REPORT_FROM_EMAIL=reports@yourdomain.com
+# Report handling (Supabase required for App Store; email optional)
+# REPORT_NOTIFY_EMAIL=you@example.com
+# RESEND_API_KEY=re_...
 REPORT_ADMIN_TOKEN=long-random-token
 ```
 

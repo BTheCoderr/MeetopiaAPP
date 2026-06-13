@@ -50,6 +50,9 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 
 ## Settings & legal links
 
+All links open in Safari from Settings (`apps/mobile/src/config/links.ts`):
+
+- [ ] Home — https://meetopia-live.netlify.app
 - [ ] Privacy Policy — https://meetopia-live.netlify.app/privacy
 - [ ] Terms — https://meetopia-live.netlify.app/terms
 - [ ] Community Guidelines — https://meetopia-live.netlify.app/community-guidelines
@@ -66,7 +69,7 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 ## Network & backend
 
 - [ ] Connects to `EXPO_PUBLIC_SOCKET_URL` (Render production)
-- [ ] Report creates Supabase row + support email (when configured)
+- [ ] Report creates Supabase row (email alerts optional — not required for MVP)
 - [ ] Reconnect after background/foreground (best effort)
 - [ ] No CORS errors on web (regression check — web unchanged)
 
@@ -81,7 +84,7 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 - Profile/matches stored locally only
 - No push notifications
 - No payments
-- Reports stored in Supabase + email notification when configured
+- Reports stored in Supabase for review
 - No AI moderation / auto-blur
 
 ## External TestFlight / App Store blockers
@@ -89,12 +92,12 @@ Use this checklist before promoting a build from TestFlight to App Store review.
 Before external review, confirm:
 
 1. [ ] Live policy URLs on https://meetopia-live.netlify.app (`/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`)
-2. [ ] Report persistence: Supabase `mobile_reports` + Resend email on Render
-3. [ ] Block persists on device (profile fingerprint + socket ID)
-4. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
-5. [ ] No false safety claims (no AI moderation / auto-blur / verified users)
-6. [ ] `assets/icon.png`, `splash.png`, `adaptive-icon.png` present
-7. [ ] EAS `projectId` replaced after `eas init`
+2. [ ] **App Store Connect URLs** use `https://meetopia-live.netlify.app` — not `meeetopia.netlify.app`, not `/marketing` (use home URL for Marketing URL)
+3. [ ] Report persistence: Supabase `mobile_reports` on Render
+4. [ ] Block persists on device (profile fingerprint + socket ID)
+5. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
+6. [ ] No false safety claims (no AI moderation / auto-blur / verified users)
+7. [ ] App icon/splash are real brand assets (not blank placeholders)
 8. [ ] Physical iPhone QA completed (this checklist)
 
 ## Sign-off

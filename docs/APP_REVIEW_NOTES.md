@@ -4,7 +4,26 @@ Paste the sections below into **App Review Information** when submitting Meetopi
 
 ## Demo account / special instructions
 
-Meetopia is a live video dating app. **No login is required.**
+Meetopia is a **video-first dating and meeting app**. No sign-in is required for this beta.
+
+### Reviewer test path
+
+1. Open the app.
+2. Confirm the **18+** age gate.
+3. Create a basic local profile.
+4. Choose a dating or meeting intent.
+5. Tap **Start Chemistry Check**.
+6. Allow camera and microphone permissions.
+7. Use **Demo Mode** if another live tester is not available.
+8. In live testing with two devices, both users can start Chemistry Check and match into a video session.
+9. Test **Vibe**, mutual Vibe chat unlock, **Skip**, **Leave**, **Report**, and **Block**.
+10. Open **Settings** to view privacy, terms, support, community guidelines, safety, website home, and delete local profile options.
+
+### Known beta limits
+
+- Profiles, blocks, and matches are stored **locally on the device**.
+- Reports are stored in Supabase for review by the Meetopia team.
+- No payments, push notifications, AI moderation, automatic blur, or subscription features in this build.
 
 ### Option A — Demo Mode (recommended, single device)
 

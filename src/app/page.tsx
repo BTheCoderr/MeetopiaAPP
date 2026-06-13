@@ -19,10 +19,10 @@ export default function Home() {
         {/* Hero Section */}
         <div className="flex flex-col items-center justify-center text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Meet New People Through Random Video Chat
+            Video-first dating and real chemistry
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mb-8">
-            Connect with strangers around the world in seconds. No sign-up required.
+            Meet people through live Chemistry Checks. Choose your intent, tap Vibe, and chat when the feeling is mutual. 18+ only.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <Link 
@@ -43,21 +43,21 @@ export default function Home() {
         {/* Features Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-3">No Registration</h3>
+            <h3 className="text-xl font-semibold mb-3">Local profile</h3>
             <p className="text-gray-600">
-              Jump straight into conversations without creating an account or sharing personal information.
+              Create a lightweight profile and choose dating or meeting intent before you start a Chemistry Check.
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-3">Random Matching</h3>
+            <h3 className="text-xl font-semibold mb-3">Chemistry Check</h3>
             <p className="text-gray-600">
-              Our system connects you with random people from around the world for spontaneous conversations.
+              Short live video conversations with people who match your intent — not anonymous random chat.
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-3">Safe Environment</h3>
+            <h3 className="text-xl font-semibold mb-3">Report &amp; block</h3>
             <p className="text-gray-600">
-              Our content moderation system helps protect users from inappropriate content and behavior.
+              Leave any call instantly, report problems, and block users who make you uncomfortable.
             </p>
           </div>
         </div>
@@ -67,23 +67,26 @@ export default function Home() {
           <h2 className="text-2xl font-bold mb-4 text-center">Your Safety Is Our Priority</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-xl font-semibold mb-3">Content Moderation</h3>
+              <h3 className="text-xl font-semibold mb-3">Safety tools (MVP)</h3>
               <p className="text-gray-700">
-                Meetopia uses technology to automatically detect and blur potentially inappropriate 
-                content, giving you more control over your chat experience.
+                Meetopia includes in-app report and block on every Chemistry Check. We do not use AI moderation or automatic video blur in this beta.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Auto-blurring of inappropriate content</span>
+                  <span>In-app report with categories</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Easy reporting of violations</span>
+                  <span>Block and skip anytime</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>One-click skip to next person</span>
+                  <span>
+                    <Link href="/safety" className="text-blue-600 hover:underline">
+                      Safety &amp; reporting guidelines
+                    </Link>
+                  </span>
                 </li>
               </ul>
             </div>

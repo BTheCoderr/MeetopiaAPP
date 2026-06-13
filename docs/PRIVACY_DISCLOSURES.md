@@ -59,7 +59,7 @@ Meetopia requires camera and microphone access for **live video Chemistry Checks
 
 ## Account deletion
 
-Users can delete local account data from **Settings → Delete account data**. This removes profile, onboarding state, blocks, and local match history on the device. When accounts are authenticated, deletion will also remove server-side records (document retention period in Privacy Policy).
+Users can delete local account data from **Settings → Delete local profile & data**. This removes profile, onboarding state, blocks, and local match history on the device. When accounts are authenticated, deletion will also remove server-side records (document retention period in Privacy Policy).
 
 ## Children
 
@@ -82,8 +82,7 @@ Meetopia is **18+ only**. We do not knowingly collect data from anyone under 18.
 
 ## Contact
 
-Support: `support@meetopia.app` (placeholder — update before launch)  
-Privacy: `privacy@meetopia.app` (placeholder)
+Support & privacy requests: ermias6822@gmail.com
 
 ## App Store privacy label mapping (draft)
 

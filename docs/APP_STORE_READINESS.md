@@ -7,11 +7,13 @@ Meetopia is a **video-first dating and meeting app** for real chemistry (not ano
 | Field | Value |
 |-------|-------|
 | App name | Meetopia |
-| Slug | `meetopia` |
-| iOS bundle ID | `com.baheemferrell.meetopia` |
-| Android package | `com.baheemferrell.meetopia` |
-| Version | 1.0.0 (build 1) |
-| EAS project ID | Replace `REPLACE_WITH_EAS_PROJECT_ID` in `apps/mobile/app.config.ts` after `eas init` |
+| Slug | `meetopia-app` |
+| iOS bundle ID | `com.meetopia.app` |
+| Android package | `com.meetopia.app` |
+| Version | 1.0.0 |
+| EAS project ID | `37e69074-d079-4c60-a3c4-5d468645bcf1` |
+| Public website | https://meetopia-live.netlify.app |
+| Policy links (mobile) | `apps/mobile/src/config/links.ts` |
 
 ## Data collected (MVP)
 
@@ -20,7 +22,7 @@ Meetopia is a **video-first dating and meeting app** for real chemistry (not ano
 | First name, age, city, gender, intent, prompt | Matching and profile card during Chemistry Check | Device (AsyncStorage); backend persistence Phase 2 |
 | Camera / microphone streams | Live video Chemistry Check | Ephemeral WebRTC; not recorded by Meetopia |
 | Socket ID | Signaling and matching | Render signaling server (session) |
-| Reports (category + reported user ID) | Safety moderation | Supabase `mobile_reports` + Resend email (+ JSONL fallback) |
+| Reports (category + reported user ID) | Safety moderation | Supabase `mobile_reports` (+ JSONL fallback) |
 | Block list | Prevent re-match on device | AsyncStorage (profile fingerprint + socket ID) |
 | 18+ confirmation flag | Age gate compliance | Device (AsyncStorage) |
 | Vibe / mutual match state | Unlock chat after mutual Vibe | Device (AsyncStorage) |
@@ -48,7 +50,7 @@ See also: [SAFETY_MODERATION_PLAN.md](./SAFETY_MODERATION_PLAN.md), [COMMUNITY_G
 ## Account deletion process
 
 1. User opens **Settings & safety**.
-2. Taps **Delete account** (placeholder).
+2. Taps **Delete local profile & data**.
 3. MVP: clears local onboarding, profile, blocks, and vibe matches via AsyncStorage.
 4. Phase 2: call backend/Supabase to delete account and associated data; document retention in Privacy Policy.
 
