@@ -47,9 +47,7 @@ export default function VideoStage({
         <View style={styles.overlay}>
           <Text style={styles.overlayText}>
             {overlayHint ??
-              (hasPeer && !hasRemote
-                ? 'Connecting video…'
-                : 'Looking for someone who matches your intent…')}
+              (hasPeer && !hasRemote ? 'Connecting video…' : 'Connecting your Chemistry Check…')}
           </Text>
         </View>
       )}

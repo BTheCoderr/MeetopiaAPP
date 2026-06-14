@@ -1,6 +1,6 @@
 # Meetopia — App Store Readiness
 
-Meetopia is a **video-first dating and meeting app** for real chemistry (not anonymous random chat). This document tracks what is required before TestFlight and App Store submission.
+Meetopia is a **profile-based, video-first dating app** for real chemistry. Users create a profile, choose an intent, browse suggested matches, and request a Chemistry Check; video starts only after a profile-based match accepts. This document tracks what is required before TestFlight and App Store submission.
 
 ## App identity
 

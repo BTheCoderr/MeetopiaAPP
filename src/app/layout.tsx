@@ -10,14 +10,14 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  title: 'Meetopia - Random Video Chat with Strangers',
-  description: 'Connect with random people worldwide through instant video chat. No sign-up required, completely free, and anonymous. Just click and start chatting!',
-  keywords: 'video chat, random chat, meet strangers, omegle alternative, chatroulette, anonymous chat, video calls',
+  title: 'Meetopia — Video-First Dating for Real Chemistry',
+  description: 'Meetopia is profile-based, video-first dating. Create a profile, choose your intent, browse suggested matches, and request a Chemistry Check. 18+ only.',
+  keywords: 'video dating, dating app, chemistry check, profile-based dating, meet people, singles, local dating, new friends',
   authors: [{ name: 'Meetopia Team' }],
   robots: 'index, follow',
   openGraph: {
-    title: 'Meetopia - Random Video Chat with Strangers',
-    description: 'Connect with random people through instant video chat. No sign-up required, completely free!',
+    title: 'Meetopia — Video-First Dating for Real Chemistry',
+    description: 'Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check. 18+ only.',
     type: 'website',
     locale: 'en_US',
     siteName: 'Meetopia',
@@ -26,14 +26,14 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Meetopia - Random Video Chat App'
+        alt: 'Meetopia — Video-first dating app'
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Meetopia - Random Video Chat with Strangers',
-    description: 'Connect with random people through instant video chat. No sign-up required!',
+    title: 'Meetopia — Video-First Dating for Real Chemistry',
+    description: 'Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check. 18+ only.',
     images: ['/og-image.png']
   }
 }

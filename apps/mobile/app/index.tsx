@@ -10,7 +10,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [profileName, setProfileName] = useState<string | null>(null)
   const [intent, setIntent] = useState<string | null>(null)
-  const [canStartLive, setCanStartLive] = useState(false)
+  const [onboarded, setOnboarded] = useState(false)
 
   useEffect(() => {
     isAgeVerified().then(ageOk => {
@@ -19,7 +19,7 @@ export default function HomeScreen() {
         return
       }
       isOnboardingComplete().then(complete => {
-        setCanStartLive(complete)
+        setOnboarded(complete)
         if (complete) {
           getStoredProfile().then(p => {
             if (p) {
@@ -48,28 +48,28 @@ export default function HomeScreen() {
       <Text style={styles.title}>
         <Text style={styles.brand}>Meet</Text>opia
       </Text>
-      <Text style={styles.subtitle}>Video-first dating and real chemistry</Text>
+      <Text style={styles.subtitle}>Video-first dating for real chemistry.</Text>
       {profileName ? (
         <Text style={styles.hint}>
           Hi {profileName} · {intent}
         </Text>
       ) : null}
 
-      {canStartLive ? (
-        <Link href="/chat/video" asChild>
+      {onboarded ? (
+        <Link href="/matches" asChild>
           <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>Start Chemistry Check</Text>
+            <Text style={styles.primaryText}>View Suggested Matches</Text>
           </TouchableOpacity>
         </Link>
       ) : (
         <Link href="/onboarding/profile" asChild>
           <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>Complete profile to start</Text>
+            <Text style={styles.primaryText}>Complete your profile</Text>
           </TouchableOpacity>
         </Link>
       )}
 
-      <Link href="/chat/video?demo=1" asChild>
+      <Link href="/matches?demo=1" asChild>
         <TouchableOpacity style={styles.demoBtn}>
           <Text style={styles.demoText}>Try Demo Mode</Text>
         </TouchableOpacity>
@@ -88,7 +88,8 @@ export default function HomeScreen() {
       </Link>
 
       <Text style={styles.note}>
-        18+ only. Live video with real people — report or block anyone who makes you uncomfortable.
+        18+ only. Browse suggested profiles, request a Chemistry Check, and meet on video after a
+        mutual match. Report or block anyone anytime.
       </Text>
     </SafeAreaView>
   )

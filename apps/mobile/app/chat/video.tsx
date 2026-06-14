@@ -21,11 +21,28 @@ import {
   blockUser,
 } from '@/lib/onboardingStorage'
 import { toSignalingProfile } from '@/types/profile'
+import { getSuggestedMatch } from '@/data/suggestedMatches'
+import type { PeerProfilePayload } from '@/hooks/useMobileVideoChatSocket'
 
 export default function VideoChatScreen() {
   const router = useRouter()
-  const { demo } = useLocalSearchParams<{ demo?: string }>()
-  const isDemo = demo === '1'
+  const { demo, matchId } = useLocalSearchParams<{ demo?: string; matchId?: string }>()
+  const match = getSuggestedMatch(matchId)
+  // Both Demo Mode and an accepted suggested-match use the local (non-random) experience.
+  const isDemo = demo === '1' || Boolean(match)
+  const cameFromMatch = Boolean(match)
+
+  const matchPeerProfile: PeerProfilePayload | null = match
+    ? {
+        name: match.name,
+        age: match.age,
+        city: match.city,
+        intent: match.intent,
+        prompt: match.prompt,
+        gender: 'other',
+        lookingFor: 'both',
+      }
+    : null
 
   const [ready, setReady] = useState(false)
   const [signalingProfile, setSignalingProfile] = useState<Record<string, unknown> | null>(null)
@@ -73,7 +90,12 @@ export default function VideoChatScreen() {
     enabled: !isDemo,
   })
 
-  const demoChat = useDemoVideoChat({ enabled: isDemo, stream })
+  const demoChat = useDemoVideoChat({
+    enabled: isDemo,
+    stream,
+    matchProfile: matchPeerProfile,
+    autoStart: cameFromMatch,
+  })
 
   const chat = isDemo ? demoChat : liveChat
 
@@ -158,7 +180,15 @@ export default function VideoChatScreen() {
         hasPeer={Boolean(chat.currentPeer)}
         isCameraOff={isCameraOff}
         hideConnectingOverlay={isDemo && Boolean(chat.currentPeer)}
-        overlayHint={isDemo && chat.isSearching ? 'Demo Mode — finding simulated match…' : undefined}
+        overlayHint={
+          chat.isSearching
+            ? cameFromMatch && match
+              ? `Connecting you with ${match.name}…`
+              : isDemo
+                ? 'Demo Mode — connecting your Chemistry Check…'
+                : 'Connecting your Chemistry Check…'
+            : undefined
+        }
       />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
@@ -167,9 +197,10 @@ export default function VideoChatScreen() {
             ←
           </Text>
           <View style={styles.headerCenter}>
-            <Text style={styles.logo}>
-              <Text style={styles.brand}>Meet</Text>opia
-            </Text>
+            <Text style={styles.logo}>Chemistry Check</Text>
+            {chat.peerProfile?.name ? (
+              <Text style={styles.meeting}>You&apos;re meeting {chat.peerProfile.name}</Text>
+            ) : null}
             {isDemo && <Text style={styles.demoBadge}>Demo Mode</Text>}
             <ChemistryTimer active={timerActive} />
           </View>
@@ -183,7 +214,8 @@ export default function VideoChatScreen() {
       {isDemo && (
         <View style={styles.demoBanner}>
           <Text style={styles.demoBannerText}>
-            Demo Mode — no real users connected. Simulated match for App Review testing.
+            Demo Mode — simulated match for App Review. Tap Vibe if you want to continue. Both people
+            can leave, report, or block anytime.
           </Text>
         </View>
       )}
@@ -234,7 +266,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   back: { color: '#fff', fontSize: 22, width: 32 },
   logo: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  brand: { color: '#0A84FF' },
+  meeting: { color: '#5AC8FA', fontSize: 13, fontWeight: '500', marginTop: 2 },
   demoBadge: { color: '#FFD60A', fontSize: 12, fontWeight: '600', marginTop: 2 },
   status: { fontSize: 14, width: 32, textAlign: 'right' },
   online: { color: '#30D158' },

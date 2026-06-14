@@ -51,7 +51,7 @@ export default function Home() {
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-3">Chemistry Check</h3>
             <p className="text-gray-600">
-              Short live video conversations with people who match your intent — not anonymous random chat.
+              Short live video conversations with suggested profiles who share your dating intent.
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
@@ -118,13 +118,13 @@ export default function Home() {
         <div className="bg-gray-800 text-white p-8 rounded-lg text-center">
           <h2 className="text-2xl font-bold mb-4">Ready to meet someone new?</h2>
           <p className="text-gray-300 mb-6">
-            Start a random video chat right now and discover new connections.
+            Create a profile, choose your intent, and request a Chemistry Check with a suggested match.
           </p>
           <Link
-            href="/chat/video"
+            href="/dating/profile"
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg shadow-md transition-colors"
           >
-            Start Chatting
+            Create Your Profile
           </Link>
         </div>
       </div>

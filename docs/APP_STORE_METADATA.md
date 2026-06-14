@@ -15,14 +15,15 @@ Meet people through live video Chemistry Checks. Match by intent, tap Vibe, and 
 
 ## Description (draft)
 
-Meetopia is video-first dating and meeting for people who want **real chemistry** — not endless swiping or anonymous random chat.
+Meetopia is profile-based, video-first dating for people who want **real chemistry**. Create a profile, choose your intent, browse suggested matches, and request a Chemistry Check.
 
 **How it works**
 
 1. Create a lightweight profile and choose your intent — dating, new friends, local meetups, and more.  
-2. Start a **Chemistry Check**: a short live video conversation with someone who matches your vibe.  
-3. Tap **Vibe** if you feel a connection. When you both do, chat unlocks.  
-4. Skip anytime, report problems, or block users who make you uncomfortable.
+2. Browse **suggested matches** who share your intent and open a profile.  
+3. **Request a Chemistry Check** — a short live video conversation that starts only after your match accepts.  
+4. Tap **Vibe** if you feel a connection. When you both do, chat unlocks.  
+5. Skip anytime, report problems, or block users who make you uncomfortable.
 
 **Built for safety**
 
@@ -52,15 +53,28 @@ dating,video dating,chemistry,meet people,singles,chat,local dating,new friends
 
 **Why Lifestyle:** Apple groups dating and relationship apps under Lifestyle alongside Social Networking; “video-first dating” aligns with Lifestyle user expectations. Social Networking is a reasonable secondary tag for friend/meetup intents.
 
-## Age rating
+## Age rating (Guideline 2.3.6 — required settings)
 
-Likely **17+** based on:
+Meetopia is a dating app, so the age rating **must be 18+**. Set the following in
+**App Store Connect → App → Age Rating → Edit**:
 
-- Unrestricted web access (signaling)  
-- User-generated content (profile, chat, live video)  
-- Dating/meeting theme  
+| Questionnaire item | Answer |
+|--------------------|--------|
+| **Mature/Suggestive Themes** | **Frequent/Intense** |
+| **Medical/Treatment, Gambling, etc.** | None |
+| **Override to a higher age rating** | **Yes → 18+** |
+| **Made for Kids** | No |
 
-**Do not hardcode the final rating** — complete Apple’s questionnaire in App Store Connect.
+Also complete the App Privacy / app questionnaire consistently:
+
+| Item | Answer |
+|------|--------|
+| **User-Generated Content** | **Yes** (profiles, chat, live video) |
+| **Messaging and Chat** | **Yes** |
+| **Age Assurance / Age Verification** | **Yes** (18+ age gate on first launch) |
+| **Unrestricted Web Access** | **No** (in-app links open fixed policy pages only) |
+
+Result: the app must display an **18+** rating. Do not submit at 9+/12+/17+.
 
 ## App Store Connect — paste these URLs
 
@@ -77,14 +91,15 @@ Mobile Settings opens the same URLs via `apps/mobile/src/config/links.ts`.
 
 ## Description — App Store Connect paste (honest MVP)
 
-Meetopia is video-first dating for people who want real chemistry — not endless swiping.
+Meetopia is profile-based, video-first dating for people who want real chemistry.
 
 **How it works**
 
 1. Create a lightweight local profile and choose your dating intent.  
-2. Start a **Chemistry Check**: a short live video conversation.  
-3. Tap **Vibe** if you feel a connection. When you both do, chat unlocks.  
-4. Skip anytime, **report**, or **block** users who make you uncomfortable.
+2. Browse **suggested matches** and open a profile (name, age, city, intent, prompt, interests).  
+3. **Request a Chemistry Check.** Video starts only after the match accepts.  
+4. Tap **Vibe** if you feel a connection. When you both do, chat unlocks.  
+5. Skip anytime, **report**, or **block** users who make you uncomfortable.
 
 **MVP limits (this beta)**
 
@@ -119,9 +134,9 @@ Send feedback to ermias6822@gmail.com
 
 ## Screenshot storyboard (suggested)
 
-1. Home — “Start Chemistry Check”  
-2. Profile / intent selection  
-3. Live video with profile card + timer  
-4. Mutual Vibe unlocked chat  
-5. Report modal  
-6. Settings & safety  
+1. Home — “Video-first dating for real chemistry” + **View Suggested Matches**  
+2. Suggested Matches list (profiles with intent + interests)  
+3. Profile card with **Request Chemistry Check**  
+4. Chemistry Check video — “You're meeting [Name]” + profile card + timer  
+5. Mutual Vibe unlocked chat  
+6. Report modal + Settings & safety  

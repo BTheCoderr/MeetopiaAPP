@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.meetopia.app',
-    buildNumber: '14',
+    buildNumber: '15',
     infoPlist: {
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',

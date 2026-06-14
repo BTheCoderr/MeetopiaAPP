@@ -17,7 +17,7 @@ export default function AgeGateScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Welcome to Meetopia</Text>
-      <Text style={styles.subtitle}>Video-first dating and real chemistry — not anonymous random chat.</Text>
+      <Text style={styles.subtitle}>Profile-based, video-first dating for real chemistry. 18+ only.</Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Age requirement</Text>

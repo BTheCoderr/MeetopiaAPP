@@ -7,7 +7,7 @@ Last updated: Phase 1 audit before native hardening pass.
 | Area | Status |
 |------|--------|
 | Expo SDK 52 + expo-dev-client + react-native-webrtc config plugin | Scaffolded |
-| Home screen (Meetopia branding, Random/Dating links) | Done |
+| Home screen (Meetopia branding, Suggested Matches / Demo Mode) | Done |
 | Video screen composition (VideoStage, PIP, MessageBar, ControlBar) | Done |
 | `useMobileMedia` — getUserMedia camera/mic | Done |
 | `useMobilePeerConnection` — RTCPeerConnection + addTrack | Done |

@@ -6,9 +6,9 @@ import MainLayout from '@/components/Layout/MainLayout'
 export default function ExplorePage() {
   const router = useRouter()
 
-  const startRandomChat = () => {
-    // Go directly to video chat
-    router.push('/chat/video')
+  const startMeeting = () => {
+    // Go to dating profile first
+    router.push('/dating/profile')
   }
 
   const startDating = () => {
@@ -26,21 +26,21 @@ export default function ExplorePage() {
           </p>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Random Video Chat Option */}
+            {/* New Friends / Local Meet Option */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 transition-all hover:shadow-lg">
               <div className="h-48 bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
                 <span className="text-6xl">🎥</span>
               </div>
               <div className="p-6">
-                <h2 className="text-xl font-bold mb-2">Random Video Chat</h2>
+                <h2 className="text-xl font-bold mb-2">Meet & New Friends</h2>
                 <p className="text-gray-600 mb-6 h-20">
-                  Connect with random people from around the world. Fast, anonymous, and no sign-up required.
+                  Create a profile, set your intent, and browse suggested people who share it. Request a Chemistry Check to meet on video.
                 </p>
                 <button 
-                  onClick={startRandomChat}
+                  onClick={startMeeting}
                   className="w-full py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors"
                 >
-                  Start Random Chat
+                  Create Profile
                 </button>
               </div>
             </div>
@@ -53,7 +53,7 @@ export default function ExplorePage() {
               <div className="p-6">
                 <h2 className="text-xl font-bold mb-2">Video Dating</h2>
                 <p className="text-gray-600 mb-6 h-20">
-                  Meet people with shared interests through video dating. Create a quick profile to get matched better.
+                  Profile-based, video-first dating. Choose your intent, view suggested matches, and request a Chemistry Check.
                 </p>
                 <button 
                   onClick={startDating}

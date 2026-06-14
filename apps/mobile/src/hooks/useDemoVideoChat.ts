@@ -24,9 +24,14 @@ const DEMO_PROFILE: PeerProfilePayload = {
 interface Options {
   enabled: boolean
   stream: MediaStream | null
+  /** Profile of the match who accepted the Chemistry Check request. */
+  matchProfile?: PeerProfilePayload | null
+  /** When true, connect immediately (consent already given on the request screen). */
+  autoStart?: boolean
 }
 
-export function useDemoVideoChat({ enabled, stream }: Options) {
+export function useDemoVideoChat({ enabled, stream, matchProfile, autoStart }: Options) {
+  const activeProfile = matchProfile ?? DEMO_PROFILE
   const [currentPeer, setCurrentPeer] = useState<string | null>(null)
   const [peerProfile, setPeerProfile] = useState<PeerProfilePayload | null>(null)
   const [isSearching, setIsSearching] = useState(false)
@@ -70,20 +75,31 @@ export function useDemoVideoChat({ enabled, stream }: Options) {
     return () => clearTimers()
   }, [enabled, resetDemo])
 
+  const connectNow = useCallback(() => {
+    setCurrentPeer(DEMO_PEER_ID)
+    setPeerProfile(activeProfile)
+    setIsSearching(false)
+    setIsPeerConnected(true)
+  }, [activeProfile])
+
   const simulateMatch = useCallback(() => {
-    if (isBlockedEntry(blockedRef.current, DEMO_PEER_ID, DEMO_PROFILE)) {
-      Alert.alert('Demo peer blocked', 'Unblock from a fresh install or clear blocks in Settings.')
+    if (isBlockedEntry(blockedRef.current, DEMO_PEER_ID, activeProfile)) {
+      Alert.alert('Match blocked', 'Unblock from a fresh install or clear blocks in Settings.')
       setIsSearching(false)
       return
     }
+    // Consent already given via the request screen — connect promptly.
     setIsSearching(true)
-    matchTimer.current = setTimeout(() => {
-      setCurrentPeer(DEMO_PEER_ID)
-      setPeerProfile(DEMO_PROFILE)
-      setIsSearching(false)
-      setIsPeerConnected(true)
-    }, 2000)
-  }, [])
+    matchTimer.current = setTimeout(connectNow, autoStart ? 600 : 1500)
+  }, [activeProfile, autoStart, connectNow])
+
+  // Auto-connect once media is ready when the user arrived from an accepted request.
+  useEffect(() => {
+    if (!enabled || !autoStart || !stream) return
+    if (currentPeer || isSearching) return
+    simulateMatch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, autoStart, stream])
 
   const handleStartChat = useCallback(() => {
     if (!enabled || !stream) return
@@ -115,7 +131,7 @@ export function useDemoVideoChat({ enabled, stream }: Options) {
       setMessages([
         {
           id: 'demo-1',
-          text: 'Hey! Nice to meet you in Demo Mode 👋',
+          text: `Hey! Great to match with you 👋 (${activeProfile.name ?? 'Demo'} — simulated)`,
           sender: 'peer',
           timestamp: Date.now(),
         },

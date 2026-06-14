@@ -4,49 +4,37 @@ Paste the sections below into **App Review Information** when submitting Meetopi
 
 ## Demo account / special instructions
 
-Meetopia is a **video-first dating and meeting app**. No sign-in is required for this beta.
+Meetopia is a **profile-based, video-first dating app**. It is **not** anonymous or random matching. Users create a local profile, choose a dating intent, browse **suggested profiles**, and request a **Chemistry Check** with a specific person. Live video starts **only after** a profile-based match accepts the request. No sign-in is required for this beta.
 
-### Reviewer test path
+### Primary flow
 
-1. Open the app.
-2. Confirm the **18+** age gate.
-3. Create a basic local profile.
-4. Choose a dating or meeting intent.
-5. Tap **Start Chemistry Check**.
-6. Allow camera and microphone permissions.
-7. Use **Demo Mode** if another live tester is not available.
-8. In live testing with two devices, both users can start Chemistry Check and match into a video session.
-9. Test **Vibe**, mutual Vibe chat unlock, **Skip**, **Leave**, **Report**, and **Block**.
-10. Open **Settings** to view privacy, terms, support, community guidelines, safety, website home, and delete local profile options.
+Age Gate (18+) → Create Profile → Choose Intent → **Suggested Matches** → Profile Card → **Request Chemistry Check** → Match accepts → Video (Chemistry Check) → mutual **Vibe** → Chat unlocks.
+
+### Reviewer test path (single device — recommended)
+
+1. Open the app and confirm the **18+** age gate.
+2. Create a basic local profile and choose a dating/meeting intent.
+3. On the home screen, tap **View Suggested Matches** (or **Try Demo Mode**).
+4. Open any suggested profile to see name, age, city, intent, prompt, and interests.
+5. Tap **Request Chemistry Check**. The screen shows "Waiting for [Name] to accept…", then the match accepts (simulated for review).
+6. Allow **camera** and **microphone** when prompted.
+7. You enter the **Chemistry Check** video screen titled "You're meeting [Name]".
+8. Tap **✨ Vibe** — mutual Vibe unlocks chat after a short delay. Send a message.
+9. Test **Report (🚩)**, **Block (⛔)**, **Skip (⏭)**, and **Leave (✕)** from the control bar.
+10. Open **Settings** for privacy, terms, support, community guidelines, safety, website home, and delete-local-profile options.
+
+**Why simulated acceptance:** in this beta, Suggested Matches uses local demo profiles so a single reviewer can experience the entire profile → request → accept → video flow without needing two live users. Requesting a Chemistry Check never opens random/anonymous video — it always meets the specific profile you selected.
 
 ### Known beta limits
 
+- Suggested matches and the accept step use **local demo data** for review.
 - Profiles, blocks, and matches are stored **locally on the device**.
 - Reports are stored in Supabase for review by the Meetopia team.
 - No payments, push notifications, AI moderation, automatic blur, or subscription features in this build.
 
-### Option A — Demo Mode (recommended, single device)
+### Optional — live two-user test
 
-1. Open the Meetopia app.
-2. Confirm you are **18+** on the age gate (one-time).
-3. On the home screen, tap **Try Demo Mode**.
-4. Allow **camera** and **microphone** when prompted.
-5. Tap the **play (▶)** button to start a simulated Chemistry Check.
-6. After ~2 seconds, a **simulated peer profile** (Alex, Demo City) appears.
-7. Tap **✨ Vibe** — mutual vibe unlocks after a short delay.
-8. Send a text message once chat unlocks.
-9. Test **Report (🚩)**, **Block (⛔)**, and **Leave (✕)** from the control bar.
-
-Demo Mode is clearly labeled and does **not** connect to real users or the live matching server.
-
-### Option B — Live two-user test
-
-1. Complete onboarding (profile + intent) on two devices.
-2. Tap **Start Chemistry Check** on both devices within ~30 seconds.
-3. Allow camera/microphone on both.
-4. Test video, Vibe, chat unlock, skip, report, and block.
-
-If live matching is difficult during review, use **Demo Mode** or email **ermias6822@gmail.com** to schedule a live test window.
+If you want to schedule a live video test between two real devices, email **ermias6822@gmail.com** and we will arrange a test window.
 
 ## Signaling backend
 
