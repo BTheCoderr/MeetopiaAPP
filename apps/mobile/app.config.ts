@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Meetopia',
   owner: 'bferrell514',
   slug: 'meetopia-app',
-  version: '1.0.0',
+  version: '1.0',
   orientation: 'portrait',
   scheme: 'meetopia',
   userInterfaceStyle: 'dark',
@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.meetopia.app',
-    buildNumber: '15',
+    buildNumber: '16',
     infoPlist: {
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
