@@ -25,16 +25,19 @@
     <key>CFBundleURLTypes</key>
     <array>
       <dict>
+        <key>CFBundleURLName</key>
+        <string>com.meetopia.app</string>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>meetopia</string>
-          <string>com.meetopia.app</string>
         </array>
       </dict>
       <dict>
+        <key>CFBundleURLName</key>
+        <string>expo-development-client</string>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+meetopia</string>
+          <string>exp+meetopia-app</string>
         </array>
       </dict>
     </array>

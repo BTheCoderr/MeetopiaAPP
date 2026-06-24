@@ -21,6 +21,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.meetopia.app',
     buildNumber: '16',
     infoPlist: {
+      CFBundleURLTypes: [
+        {
+          CFBundleURLName: 'com.meetopia.app',
+          CFBundleURLSchemes: ['meetopia'],
+        },
+        {
+          CFBundleURLName: 'expo-development-client',
+          CFBundleURLSchemes: ['exp+meetopia-app'],
+        },
+      ],
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
       NSMicrophoneUsageDescription:
@@ -37,6 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     permissions: ['CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'INTERNET', 'ACCESS_NETWORK_STATE'],
   },
   plugins: [
+    'expo-dev-client',
     'expo-router',
     'expo-asset',
     'expo-font',

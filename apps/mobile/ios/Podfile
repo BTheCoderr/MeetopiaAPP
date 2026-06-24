@@ -69,9 +69,11 @@ target 'Meetopia' do
       content = File.read(fmt_base)
       unless content.include?('Xcode 26 workaround')
         patched = content.gsub(
-          /^(#elif defined\(__cpp_consteval\)\n# define FMT_USE_CONSTEVAL) 1/,
+          /^(#elif defined\(__cpp_consteval\)\n# define FMT_USE_CONSTEVAL) 1/m,
           "// Xcode 26 workaround: disable consteval\n\\1 0"
         )
+        # Fallback if header layout differs on EAS/Xcode image.
+        patched = patched.gsub(/# define FMT_USE_CONSTEVAL 1/, '# define FMT_USE_CONSTEVAL 0')
         if patched != content
           File.chmod(0o644, fmt_base)
           File.write(fmt_base, patched)
