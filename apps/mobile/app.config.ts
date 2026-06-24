@@ -8,6 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0',
   orientation: 'portrait',
   scheme: 'meetopia',
+  platforms: ['ios', 'android'],
   userInterfaceStyle: 'dark',
   newArchEnabled: false,
   icon: './assets/icon.png',

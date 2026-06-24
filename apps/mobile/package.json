@@ -4,8 +4,9 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --dev-client",
-    "start:dev": "expo start --dev-client --tunnel",
+    "start": "expo start --dev-client --scheme exp+meetopia-app",
+    "start:dev": "expo start --dev-client --scheme exp+meetopia-app --tunnel",
+    "start:lan": "expo start --dev-client --scheme exp+meetopia-app --lan",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "expo lint",
@@ -13,6 +14,7 @@
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^10.0.0",
+    "@expo/ngrok": "^4.1.3",
     "@react-native-async-storage/async-storage": "1.23.1",
     "expo": "~52.0.46",
     "expo-asset": "~11.0.5",
