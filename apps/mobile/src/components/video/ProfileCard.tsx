@@ -45,6 +45,6 @@ const styles = StyleSheet.create({
   },
   name: { color: '#fff', fontSize: 18, fontWeight: '700' },
   meta: { color: 'rgba(255,255,255,0.65)', fontSize: 14, marginTop: 2 },
-  intent: { color: '#0A84FF', fontSize: 13, fontWeight: '600', marginTop: 6 },
+  intent: { color: '#60A5FA', fontSize: 13, fontWeight: '600', marginTop: 6 },
   prompt: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 6, fontStyle: 'italic' },
 })

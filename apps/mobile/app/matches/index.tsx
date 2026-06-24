@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { isAgeVerified, isOnboardingComplete } from '@/lib/onboardingStorage'
-import { intentLabel } from '@/types/profile'
 import { SUGGESTED_MATCHES, type SuggestedMatch } from '@/data/suggestedMatches'
+import Screen from '@/components/ui/Screen'
+import BackLink from '@/components/ui/BackLink'
+import Avatar from '@/components/ui/Avatar'
+import Chip from '@/components/ui/Chip'
+import IntentBadge from '@/components/ui/IntentBadge'
+import GradientButton from '@/components/ui/GradientButton'
+import { colors, radius, spacing } from '@/theme/theme'
 
 export default function SuggestedMatchesScreen() {
   const router = useRouter()
@@ -41,114 +46,130 @@ export default function SuggestedMatchesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator color="#0A84FF" />
-      </SafeAreaView>
+      <Screen center>
+        <ActivityIndicator color={colors.brandPurple} />
+      </Screen>
     )
   }
 
+  const isEmpty = SUGGESTED_MATCHES.length === 0
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Suggested matches</Text>
-        <Text style={styles.subtitle}>
-          Profiles that share your dating intent. Open a profile and request a Chemistry Check to meet
-          on video.
-        </Text>
+    <Screen scroll>
+      <BackLink />
+      <Text style={styles.title}>Suggested Matches</Text>
+      <Text style={styles.subtitle}>
+        Choose someone you&apos;d like to meet before starting a Chemistry Check.
+      </Text>
 
-        {isDemo && (
-          <View style={styles.demoBanner}>
-            <Text style={styles.demoBannerText}>
-              Demo Mode — these are sample profiles for App Review. Requesting a Chemistry Check
-              simulates the match accepting.
-            </Text>
-          </View>
-        )}
+      {isDemo && (
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>
+            Demo Mode — sample profiles for review. Requesting a Chemistry Check simulates the match
+            accepting.
+          </Text>
+        </View>
+      )}
 
-        {SUGGESTED_MATCHES.map(match => (
-          <TouchableOpacity key={match.id} style={styles.card} onPress={() => openMatch(match)}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{match.name.charAt(0)}</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.name}>
-                {match.name}, {match.age}
-              </Text>
-              <Text style={styles.meta}>
-                {match.city} · {intentLabel(match.intent)}
-              </Text>
-              <Text style={styles.prompt} numberOfLines={2}>
-                {match.prompt}
-              </Text>
-              <View style={styles.tags}>
-                {match.interests.slice(0, 3).map(tag => (
-                  <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
+      {isEmpty ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No suggested matches yet</Text>
+          <Text style={styles.emptyText}>Try Demo Mode or update your profile to see people.</Text>
+          <GradientButton
+            label="Edit Profile"
+            variant="outline"
+            onPress={() => router.push('/onboarding/profile')}
+            style={styles.emptyBtn}
+          />
+        </View>
+      ) : (
+        SUGGESTED_MATCHES.map(match => (
+          <Pressable
+            key={match.id}
+            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            onPress={() => openMatch(match)}
+          >
+            <View style={styles.cardHead}>
+              <Avatar name={match.name} size={56} />
+              <View style={styles.cardHeadText}>
+                <Text style={styles.name}>
+                  {match.name}, {match.age}
+                </Text>
+                <Text style={styles.meta}>{match.city}</Text>
               </View>
             </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        ))}
 
-        <Text style={styles.note}>
-          You choose who to meet. Video starts only after you request a Chemistry Check and the match
-          accepts. Report or block anyone at any time.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+            <View style={styles.badgeRow}>
+              <IntentBadge intent={match.intent} />
+            </View>
+
+            <Text style={styles.prompt} numberOfLines={2}>
+              “{match.prompt}”
+            </Text>
+
+            <View style={styles.tags}>
+              {match.interests.slice(0, 3).map(tag => (
+                <Chip key={tag} label={tag} />
+              ))}
+            </View>
+
+            <GradientButton
+              label="View Profile"
+              variant="outline"
+              onPress={() => openMatch(match)}
+              style={styles.viewBtn}
+            />
+          </Pressable>
+        ))
+      )}
+
+      <Text style={styles.footer}>
+        You choose who to meet. Video starts only after you request a Chemistry Check and the match
+        accepts. Report or block anyone anytime.
+      </Text>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
-  scroll: { padding: 24, paddingBottom: 48 },
-  back: { color: '#0A84FF', fontSize: 17, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  subtitle: { color: 'rgba(255,255,255,0.6)', marginTop: 8, marginBottom: 20, lineHeight: 21 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.lg, lineHeight: 22, fontSize: 15 },
   demoBanner: {
-    backgroundColor: 'rgba(255,214,10,0.15)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: 'rgba(255,214,10,0.4)',
     padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
-  demoBannerText: { color: '#FFD60A', fontSize: 13, lineHeight: 18 },
+  demoBannerText: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   card: {
-    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: spacing.md,
+  },
+  cardPressed: { backgroundColor: colors.surfaceStrong },
+  cardHead: { flexDirection: 'row', alignItems: 'center' },
+  cardHeadText: { marginLeft: 14, flex: 1 },
+  name: { color: colors.textPrimary, fontSize: 19, fontWeight: '700' },
+  meta: { color: colors.textSecondary, fontSize: 14, marginTop: 2 },
+  badgeRow: { flexDirection: 'row', marginTop: spacing.md },
+  prompt: { color: colors.textPrimary, fontSize: 15, marginTop: spacing.md, lineHeight: 21, fontStyle: 'italic' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.md },
+  viewBtn: { marginTop: spacing.lg },
+  empty: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 28,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#0A84FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  cardBody: { flex: 1 },
-  name: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  meta: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2 },
-  prompt: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 6, fontStyle: 'italic' },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  tag: {
-    backgroundColor: 'rgba(10,132,255,0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  tagText: { color: '#5AC8FA', fontSize: 12, fontWeight: '500' },
-  chevron: { color: 'rgba(255,255,255,0.4)', fontSize: 24, marginLeft: 8 },
-  note: { color: 'rgba(255,255,255,0.4)', fontSize: 13, lineHeight: 19, marginTop: 12 },
+  emptyTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: spacing.sm, lineHeight: 20 },
+  emptyBtn: { marginTop: spacing.lg, alignSelf: 'stretch' },
+  footer: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.md, marginBottom: spacing.xl },
 })

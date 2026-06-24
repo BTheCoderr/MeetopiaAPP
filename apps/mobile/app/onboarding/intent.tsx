@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { getStoredProfile, saveIntent, saveProfile } from '@/lib/onboardingStorage'
 import { INTENT_OPTIONS, type MeetopiaIntent } from '@/types/profile'
+import Screen from '@/components/ui/Screen'
+import GradientButton from '@/components/ui/GradientButton'
+import { colors, radius, spacing } from '@/theme/theme'
 
 export default function IntentScreen() {
   const router = useRouter()
-  const [selected, setSelected] = useState<MeetopiaIntent>('vibe_check')
+  const [selected, setSelected] = useState<MeetopiaIntent>('dating')
 
   useEffect(() => {
     getStoredProfile().then(p => {
@@ -25,46 +27,65 @@ export default function IntentScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>What brings you here?</Text>
-        <Text style={styles.subtitle}>We use this to match you with people who share your intent.</Text>
+    <Screen scroll>
+      <Text style={styles.title}>What brings you here?</Text>
+      <Text style={styles.subtitle}>
+        We use your intent to suggest profiles who are looking for the same thing.
+      </Text>
 
-        {INTENT_OPTIONS.map(opt => (
+      {INTENT_OPTIONS.map(opt => {
+        const active = selected === opt.id
+        return (
           <TouchableOpacity
             key={opt.id}
-            style={[styles.option, selected === opt.id && styles.optionActive]}
+            style={[styles.option, active && styles.optionActive]}
             onPress={() => setSelected(opt.id)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.optionTitle}>{opt.label}</Text>
-            <Text style={styles.optionSub}>{opt.subtitle}</Text>
+            <View style={styles.optionBody}>
+              <Text style={styles.optionTitle}>{opt.label}</Text>
+              <Text style={styles.optionSub}>{opt.subtitle}</Text>
+            </View>
+            <View style={[styles.radio, active && styles.radioActive]}>
+              {active && <View style={styles.radioDot} />}
+            </View>
           </TouchableOpacity>
-        ))}
+        )
+      })}
 
-        <TouchableOpacity style={styles.btn} onPress={onContinue}>
-          <Text style={styles.btnText}>Start exploring</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <GradientButton label="Save and continue" onPress={onContinue} style={styles.cta} />
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  scroll: { padding: 24, paddingBottom: 48 },
-  title: { fontSize: 26, fontWeight: '700', color: '#fff' },
-  subtitle: { color: 'rgba(255,255,255,0.6)', marginTop: 8, marginBottom: 24, lineHeight: 21 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xl, lineHeight: 22, fontSize: 15 },
   option: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
-  optionActive: { borderColor: '#0A84FF', backgroundColor: 'rgba(10,132,255,0.15)' },
-  optionTitle: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  optionSub: { color: 'rgba(255,255,255,0.55)', fontSize: 14, marginTop: 4 },
-  btn: { backgroundColor: '#30D158', paddingVertical: 16, borderRadius: 14, marginTop: 16 },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  optionActive: { borderColor: colors.brandPurple, backgroundColor: 'rgba(139,92,246,0.14)' },
+  optionBody: { flex: 1 },
+  optionTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
+  optionSub: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  radioActive: { borderColor: colors.brandPurple },
+  radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brandPurple },
+  cta: { marginTop: spacing.md, marginBottom: spacing.xl },
 })

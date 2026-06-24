@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 
 const CHEMISTRY_SECONDS = 3 * 60
 
@@ -35,14 +35,22 @@ export default function ChemistryTimer({ active, onExpire }: Props) {
   const s = remaining % 60
   const label = `${m}:${s.toString().padStart(2, '0')}`
 
-  return <Text style={styles.timer}>Chemistry Check · {label}</Text>
+  return (
+    <View style={styles.pill}>
+      <Text style={styles.text}>{label}</Text>
+    </View>
+  )
 }
 
 const styles = StyleSheet.create({
-  timer: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+  pill: {
+    marginTop: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
+  text: { color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
 })

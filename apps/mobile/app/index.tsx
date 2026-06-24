@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
-import { Link, useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Text, StyleSheet, ActivityIndicator, View, Pressable } from 'react-native'
+import { useRouter } from 'expo-router'
 import { isAgeVerified, isOnboardingComplete, getStoredProfile } from '@/lib/onboardingStorage'
 import { intentLabel } from '@/types/profile'
+import Screen from '@/components/ui/Screen'
+import Brandmark from '@/components/ui/Brandmark'
+import GradientButton from '@/components/ui/GradientButton'
+import { colors, spacing } from '@/theme/theme'
 
 export default function HomeScreen() {
   const router = useRouter()
@@ -37,97 +40,106 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator color="#0A84FF" />
-      </SafeAreaView>
+      <Screen center>
+        <ActivityIndicator color={colors.brandPurple} />
+      </Screen>
     )
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>
-        <Text style={styles.brand}>Meet</Text>opia
+    <Screen center scroll>
+      <View style={styles.hero}>
+        <Brandmark size={80} />
+      </View>
+
+      <Text style={styles.headline}>Video-first dating for real chemistry</Text>
+      <Text style={styles.subtext}>
+        View suggested profiles, request a Chemistry Check, and keep chatting when the vibe is mutual.
       </Text>
-      <Text style={styles.subtitle}>Video-first dating for real chemistry.</Text>
+
       {profileName ? (
-        <Text style={styles.hint}>
-          Hi {profileName} · {intent}
-        </Text>
+        <View style={styles.profilePill}>
+          <Text style={styles.profilePillText}>
+            {profileName} · {intent}
+          </Text>
+        </View>
       ) : null}
 
-      {onboarded ? (
-        <Link href="/matches" asChild>
-          <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>View Suggested Matches</Text>
-          </TouchableOpacity>
-        </Link>
-      ) : (
-        <Link href="/onboarding/profile" asChild>
-          <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>Complete your profile</Text>
-          </TouchableOpacity>
-        </Link>
-      )}
+      <View style={styles.actions}>
+        {onboarded ? (
+          <GradientButton label="View Suggested Matches" onPress={() => router.push('/matches')} />
+        ) : (
+          <GradientButton
+            label="Complete your profile"
+            onPress={() => router.push('/onboarding/profile')}
+          />
+        )}
 
-      <Link href="/matches?demo=1" asChild>
-        <TouchableOpacity style={styles.demoBtn}>
-          <Text style={styles.demoText}>Try Demo Mode</Text>
-        </TouchableOpacity>
-      </Link>
+        <GradientButton
+          label="Try Demo Mode"
+          variant="outline"
+          onPress={() => router.push('/matches?demo=1')}
+          style={styles.spaced}
+        />
+      </View>
 
-      <Link href="/onboarding/profile" asChild>
-        <TouchableOpacity style={styles.secondaryBtn}>
-          <Text style={styles.secondaryText}>Edit profile</Text>
-        </TouchableOpacity>
-      </Link>
+      <View style={styles.links}>
+        <Pressable onPress={() => router.push('/onboarding/profile')} hitSlop={8}>
+          <Text style={styles.link}>Edit Profile</Text>
+        </Pressable>
+        <Text style={styles.linkDivider}>·</Text>
+        <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
+          <Text style={styles.link}>Settings</Text>
+        </Pressable>
+      </View>
 
-      <Link href="/settings" asChild>
-        <TouchableOpacity style={styles.secondaryBtn}>
-          <Text style={styles.secondaryText}>Settings & safety</Text>
-        </TouchableOpacity>
-      </Link>
-
-      <Text style={styles.note}>
-        18+ only. Browse suggested profiles, request a Chemistry Check, and meet on video after a
-        mutual match. Report or block anyone anytime.
-      </Text>
-    </SafeAreaView>
+      <View style={styles.safety}>
+        <Text style={styles.safetyText}>18+ only. Report and block are available anytime.</Text>
+      </View>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 24,
-    justifyContent: 'center',
+  hero: { alignItems: 'center', marginBottom: spacing.xl },
+  headline: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    lineHeight: 34,
   },
-  title: { fontSize: 32, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  brand: { color: '#0A84FF' },
-  subtitle: { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 8, marginBottom: 16, lineHeight: 22 },
-  hint: { color: 'rgba(255,255,255,0.45)', fontSize: 14, textAlign: 'center', marginBottom: 28 },
-  primaryBtn: {
-    backgroundColor: '#30D158',
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginBottom: 12,
+  subtext: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 23,
   },
-  primaryText: { color: '#fff', fontSize: 17, fontWeight: '600', textAlign: 'center' },
-  demoBtn: {
-    backgroundColor: 'rgba(255,214,10,0.2)',
+  profilePill: {
+    alignSelf: 'center',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,214,10,0.45)',
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: spacing.lg,
   },
-  demoText: { color: '#FFD60A', fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  secondaryBtn: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingVertical: 14,
+  profilePillText: { color: colors.textSecondary, fontSize: 14, fontWeight: '500' },
+  actions: { marginTop: spacing.xxl },
+  spaced: { marginTop: spacing.md },
+  links: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.xl, gap: 12 },
+  link: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' },
+  linkDivider: { color: colors.textMuted, fontSize: 15 },
+  safety: {
+    marginTop: spacing.xxl,
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
   },
-  secondaryText: { color: '#fff', fontSize: 16, fontWeight: '500', textAlign: 'center' },
-  note: { color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 16 },
+  safetyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
 })

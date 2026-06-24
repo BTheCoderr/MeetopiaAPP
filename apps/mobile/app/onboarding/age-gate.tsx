@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, Switch } from 'react-native'
+import { View, Text, StyleSheet, Switch, Pressable, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { setAgeVerified } from '@/lib/onboardingStorage'
+import { PUBLIC_LINKS } from '@/config/links'
+import Screen from '@/components/ui/Screen'
+import Brandmark from '@/components/ui/Brandmark'
+import GradientButton from '@/components/ui/GradientButton'
+import { colors, spacing } from '@/theme/theme'
 
 export default function AgeGateScreen() {
   const router = useRouter()
@@ -14,49 +18,76 @@ export default function AgeGateScreen() {
     router.replace('/onboarding/profile')
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Welcome to Meetopia</Text>
-      <Text style={styles.subtitle}>Profile-based, video-first dating for real chemistry. 18+ only.</Text>
+  const open = (url: string) => Linking.openURL(url).catch(() => {})
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Age requirement</Text>
-        <Text style={styles.cardBody}>
-          Meetopia is for adults only. You must be 18 or older to use video matching, messaging, and
-          chemistry checks.
-        </Text>
-        <View style={styles.row}>
-          <Switch value={confirmed} onValueChange={setConfirmed} trackColor={{ true: '#30D158' }} />
-          <Text style={styles.rowLabel}>I confirm I am 18 years or older</Text>
-        </View>
+  return (
+    <Screen center scroll>
+      <View style={styles.hero}>
+        <Brandmark size={72} />
       </View>
 
-      <TouchableOpacity
-        style={[styles.btn, !confirmed && styles.btnDisabled]}
-        onPress={onContinue}
-        disabled={!confirmed}
-      >
-        <Text style={styles.btnText}>Continue</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      <Text style={styles.title}>Meetopia is for adults 18+</Text>
+      <Text style={styles.subtitle}>
+        Profile-based, video-first dating for real chemistry. You choose who to meet from suggested
+        profiles before any video begins.
+      </Text>
+
+      <View style={styles.card}>
+        <Pressable style={styles.row} onPress={() => setConfirmed(v => !v)}>
+          <Switch
+            value={confirmed}
+            onValueChange={setConfirmed}
+            trackColor={{ true: colors.brandPurple, false: 'rgba(255,255,255,0.2)' }}
+            thumbColor="#fff"
+          />
+          <Text style={styles.rowLabel}>
+            By continuing, you confirm you are 18 or older and agree to follow Meetopia&apos;s
+            Community Guidelines.
+          </Text>
+        </Pressable>
+      </View>
+
+      <GradientButton label="Continue" onPress={onContinue} disabled={!confirmed} style={styles.cta} />
+
+      <View style={styles.legal}>
+        <Pressable onPress={() => open(PUBLIC_LINKS.terms)} hitSlop={6}>
+          <Text style={styles.legalLink}>Terms</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable onPress={() => open(PUBLIC_LINKS.privacy)} hitSlop={6}>
+          <Text style={styles.legalLink}>Privacy</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable onPress={() => open(PUBLIC_LINKS.communityGuidelines)} hitSlop={6}>
+          <Text style={styles.legalLink}>Community Guidelines</Text>
+        </Pressable>
+      </View>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', padding: 24, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  subtitle: { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 12, marginBottom: 32, lineHeight: 22 },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+  hero: { alignItems: 'center', marginBottom: spacing.xl },
+  title: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', letterSpacing: -0.5 },
+  subtitle: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+    lineHeight: 23,
   },
-  cardTitle: { color: '#fff', fontSize: 17, fontWeight: '600', marginBottom: 8 },
-  cardBody: { color: 'rgba(255,255,255,0.7)', fontSize: 15, lineHeight: 22, marginBottom: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rowLabel: { color: '#fff', flex: 1, fontSize: 15 },
-  btn: { backgroundColor: '#0A84FF', paddingVertical: 16, borderRadius: 14 },
-  btnDisabled: { opacity: 0.4 },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  rowLabel: { color: colors.textPrimary, flex: 1, fontSize: 14, lineHeight: 20 },
+  cta: { marginTop: spacing.xl },
+  legal: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: spacing.xl },
+  legalLink: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  legalDot: { color: colors.textMuted },
 })

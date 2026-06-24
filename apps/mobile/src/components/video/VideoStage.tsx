@@ -43,7 +43,7 @@ export default function VideoStage({
       {pipStream && (
         <PictureInPicture stream={pipStream} isCameraOff={isCameraOff} />
       )}
-      {(isSearching || (hasPeer && !hasRemote && !hideConnectingOverlay)) && (
+      {!hideConnectingOverlay && (isSearching || (hasPeer && !hasRemote)) && (
         <View style={styles.overlay}>
           <Text style={styles.overlayText}>
             {overlayHint ??

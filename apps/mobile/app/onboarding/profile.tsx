@@ -1,18 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { saveProfile } from '@/lib/onboardingStorage'
-import type { MeetopiaProfile } from '@/types/profile'
+import { getStoredProfile, saveProfile } from '@/lib/onboardingStorage'
+import { INTEREST_OPTIONS, type MeetopiaProfile } from '@/types/profile'
+import Screen from '@/components/ui/Screen'
+import GradientButton from '@/components/ui/GradientButton'
+import { colors, radius, spacing } from '@/theme/theme'
+
+const MAX_INTERESTS = 5
 
 export default function ProfileScreen() {
   const router = useRouter()
@@ -22,72 +25,123 @@ export default function ProfileScreen() {
   const [gender, setGender] = useState<MeetopiaProfile['gender']>('other')
   const [interestedIn, setInterestedIn] = useState<MeetopiaProfile['interestedIn']>('everyone')
   const [prompt, setPrompt] = useState('')
+  const [interests, setInterests] = useState<string[]>([])
 
-  const canContinue = name.trim().length >= 2 && Number(age) >= 18 && city.trim().length >= 2 && prompt.trim().length >= 4
+  useEffect(() => {
+    getStoredProfile().then(p => {
+      if (!p) return
+      setName(p.name)
+      setAge(String(p.age))
+      setCity(p.city)
+      setGender(p.gender)
+      setInterestedIn(p.interestedIn)
+      setPrompt(p.prompt)
+      setInterests(p.interests ?? [])
+    })
+  }, [])
+
+  const canContinue =
+    name.trim().length >= 2 && Number(age) >= 18 && city.trim().length >= 2 && prompt.trim().length >= 4
+
+  const toggleInterest = (tag: string) => {
+    setInterests(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : prev.length >= MAX_INTERESTS
+          ? prev
+          : [...prev, tag],
+    )
+  }
 
   const onContinue = async () => {
     if (!canContinue) return
+    const existing = await getStoredProfile()
     const profile: MeetopiaProfile = {
       name: name.trim(),
       age: Number(age),
       city: city.trim(),
       gender,
       interestedIn,
-      intent: 'vibe_check',
+      intent: existing?.intent ?? 'vibe_check',
       prompt: prompt.trim(),
+      interests,
     }
     await saveProfile(profile)
     router.replace('/onboarding/intent')
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Your profile</Text>
-          <Text style={styles.subtitle}>Only your first name, age, city, and prompt are shared during a Chemistry Check.</Text>
+    <Screen scroll>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Text style={styles.title}>Your profile</Text>
+        <Text style={styles.subtitle}>
+          Your profile helps people know who they&apos;re meeting before a Chemistry Check.
+        </Text>
 
-          <Field label="First name" value={name} onChangeText={setName} placeholder="Alex" />
-          <Field label="Age" value={age} onChangeText={setAge} placeholder="25" keyboardType="number-pad" />
-          <Field label="City" value={city} onChangeText={setCity} placeholder="Chicago" />
+        <Field label="First name" value={name} onChangeText={setName} placeholder="Alex" />
+        <Field label="Age" value={age} onChangeText={setAge} placeholder="25" keyboardType="number-pad" />
+        <Field label="City" value={city} onChangeText={setCity} placeholder="Chicago" />
 
-          <Text style={styles.label}>Gender</Text>
-          <ChipRow
-            options={[
-              ['woman', 'Woman'],
-              ['man', 'Man'],
-              ['nonbinary', 'Non-binary'],
-              ['other', 'Other'],
-            ]}
-            value={gender}
-            onChange={v => setGender(v as MeetopiaProfile['gender'])}
-          />
+        <Text style={styles.label}>Gender</Text>
+        <ChipRow
+          options={[
+            ['woman', 'Woman'],
+            ['man', 'Man'],
+            ['nonbinary', 'Non-binary'],
+            ['other', 'Other'],
+          ]}
+          value={gender}
+          onChange={v => setGender(v as MeetopiaProfile['gender'])}
+        />
 
-          <Text style={styles.label}>Interested in</Text>
-          <ChipRow
-            options={[
-              ['women', 'Women'],
-              ['men', 'Men'],
-              ['everyone', 'Everyone'],
-            ]}
-            value={interestedIn}
-            onChange={v => setInterestedIn(v as MeetopiaProfile['interestedIn'])}
-          />
+        <Text style={styles.label}>Interested in</Text>
+        <ChipRow
+          options={[
+            ['women', 'Women'],
+            ['men', 'Men'],
+            ['everyone', 'Everyone'],
+          ]}
+          value={interestedIn}
+          onChange={v => setInterestedIn(v as MeetopiaProfile['interestedIn'])}
+        />
 
-          <Field
-            label="Short prompt"
-            value={prompt}
-            onChangeText={setPrompt}
-            placeholder="Ask me about my favorite coffee spot…"
-            multiline
-          />
+        <Field
+          label="Prompt"
+          value={prompt}
+          onChangeText={setPrompt}
+          placeholder="Ask me about my favorite coffee spot…"
+          multiline
+        />
 
-          <TouchableOpacity style={[styles.btn, !canContinue && styles.btnDisabled]} onPress={onContinue} disabled={!canContinue}>
-            <Text style={styles.btnText}>Continue</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Interests</Text>
+          <Text style={styles.labelHint}>
+            {interests.length}/{MAX_INTERESTS}
+          </Text>
+        </View>
+        <View style={styles.chips}>
+          {INTEREST_OPTIONS.map(tag => {
+            const active = interests.includes(tag)
+            return (
+              <TouchableOpacity
+                key={tag}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => toggleInterest(tag)}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{tag}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+
+        <GradientButton
+          label="Continue"
+          onPress={onContinue}
+          disabled={!canContinue}
+          style={styles.cta}
+        />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   )
 }
 
@@ -114,7 +168,7 @@ function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.35)"
+        placeholderTextColor={colors.textMuted}
         keyboardType={keyboardType}
         multiline={multiline}
       />
@@ -147,31 +201,33 @@ function ChipRow({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  scroll: { padding: 24, paddingBottom: 48 },
-  title: { fontSize: 26, fontWeight: '700', color: '#fff' },
-  subtitle: { color: 'rgba(255,255,255,0.6)', marginTop: 8, marginBottom: 24, lineHeight: 21 },
-  label: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 8, marginTop: 8 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xl, lineHeight: 22, fontSize: 15 },
+  label: { color: colors.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: spacing.sm, marginTop: spacing.md },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  labelHint: { color: colors.textMuted, fontSize: 13, marginTop: spacing.md },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     padding: 14,
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  inputMulti: { minHeight: 90, textAlignVertical: 'top' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.xs },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  chipActive: { backgroundColor: '#0A84FF' },
-  chipText: { color: 'rgba(255,255,255,0.75)', fontSize: 14 },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  btn: { backgroundColor: '#30D158', paddingVertical: 16, borderRadius: 14, marginTop: 24 },
-  btnDisabled: { opacity: 0.4 },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  chipActive: { backgroundColor: 'rgba(139,92,246,0.22)', borderColor: colors.brandPurple },
+  chipText: { color: colors.textSecondary, fontSize: 14 },
+  chipTextActive: { color: colors.textPrimary, fontWeight: '600' },
+  cta: { marginTop: spacing.xl, marginBottom: spacing.xl },
 })

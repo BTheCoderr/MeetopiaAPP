@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Alert } from 'react-native'
+import { View, Text, StyleSheet, Alert, Pressable } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import VideoStage from '@/components/video/VideoStage'
@@ -8,7 +8,9 @@ import ControlBar from '@/components/video/ControlBar'
 import ProfileCard from '@/components/video/ProfileCard'
 import ChemistryTimer from '@/components/video/ChemistryTimer'
 import ReportModal, { type ReportCategory } from '@/components/safety/ReportModal'
+import Avatar from '@/components/ui/Avatar'
 import { layout } from '@/components/video/mobileLayout'
+import { colors } from '@/theme/theme'
 import { useMobileMedia } from '@/hooks/useMobileMedia'
 import { useMobilePeerConnection } from '@/hooks/useMobilePeerConnection'
 import { useMobileVideoChatSocket } from '@/hooks/useMobileVideoChatSocket'
@@ -28,7 +30,7 @@ export default function VideoChatScreen() {
   const router = useRouter()
   const { demo, matchId } = useLocalSearchParams<{ demo?: string; matchId?: string }>()
   const match = getSuggestedMatch(matchId)
-  // Both Demo Mode and an accepted suggested-match use the local (non-random) experience.
+  // Both Demo Mode and an accepted suggested-match use the local, profile-based experience.
   const isDemo = demo === '1' || Boolean(match)
   const cameFromMatch = Boolean(match)
 
@@ -50,6 +52,7 @@ export default function VideoChatScreen() {
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [timerActive, setTimerActive] = useState(false)
+  const [vibeDismissed, setVibeDismissed] = useState(false)
 
   const { stream, error: mediaError } = useMobileMedia()
   const { peerConnection, restartConnection } = useMobilePeerConnection(stream)
@@ -115,6 +118,14 @@ export default function VideoChatScreen() {
     setTimerActive(Boolean(chat.currentPeer))
   }, [chat.currentPeer])
 
+  useEffect(() => {
+    if (!chat.mutualVibe) setVibeDismissed(false)
+  }, [chat.mutualVibe])
+
+  const peerName = chat.peerProfile?.name ?? match?.name ?? null
+  const connecting = Boolean(chat.currentPeer) && !chat.isPeerConnected
+  const showPreparing = chat.isSearching || connecting
+
   const toggleMute = () => {
     if (!stream) return
     const next = !isMuted
@@ -139,7 +150,7 @@ export default function VideoChatScreen() {
     const peer = chat.currentPeer
     if (!peer) return
     Alert.alert(
-      'Block user?',
+      `Block ${peerName ?? 'this person'}?`,
       "They won't be matched with you again on this device.",
       [
         { text: 'Cancel', style: 'cancel' },
@@ -149,6 +160,10 @@ export default function VideoChatScreen() {
           onPress: async () => {
             await blockUser(peer, chat.peerProfile ?? undefined)
             await chat.refreshBlockedList()
+            Alert.alert(
+              'Blocked',
+              "You won't be matched with this person again on this device.",
+            )
             chat.handleNextPerson()
           },
         },
@@ -160,8 +175,8 @@ export default function VideoChatScreen() {
     chat.reportUser(category)
     if (!isDemo) {
       Alert.alert(
-        'Report submitted',
-        'Meetopia logs reports for review. Leave the chat if you feel unsafe.',
+        'Report received',
+        'Thank you for helping keep Meetopia safe. Leave the chat if you feel unsafe.',
       )
     }
   }
@@ -169,6 +184,8 @@ export default function VideoChatScreen() {
   if (!ready) {
     return <View style={styles.loading} />
   }
+
+  const showVibeSuccess = chat.mutualVibe && !vibeDismissed
 
   return (
     <View style={layout.root}>
@@ -179,50 +196,69 @@ export default function VideoChatScreen() {
         isSearching={chat.isSearching}
         hasPeer={Boolean(chat.currentPeer)}
         isCameraOff={isCameraOff}
-        hideConnectingOverlay={isDemo && Boolean(chat.currentPeer)}
-        overlayHint={
-          chat.isSearching
-            ? cameFromMatch && match
-              ? `Connecting you with ${match.name}…`
-              : isDemo
-                ? 'Demo Mode — connecting your Chemistry Check…'
-                : 'Connecting your Chemistry Check…'
-            : undefined
-        }
+        hideConnectingOverlay
       />
 
+      {/* Header */}
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
-          <Text style={styles.back} onPress={() => router.back()}>
-            ←
-          </Text>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Text style={styles.back}>‹</Text>
+          </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={styles.logo}>Chemistry Check</Text>
-            {chat.peerProfile?.name ? (
-              <Text style={styles.meeting}>You&apos;re meeting {chat.peerProfile.name}</Text>
-            ) : null}
-            {isDemo && <Text style={styles.demoBadge}>Demo Mode</Text>}
-            <ChemistryTimer active={timerActive} />
+            <Text style={styles.title}>Chemistry Check</Text>
+            {peerName ? <Text style={styles.meeting}>You&apos;re meeting {peerName}</Text> : null}
+            <ChemistryTimer active={timerActive && chat.isPeerConnected} />
           </View>
-          <Text style={[styles.status, chat.isSocketConnected ? styles.online : styles.offline]}>
-            {chat.isSocketConnected ? '●' : '○'}
-          </Text>
+          <View style={styles.statusWrap}>
+            <Text style={[styles.status, chat.isSocketConnected ? styles.online : styles.offline]}>
+              ●
+            </Text>
+          </View>
         </View>
-        <ProfileCard profile={chat.peerProfile} visible={Boolean(chat.currentPeer)} />
+        <ProfileCard profile={chat.peerProfile} visible={chat.isPeerConnected && Boolean(chat.currentPeer)} />
       </SafeAreaView>
 
       {isDemo && (
-        <View style={styles.demoBanner}>
+        <View style={styles.demoBanner} pointerEvents="none">
           <Text style={styles.demoBannerText}>
-            Demo Mode — simulated match for App Review. Tap Vibe if you want to continue. Both people
-            can leave, report, or block anytime.
+            Demo Mode: simulated profile-based Chemistry Check for review/testing.
           </Text>
+        </View>
+      )}
+
+      {/* Preparing overlay */}
+      {showPreparing && (
+        <View style={styles.preparing} pointerEvents="none">
+          {peerName ? <Avatar name={peerName} size={84} /> : null}
+          {peerName ? <Text style={styles.preparingName}>{peerName}</Text> : null}
+          <Text style={styles.preparingText}>Preparing your Chemistry Check…</Text>
         </View>
       )}
 
       {(mediaError || chat.error) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{mediaError ?? chat.error}</Text>
+        </View>
+      )}
+
+      {/* Mutual vibe success */}
+      {showVibeSuccess && (
+        <View style={styles.vibeOverlay}>
+          <View style={styles.vibeCard}>
+            <Text style={styles.vibeEmoji}>✨</Text>
+            <Text style={styles.vibeTitle}>It&apos;s a Vibe</Text>
+            <Text style={styles.vibeSub}>Chat unlocked because you both tapped Vibe.</Text>
+            <Pressable style={styles.vibePrimary} onPress={() => setVibeDismissed(true)}>
+              <Text style={styles.vibePrimaryText}>Send Message</Text>
+            </Pressable>
+            <Pressable
+              style={styles.vibeSecondary}
+              onPress={() => router.replace(isDemo ? '/matches?demo=1' : '/matches')}
+            >
+              <Text style={styles.vibeSecondaryText}>Back to Matches</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -262,37 +298,77 @@ export default function VideoChatScreen() {
 const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: '#000' },
   header: { ...layout.header },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
+  back: { color: '#fff', fontSize: 34, fontWeight: '300', lineHeight: 34 },
   headerCenter: { flex: 1, alignItems: 'center' },
-  back: { color: '#fff', fontSize: 22, width: 32 },
-  logo: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  meeting: { color: '#5AC8FA', fontSize: 13, fontWeight: '500', marginTop: 2 },
-  demoBadge: { color: '#FFD60A', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  status: { fontSize: 14, width: 32, textAlign: 'right' },
-  online: { color: '#30D158' },
-  offline: { color: '#FF453A' },
+  title: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  meeting: { color: colors.brandBlueLight, fontSize: 13, fontWeight: '500', marginTop: 2 },
+  statusWrap: { width: 40, alignItems: 'flex-end', justifyContent: 'center', paddingTop: 6 },
+  status: { fontSize: 12 },
+  online: { color: colors.success },
+  offline: { color: colors.danger },
   demoBanner: {
     position: 'absolute',
-    top: 100,
+    top: 132,
     left: 16,
     right: 16,
     backgroundColor: 'rgba(255,214,10,0.15)',
     borderWidth: 1,
     borderColor: 'rgba(255,214,10,0.4)',
     padding: 10,
-    borderRadius: 10,
-    zIndex: 40,
+    borderRadius: 12,
+    zIndex: 35,
+    alignSelf: 'center',
+    maxWidth: 488,
   },
-  demoBannerText: { color: '#FFD60A', fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  demoBannerText: { color: colors.warning, fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  preparing: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 20 },
+  preparingName: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  preparingText: { color: 'rgba(255,255,255,0.8)', fontSize: 15 },
   errorBanner: {
     position: 'absolute',
-    top: 120,
+    top: 170,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(127,29,29,0.85)',
+    backgroundColor: 'rgba(127,29,29,0.9)',
     padding: 12,
     borderRadius: 10,
     zIndex: 50,
+    alignSelf: 'center',
+    maxWidth: 488,
   },
   errorText: { color: '#fff', fontSize: 13 },
+  vibeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 60,
+    padding: 24,
+  },
+  vibeCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: colors.bgElevated,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: 28,
+    alignItems: 'center',
+  },
+  vibeEmoji: { fontSize: 44 },
+  vibeTitle: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 8 },
+  vibeSub: { color: colors.textSecondary, fontSize: 15, textAlign: 'center', marginTop: 8, lineHeight: 21 },
+  vibePrimary: {
+    backgroundColor: colors.brandPurple,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  vibePrimaryText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  vibeSecondary: { paddingVertical: 14, alignSelf: 'stretch', alignItems: 'center', marginTop: 4 },
+  vibeSecondaryText: { color: colors.textSecondary, fontSize: 16, fontWeight: '600' },
 })

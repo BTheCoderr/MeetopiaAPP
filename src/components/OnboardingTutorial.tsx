@@ -35,7 +35,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({
   const tutorialSteps: TutorialStep[] = [
     {
       title: "Welcome to Meetopia!",
-      description: "Discover random video chatting with people from around the world. No signup required!",
+      description: "Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check to meet on video.",
       imageUrl: "/images/tutorial/welcome.svg"
     },
     {

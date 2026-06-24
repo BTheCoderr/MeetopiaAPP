@@ -1,8 +1,10 @@
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native'
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { PUBLIC_LINKS } from '@/config/links'
 import { clearLocalAccountData } from '@/lib/onboardingStorage'
+import Screen from '@/components/ui/Screen'
+import BackLink from '@/components/ui/BackLink'
+import { colors, radius, spacing } from '@/theme/theme'
 
 export default function SettingsScreen() {
   const router = useRouter()
@@ -33,39 +35,40 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+    <Screen scroll>
+      <BackLink />
+      <Text style={styles.title}>Settings</Text>
 
-        <Row label="Meetopia website" onPress={() => open(PUBLIC_LINKS.home)} />
-        <Row label="Privacy Policy" onPress={() => open(PUBLIC_LINKS.privacy)} />
+      <Text style={styles.sectionLabel}>Account</Text>
+      <View style={styles.group}>
+        <Row label="Edit Profile" onPress={() => router.push('/onboarding/profile')} first />
+      </View>
+
+      <Text style={styles.sectionLabel}>Legal & safety</Text>
+      <View style={styles.group}>
+        <Row label="Privacy Policy" onPress={() => open(PUBLIC_LINKS.privacy)} first />
         <Row label="Terms of Service" onPress={() => open(PUBLIC_LINKS.terms)} />
-        <Row
-          label="Community Guidelines"
-          onPress={() => open(PUBLIC_LINKS.communityGuidelines)}
-        />
+        <Row label="Community Guidelines" onPress={() => open(PUBLIC_LINKS.communityGuidelines)} />
         <Row label="Safety & Reporting" onPress={() => open(PUBLIC_LINKS.safety)} />
         <Row label="Support" onPress={() => open(PUBLIC_LINKS.support)} />
+        <Row label="Meetopia Website" onPress={() => open(PUBLIC_LINKS.home)} />
+      </View>
 
-        <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteLocalProfile}>
-          <Text style={styles.dangerText}>Delete local profile & data</Text>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteLocalProfile}>
+        <Text style={styles.dangerText}>Delete local profile & data</Text>
+      </TouchableOpacity>
 
-        <Text style={styles.note}>
-          Deleting local profile and data clears onboarding, profile, blocks, and matches on this device.
-          Server-side account deletion will be available when authenticated accounts launch.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      <Text style={styles.note}>
+        Deleting clears onboarding, profile, blocks, and matches on this device. Server-side account
+        deletion will be available when authenticated accounts launch.
+      </Text>
+    </Screen>
   )
 }
 
-function Row({ label, onPress }: { label: string; onPress: () => void }) {
+function Row({ label, onPress, first }: { label: string; onPress: () => void; first?: boolean }) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress}>
+    <TouchableOpacity style={[styles.row, !first && styles.rowBorder]} onPress={onPress}>
       <Text style={styles.rowText}>{label}</Text>
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
@@ -73,28 +76,40 @@ function Row({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  scroll: { padding: 24 },
-  back: { color: '#0A84FF', fontSize: 17, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.lg, letterSpacing: -0.5 },
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  group: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
-  rowText: { color: '#fff', fontSize: 16 },
-  chevron: { color: 'rgba(255,255,255,0.4)', fontSize: 22 },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  rowText: { color: colors.textPrimary, fontSize: 16 },
+  chevron: { color: colors.textMuted, fontSize: 22 },
   dangerBtn: {
-    marginTop: 32,
+    marginTop: spacing.xxl,
     paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,69,58,0.2)',
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FF453A',
+    borderColor: colors.danger,
   },
-  dangerText: { color: '#FF453A', textAlign: 'center', fontSize: 16, fontWeight: '600' },
-  note: { color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 16, lineHeight: 19 },
+  dangerText: { color: colors.danger, textAlign: 'center', fontSize: 16, fontWeight: '700' },
+  note: { color: colors.textMuted, fontSize: 13, marginTop: spacing.lg, marginBottom: spacing.xl, lineHeight: 19 },
 })

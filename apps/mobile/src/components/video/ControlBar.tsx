@@ -41,7 +41,7 @@ export default function ControlBar({
   return (
     <View style={layout.controls} pointerEvents="box-none">
       {mutualVibe && (
-        <Text style={styles.vibeBanner}>It&apos;s a vibe — chat unlocked</Text>
+        <Text style={styles.vibeBanner}>Chat unlocked — say hi 👋</Text>
       )}
       <View style={layout.controlRow}>
         <TouchableOpacity style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>
@@ -88,7 +88,7 @@ export default function ControlBar({
 
 const styles = StyleSheet.create({
   active: { backgroundColor: 'rgba(255,255,255,0.35)' },
-  vibeActive: { backgroundColor: 'rgba(48,209,88,0.35)' },
+  vibeActive: { backgroundColor: 'rgba(139,92,246,0.5)' },
   disabled: { opacity: 0.45 },
   vibeBanner: { color: '#30D158', fontSize: 14, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
   icon: { fontSize: 18 },

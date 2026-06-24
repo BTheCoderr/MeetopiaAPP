@@ -7,7 +7,26 @@ export interface MeetopiaProfile {
   interestedIn: 'women' | 'men' | 'everyone'
   intent: MeetopiaIntent
   prompt: string
+  interests?: string[]
 }
+
+/** Preset interests users can pick during profile setup. */
+export const INTEREST_OPTIONS = [
+  'Coffee',
+  'Travel',
+  'Live music',
+  'Fitness',
+  'Foodie',
+  'Art',
+  'Gaming',
+  'Outdoors',
+  'Movies',
+  'Reading',
+  'Dogs',
+  'Cooking',
+  'Photography',
+  'Dancing',
+] as const
 
 export type MeetopiaIntent =
   | 'dating'
@@ -41,7 +60,7 @@ export function toSignalingProfile(p: MeetopiaProfile) {
     lookingFor,
     intent: p.intent,
     prompt: p.prompt,
-    interests: [p.intent.replace('_', ' ')],
+    interests: p.interests && p.interests.length > 0 ? p.interests : [p.intent.replace('_', ' ')],
     bio: p.prompt,
   }
 }
