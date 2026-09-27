@@ -12,6 +12,7 @@ interface ControlBarProps {
   isCameraOff: boolean
   isScreenSharing: boolean
   onStartChat: () => void
+  onCancelSearch: () => void
   onNextPerson: () => void
   onLeaveChat: () => void
   onToggleMute: () => void
@@ -73,6 +74,7 @@ export default function ControlBar({
   isCameraOff,
   isScreenSharing,
   onStartChat,
+  onCancelSearch,
   onNextPerson,
   onLeaveChat,
   onToggleMute,
@@ -118,13 +120,15 @@ export default function ControlBar({
 
         {!hasPeer ? (
           <IconButton
-            onClick={onStartChat}
-            disabled={!isSocketConnected || isSearching || buttonCooldown}
+            onClick={isSearching ? onCancelSearch : onStartChat}
+            disabled={!isSocketConnected || (!isSearching && buttonCooldown)}
             primary
-            label="Make a Connection"
+            label={isSearching ? 'Cancel Search' : 'Make a Connection'}
           >
             {isSearching ? (
-              <div className="w-5 h-5 md:w-6 md:h-6 border-[2.5px] border-white/30 border-t-white rounded-full animate-spin" />
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 6h12v12H6z" />
+              </svg>
             ) : (
               <svg className="w-6 h-6 md:w-7 md:h-7" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
