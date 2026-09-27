@@ -27,11 +27,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
               >
                 Home
               </Link>
-              <Link 
-                href="/chat/video" 
+              <Link
+                href="/dating/profile"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Start Chat
+                Dating
+              </Link>
+              <Link
+                href="/connections"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Connections
               </Link>
               <a 
                 href="#" 
