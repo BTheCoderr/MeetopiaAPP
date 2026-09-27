@@ -4,6 +4,7 @@ type SocketTokenPayload = {
   sub: string
   exp: number
   displayName?: string | null
+  adultConfirmed?: boolean
   blocked?: string[]
 }
 
