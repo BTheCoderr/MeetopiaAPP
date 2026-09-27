@@ -16,7 +16,7 @@ model User {
   username    String   @unique
   displayName String?
   bio         String?
-  interests   String[]
+  interests   String[]  @default([])
   age         Int?
   gender      String?
   lookingFor  String?
