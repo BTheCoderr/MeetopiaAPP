@@ -8,12 +8,16 @@ interface ControlBarProps {
   isSearching: boolean
   buttonCooldown: boolean
   hasPeer: boolean
+  isDating: boolean
+  hasVibed: boolean
   isMuted: boolean
   isCameraOff: boolean
   isScreenSharing: boolean
   onStartChat: () => void
   onCancelSearch: () => void
   onNextPerson: () => void
+  onVibe: () => void
+  onBlock: () => void
   onLeaveChat: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
@@ -70,12 +74,16 @@ export default function ControlBar({
   isSearching,
   buttonCooldown,
   hasPeer,
+  isDating,
+  hasVibed,
   isMuted,
   isCameraOff,
   isScreenSharing,
   onStartChat,
   onCancelSearch,
   onNextPerson,
+  onVibe,
+  onBlock,
   onLeaveChat,
   onToggleMute,
   onToggleCamera,
@@ -151,6 +159,25 @@ export default function ControlBar({
                 <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
               </svg>
             </IconButton>
+            {isDating && (
+              <IconButton
+                onClick={onVibe}
+                disabled={hasVibed}
+                active={hasVibed}
+                label={hasVibed ? 'Vibe sent' : 'Send a Vibe'}
+              >
+                <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21s-7-4.35-9.33-8.29C.72 9.42 2.07 5.5 5.72 4.53 8.08 3.9 10.14 5.1 12 7.17c1.86-2.07 3.92-3.27 6.28-2.64 3.65.97 5 4.89 3.05 8.18C19 16.65 12 21 12 21z" />
+                </svg>
+              </IconButton>
+            )}
+            {isDating && (
+              <IconButton onClick={onBlock} label="Block this person">
+                <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 015.29 14L6 6.71A7.96 7.96 0 0112 4zm-5.29 2L18 17.29A8 8 0 016.71 6z" />
+                </svg>
+              </IconButton>
+            )}
             <IconButton onClick={onLeaveChat} danger label="Back to Base">
               <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 010-1.41l2.76-2.76c.18-.18.43-.29.71-.29.27 0 .52.11.7.28.79.73 1.68 1.36 2.66 1.85.33.16.56.51.56.9v3.1c1.45-.47 3-.72 4.6-.72s3.15.25 4.6.72v-3.1c0-.39.23-.74.56-.9.98-.49 1.87-1.12 2.66-1.85.18-.18.43-.28.7-.28.28 0 .53.11.71.29l2.76 2.76c.18.18.29.43.29.71 0 .28-.11.53-.29.71-.79.73-1.68 1.36-2.66 1.85-.33.16-.56.51-.56.9v3.1c-1.45.47-3 .72-4.6.72z" />
