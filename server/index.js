@@ -84,10 +84,41 @@ const waitingUsers = new Set();
 const datingUsers = new Map();
 // Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
 const activePairs = new Map();
+// Keep a short-lived memory of recent peers so "Next" does not immediately rematch the same two people.
+const recentPeers = new Map();
+const RECENT_PEER_TTL_MS = 10 * 60 * 1000;
+
+function rememberRecentPeer(userId, peerId) {
+  const peers = recentPeers.get(userId) || new Map();
+  peers.set(peerId, Date.now());
+  recentPeers.set(userId, peers);
+}
+
+function hasRecentPeer(userId, peerId) {
+  const peers = recentPeers.get(userId);
+  if (!peers) return false;
+
+  const matchedAt = peers.get(peerId);
+  if (!matchedAt) return false;
+
+  if (Date.now() - matchedAt > RECENT_PEER_TTL_MS) {
+    peers.delete(peerId);
+    if (peers.size === 0) recentPeers.delete(userId);
+    return false;
+  }
+
+  return true;
+}
+
+function canPair(userIdA, userIdB) {
+  return !hasRecentPeer(userIdA, userIdB) && !hasRecentPeer(userIdB, userIdA);
+}
 
 function pairUsers(userIdA, userIdB) {
   activePairs.set(userIdA, userIdB);
   activePairs.set(userIdB, userIdA);
+  rememberRecentPeer(userIdA, userIdB);
+  rememberRecentPeer(userIdB, userIdA);
   console.log(`[Signaling] paired ${userIdA} <-> ${userIdB}`);
 }
 
@@ -172,6 +203,7 @@ function findDatingMatch(userId, userProfile) {
   for (const [partnerId, partnerData] of datingUsers.entries()) {
     if (partnerId === userId) continue;
     if (activePairs.has(partnerId)) continue;
+    if (!canPair(userId, partnerId)) continue;
 
     const partnerProfile = partnerData.profile;
     const userWants = userProfile.lookingFor;
@@ -245,7 +277,9 @@ function runFindUser(socket, data = {}) {
   }
 
   if (waitingUsers.size > 0) {
-    const partnerId = [...waitingUsers].find((id) => id !== socket.id && !activePairs.has(id));
+    const partnerId = [...waitingUsers].find(
+      (id) => id !== socket.id && !activePairs.has(id) && canPair(socket.id, id)
+    );
     if (partnerId) {
       waitingUsers.delete(partnerId);
       socket.emit('user-found', { partnerId });
@@ -294,6 +328,12 @@ io.on('connection', (socket) => {
     leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
     runFindUser(socket, data);
+  });
+
+  socket.on('cancel-search', () => {
+    removeFromMatchQueues(socket.id);
+    socket.emit('search-cancelled');
+    console.log(`[Signaling] search cancelled by ${socket.id}`);
   });
 
   socket.on('leave-chat', () => {
@@ -360,6 +400,11 @@ io.on('connection', (socket) => {
     clearActivePair(socket.id, true);
     leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
+    recentPeers.delete(socket.id);
+    for (const [userId, peers] of recentPeers.entries()) {
+      peers.delete(socket.id);
+      if (peers.size === 0) recentPeers.delete(userId);
+    }
   });
 
   socket.on('typing-start', ({ to }) => {
