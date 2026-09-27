@@ -8,19 +8,29 @@ const { verifySocketToken, createConnectionProof } = require('./socketAuth');
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
 
-const allowedOrigins = (process.env.CORS_ORIGINS
+const productionOrigins = [
+  'https://meeetopia.netlify.app',
+  'https://meetopia-live.netlify.app',
+];
+
+const configuredOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3003']
-)
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3003'];
+
+const allowedOrigins = [...new Set([...configuredOrigins, ...productionOrigins])]
   .map(normalizeOrigin)
   .filter(Boolean);
 
+const isMeetopiaPreviewOrigin = (origin) =>
+  typeof origin === 'string' &&
+  (
+    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(origin) ||
+    /^https:\/\/deploy-preview-\d+--meeetopia\.netlify\.app$/.test(origin)
+  );
+
 const corsOriginCheck = (origin, callback) => {
   const normalizedOrigin = normalizeOrigin(origin);
-
-  const isMeetopiaPreview =
-    typeof normalizedOrigin === 'string' &&
-    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(normalizedOrigin);
+  const isMeetopiaPreview = isMeetopiaPreviewOrigin(normalizedOrigin);
 
   if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin) || isMeetopiaPreview) {
     console.log('[CORS] Allowed origin:', normalizedOrigin || '(no origin)');
@@ -71,9 +81,7 @@ const io = new Server(server, {
 // Ensure ACAO on Engine.io polling/WebSocket handshake responses (not always set by callback alone).
 io.engine.on('headers', (headers, req) => {
   const normalizedOrigin = normalizeOrigin(req.headers.origin);
-  const isMeetopiaPreview =
-    typeof normalizedOrigin === 'string' &&
-    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(normalizedOrigin);
+  const isMeetopiaPreview = isMeetopiaPreviewOrigin(normalizedOrigin);
   if (normalizedOrigin && (allowedOrigins.includes(normalizedOrigin) || isMeetopiaPreview)) {
     headers['Access-Control-Allow-Origin'] = normalizedOrigin;
     headers['Access-Control-Allow-Credentials'] = 'true';
