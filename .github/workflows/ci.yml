@@ -1,0 +1,55 @@
+name: Meetopia CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/meetopia-revival
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetopia
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/meetopia
+      NEXT_PUBLIC_SOCKET_URL: https://meetopia-signaling.onrender.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+  signaling:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install signaling dependencies
+        run: npm ci
+
+      - name: Validate signaling server syntax
+        run: node --check index.js
