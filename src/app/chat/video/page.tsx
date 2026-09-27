@@ -168,6 +168,7 @@ export default function VideoChatPage() {
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
         onStartChat={chat.handleStartChat}
+        onCancelSearch={chat.handleCancelSearch}
         onNextPerson={handleNextPerson}
         onLeaveChat={chat.handleLeaveChat}
         onToggleMute={media.toggleLocalMute}
