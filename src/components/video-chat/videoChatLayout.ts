@@ -7,10 +7,11 @@ export const videoChatLayout = {
   messagePill:
     'fixed left-1/2 -translate-x-1/2 z-40 w-[calc(100vw-2rem)] max-w-md bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] md:bottom-28 pointer-events-none',
   controls:
-    'fixed left-1/2 -translate-x-1/2 z-40 bottom-[calc(env(safe-area-inset-bottom)+1rem)] md:bottom-8 transition-all duration-300',
-  controlRow: 'flex items-center justify-center gap-2 sm:gap-2.5 max-w-[100vw]',
-  controlButton: 'w-[46px] h-[46px] md:w-[54px] md:h-[54px]',
-  controlButtonPrimary: 'w-[52px] h-[52px] md:w-[60px] md:h-[60px]',
+    'fixed inset-x-0 z-40 px-2 bottom-[calc(env(safe-area-inset-bottom)+1rem)] md:bottom-8 transition-all duration-300',
+  controlRow:
+    'mx-auto flex w-full max-w-lg flex-wrap items-center justify-center gap-1.5 sm:gap-2.5',
+  controlButton: 'w-10 h-10 sm:w-[46px] sm:h-[46px] md:w-[54px] md:h-[54px]',
+  controlButtonPrimary: 'w-12 h-12 sm:w-[52px] sm:h-[52px] md:w-[60px] md:h-[60px]',
   statusChips: 'fixed top-16 left-3 sm:left-4 z-20 flex flex-wrap gap-2 max-w-[calc(100vw-8rem)]',
   safetyControls: 'fixed top-[calc(4rem+5.25rem)] sm:top-[calc(4rem+6.25rem)] md:top-[calc(4rem+7.25rem)] lg:top-[calc(4rem+8.25rem)] right-3 sm:right-4 z-20 flex gap-2',
   idleHint:
