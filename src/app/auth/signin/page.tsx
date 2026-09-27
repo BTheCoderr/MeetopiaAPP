@@ -27,7 +27,8 @@ export default function SignInPage() {
         throw new Error(data.message || 'Failed to sign in')
       }
 
-      router.push('/chat')
+      const nextPath = new URLSearchParams(window.location.search).get('next') || '/dating/profile'
+      router.push(nextPath)
     } catch (err: any) {
       setError(err.message)
     } finally {
