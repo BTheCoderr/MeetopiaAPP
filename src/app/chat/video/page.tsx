@@ -63,12 +63,8 @@ export default function VideoChatPage() {
   }, [])
 
   const handleNextPerson = useCallback(() => {
-    if (searchConfig.isDemo) {
-      chat.handleLeaveChat()
-      return
-    }
     chat.handleNextPerson()
-  }, [chat, searchConfig.isDemo])
+  }, [chat])
 
   const handleSubmitLegacyReport = useCallback(() => {
     if (!state.reportReason || !chat.socket) return
