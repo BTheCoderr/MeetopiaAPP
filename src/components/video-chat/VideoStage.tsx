@@ -28,6 +28,8 @@ interface VideoStageProps {
   pipProps: PictureInPictureProps
   onToggleBlur: () => void
   onReportExplicit: () => void
+  onControlsActivity: () => void
+  onToggleControls: () => void
 }
 
 const videoTransition = { duration: 0.38, ease: [0.4, 0, 0.2, 1] as const }
@@ -70,6 +72,8 @@ export default function VideoStage({
   pipProps,
   onToggleBlur,
   onReportExplicit,
+  onControlsActivity,
+  onToggleControls,
 }: VideoStageProps) {
   const hasRemote = isPeerConnected && !!remoteStream
   const pipStream = hasRemote ? localStream : null
@@ -100,7 +104,15 @@ export default function VideoStage({
   }, [pipStream, pipProps.localVideoRef])
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black overflow-hidden touch-manipulation"
+      onPointerMove={(event) => {
+        if (hasPeer && event.pointerType === 'mouse') onControlsActivity()
+      }}
+      onPointerUp={(event) => {
+        if (hasPeer && event.pointerType !== 'mouse') onToggleControls()
+      }}
+    >
       {/* Primary local video — full-screen before/during match setup, hidden once remote is primary */}
       <motion.div
         className="absolute inset-0"
