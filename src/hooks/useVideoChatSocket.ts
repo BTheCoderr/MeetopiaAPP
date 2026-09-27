@@ -109,7 +109,14 @@ export function useVideoChatSocket({
       setError('Connection lost. Attempting to reconnect...')
     })
 
+    newSocket.on('match-error', ({ message }: { code?: string; message?: string }) => {
+      console.warn(LOG, 'match-error', message)
+      setIsSearching(false)
+      setError(message || 'Unable to join matchmaking. Check your profile and try again.')
+    })
+
     return () => {
+      newSocket.off('match-error')
       newSocket.disconnect()
       socketRef.current = null
     }
@@ -397,15 +404,24 @@ export function useVideoChatSocket({
 
   const handleStartChat = useCallback(() => {
     if (!socket?.connected || !stream || buttonCooldown) return
+
+    if (isDating && !userProfile) {
+      setIsSearching(false)
+      setError('Create your 18+ dating profile before starting a Chemistry Check.')
+      router.push('/dating/profile')
+      return
+    }
+
     console.log(LOG, 'find-user')
     setIsSearching(true)
-    if (isDating && userProfile) {
+    setError(null)
+    if (isDating) {
       socket.emit('find-user', { mode: 'dating', profile: userProfile })
     } else {
       socket.emit('find-user')
     }
     startCooldown()
-  }, [socket, stream, buttonCooldown, setIsSearching, startCooldown, isDating, userProfile])
+  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown, isDating, userProfile, router])
 
   const handleNextPerson = useCallback(() => {
     if (isDemo) return 'leave' as const
