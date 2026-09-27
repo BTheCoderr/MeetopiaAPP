@@ -62,6 +62,11 @@ export default function VideoChatPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (chat.currentPeer) state.showControlsTemporarily()
+    else state.showControls()
+  }, [chat.currentPeer, state.showControls, state.showControlsTemporarily])
+
   const handleNextPerson = useCallback(() => {
     chat.handleNextPerson()
   }, [chat])
@@ -167,6 +172,7 @@ export default function VideoChatPage() {
         onToggleScreenShare={media.toggleScreenShare}
         onOpenTroubleshooting={() => state.setShowTroubleshooting(true)}
         onOpenReport={() => openReportModal(chat.currentPeerUserId || '')}
+        onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
       {state.error && (
@@ -206,6 +212,8 @@ export default function VideoChatPage() {
         }}
         onToggleBlur={state.toggleBlurRemoteVideo}
         onReportExplicit={handleReportExplicit}
+        onControlsActivity={state.showControlsTemporarily}
+        onToggleControls={state.toggleControlsVisibility}
       />
 
       <ChatPanel

@@ -45,19 +45,45 @@ export function useVideoChatState() {
     setTimeout(() => setButtonCooldown(false), 5000)
   }, [])
 
-  const handleControlsVisibility = useCallback(() => {
-    setAreControlsVisible(true)
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-    controlsTimeoutRef.current = setTimeout(() => {
-      setAreControlsVisible(false)
-    }, 7000)
+  const clearControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current)
+      controlsTimeoutRef.current = null
+    }
   }, [])
 
-  const handleChatFocus = useCallback(() => {
+  const showControls = useCallback(() => {
+    clearControlsTimeout()
     setAreControlsVisible(true)
+  }, [clearControlsTimeout])
+
+  const showControlsTemporarily = useCallback(() => {
+    clearControlsTimeout()
+    setAreControlsVisible(true)
+    controlsTimeoutRef.current = setTimeout(() => {
+      setAreControlsVisible(false)
+      controlsTimeoutRef.current = null
+    }, 5000)
+  }, [clearControlsTimeout])
+
+  const toggleControlsVisibility = useCallback(() => {
+    clearControlsTimeout()
+    setAreControlsVisible(previous => {
+      const next = !previous
+      if (next) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          setAreControlsVisible(false)
+          controlsTimeoutRef.current = null
+        }, 5000)
+      }
+      return next
+    })
+  }, [clearControlsTimeout])
+
+  const handleChatFocus = useCallback(() => {
+    showControls()
     setIsChatOpen(true)
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-  }, [])
+  }, [showControls])
 
   const toggleBlurRemoteVideo = useCallback(() => {
     setBlurRemoteVideo(previous => !previous)
@@ -76,12 +102,10 @@ export function useVideoChatState() {
   }, [])
 
   useEffect(() => {
-    document.addEventListener('mousemove', handleControlsVisibility)
     return () => {
-      document.removeEventListener('mousemove', handleControlsVisibility)
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+      clearControlsTimeout()
     }
-  }, [handleControlsVisibility])
+  }, [clearControlsTimeout])
 
   return {
     showTutorial, setShowTutorial,
@@ -106,6 +130,9 @@ export function useVideoChatState() {
     blurRemoteVideo,
     keyboardShortcuts,
     startCooldown,
+    showControls,
+    showControlsTemporarily,
+    toggleControlsVisibility,
     handleChatFocus,
     toggleBlurRemoteVideo,
   }

@@ -23,6 +23,7 @@ interface ControlBarProps {
   onToggleScreenShare: () => void
   onOpenTroubleshooting: () => void
   onOpenReport: () => void
+  onControlsActivity: () => void
 }
 
 function IconButton({
@@ -88,12 +89,14 @@ export default function ControlBar({
   onToggleScreenShare,
   onOpenTroubleshooting,
   onOpenReport,
+  onControlsActivity,
 }: ControlBarProps) {
   return (
     <div
       className={`${videoChatLayout.controls} ${
         areControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
       }`}
+      onPointerDown={onControlsActivity}
     >
       <div className={videoChatLayout.controlRow}>
         <IconButton
