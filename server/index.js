@@ -18,7 +18,11 @@ const allowedOrigins = (process.env.CORS_ORIGINS
 const corsOriginCheck = (origin, callback) => {
   const normalizedOrigin = normalizeOrigin(origin);
 
-  if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin)) {
+  const isMeetopiaPreview =
+    typeof normalizedOrigin === 'string' &&
+    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(normalizedOrigin);
+
+  if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin) || isMeetopiaPreview) {
     console.log('[CORS] Allowed origin:', normalizedOrigin || '(no origin)');
     return callback(null, true);
   }
@@ -67,7 +71,10 @@ const io = new Server(server, {
 // Ensure ACAO on Engine.io polling/WebSocket handshake responses (not always set by callback alone).
 io.engine.on('headers', (headers, req) => {
   const normalizedOrigin = normalizeOrigin(req.headers.origin);
-  if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+  const isMeetopiaPreview =
+    typeof normalizedOrigin === 'string' &&
+    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(normalizedOrigin);
+  if (normalizedOrigin && (allowedOrigins.includes(normalizedOrigin) || isMeetopiaPreview)) {
     headers['Access-Control-Allow-Origin'] = normalizedOrigin;
     headers['Access-Control-Allow-Credentials'] = 'true';
     console.log('[CORS] Engine headers for origin:', normalizedOrigin);
