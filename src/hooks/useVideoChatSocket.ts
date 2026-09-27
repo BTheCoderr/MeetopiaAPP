@@ -572,6 +572,7 @@ export function useVideoChatSocket({
 
   const handleBlock = useCallback(async () => {
     if (!socket?.connected || !currentPeer) return false
+    if (!window.confirm('Block this person? You will not be matched with them again.')) return false
 
     if (currentPeerUserId) {
       try {
