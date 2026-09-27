@@ -26,16 +26,22 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <Link 
-              href="/chat/video" 
+              href="/dating/profile" 
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg text-lg shadow-md transition-colors"
             >
-              Start Video Chat Now
+              Start a Chemistry Check
+            </Link>
+            <Link
+              href="/chat/video"
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Just chat
             </Link>
             <button
               onClick={() => setShowGuidelines(true)}
               className="text-blue-600 hover:text-blue-800 font-medium"
             >
-              Read our community guidelines
+              Community guidelines
             </button>
           </div>
         </div>
@@ -43,15 +49,15 @@ export default function Home() {
         {/* Features Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-3">Local profile</h3>
+            <h3 className="text-xl font-semibold mb-3">Your dating profile</h3>
             <p className="text-gray-600">
-              Create a lightweight profile and choose dating or meeting intent before you start a Chemistry Check.
+              Create an account-backed 18+ dating profile so mutual Vibes can become saved Connections.
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-3">Chemistry Check</h3>
             <p className="text-gray-600">
-              Short live video conversations with suggested profiles who share your dating intent.
+              Live video conversations with compatible profiles. Send a Vibe privately when the chemistry feels right.
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
