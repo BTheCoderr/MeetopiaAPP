@@ -1,11 +1,9 @@
 -- Keep account creation compatible with the existing required interests column
 ALTER TABLE "User" ALTER COLUMN "interests" SET DEFAULT ARRAY[]::TEXT[];
 
--- Add dating profile fields
+-- Meetopia is talk-first: only persist adult confirmation before live matching.
 ALTER TABLE "User"
-ADD COLUMN "age" INTEGER,
-ADD COLUMN "gender" TEXT,
-ADD COLUMN "lookingFor" TEXT;
+ADD COLUMN "adultConfirmedAt" TIMESTAMP(3);
 
 -- CreateTable
 CREATE TABLE "Vibe" (
