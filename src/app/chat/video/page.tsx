@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
 import { useReporting } from '@/hooks/useReporting'
 import { useVideoChatState } from '@/hooks/useVideoChatState'
@@ -164,18 +165,22 @@ export default function VideoChatPage() {
         isSearching={state.isSearching}
         buttonCooldown={state.buttonCooldown}
         hasPeer={Boolean(chat.currentPeer)}
+        isDating={state.isDating}
+        hasVibed={chat.hasVibed}
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
         onStartChat={chat.handleStartChat}
         onCancelSearch={chat.handleCancelSearch}
         onNextPerson={handleNextPerson}
+        onVibe={chat.handleVibe}
+        onBlock={chat.handleBlock}
         onLeaveChat={chat.handleLeaveChat}
         onToggleMute={media.toggleLocalMute}
         onToggleCamera={media.toggleLocalCamera}
         onToggleScreenShare={media.toggleScreenShare}
         onOpenTroubleshooting={() => state.setShowTroubleshooting(true)}
-        onOpenReport={() => openReportModal(chat.currentPeer || '')}
+        onOpenReport={() => openReportModal(chat.currentPeerUserId || '')}
       />
 
       {state.error && (
@@ -231,11 +236,49 @@ export default function VideoChatPage() {
         onFocus={state.handleChatFocus}
       />
 
+      {chat.mutualVibe && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-md px-4">
+          <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-[#161618] p-7 text-center text-white shadow-2xl">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-purple-600 text-3xl">
+              ♥
+            </div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-pink-300">Chemistry confirmed</p>
+            <h2 className="text-3xl font-black">It&apos;s a Vibe!</h2>
+            <p className="mt-3 text-white/70">
+              You and {chat.mutualVibe.partnerDisplayName || 'your match'} both sent a Vibe.
+            </p>
+            <div className="mt-3 text-sm">
+              {chat.mutualVibe.saved ? (
+                <span className="text-green-300">Connection saved ✓</span>
+              ) : (
+                <span className="text-amber-300">{chat.mutualVibe.error || 'Connection not saved yet.'}</span>
+              )}
+            </div>
+            <div className="mt-6 grid gap-3">
+              {chat.mutualVibe.saved && (
+                <Link
+                  href="/connections"
+                  className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
+                >
+                  View Connections
+                </Link>
+              )}
+              <button
+                onClick={chat.dismissMutualVibe}
+                className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white/90 hover:bg-white/10"
+              >
+                Keep talking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <VideoChatModals
         isReportModalOpen={isReportModalOpen}
         closeReportModal={closeReportModal}
         onSubmitReport={handleReport}
-        reportedUserId={chat.currentPeer || undefined}
+        reportedUserId={chat.currentPeerUserId || undefined}
         showKeyboardHelp={state.showKeyboardHelp}
         setShowKeyboardHelp={state.setShowKeyboardHelp}
         keyboardShortcuts={state.keyboardShortcuts}
