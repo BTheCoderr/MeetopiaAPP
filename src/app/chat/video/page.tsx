@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
 import { useReporting } from '@/hooks/useReporting'
@@ -18,15 +17,7 @@ import VideoChatModals from '@/components/video-chat/VideoChatModals'
 import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 
 export default function VideoChatPage() {
-  const searchParams = useSearchParams()
-  const searchConfig = {
-    isDating: searchParams.get('mode') === 'dating',
-    isDemo: searchParams.get('demo') === 'true',
-    demoPartnerId: searchParams.get('partner'),
-    selectedInterest: searchParams.get('interest'),
-  }
-
-  const state = useVideoChatState(searchConfig)
+  const state = useVideoChatState()
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localPipVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -38,9 +29,6 @@ export default function VideoChatPage() {
     stream,
     peerConnection,
     restartConnection,
-    isDating: state.isDating,
-    isDemo: searchConfig.isDemo,
-    userProfile: state.userProfile,
     buttonCooldown: state.buttonCooldown,
     setIsSearching: state.setIsSearching,
     setError: state.setError,
@@ -165,7 +153,6 @@ export default function VideoChatPage() {
         isSearching={state.isSearching}
         buttonCooldown={state.buttonCooldown}
         hasPeer={Boolean(chat.currentPeer)}
-        isDating={state.isDating}
         hasVibed={chat.hasVibed}
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
@@ -198,7 +185,6 @@ export default function VideoChatPage() {
       )}
 
       <VideoStage
-        isDating={state.isDating}
         isDarkTheme={state.isDarkTheme}
         isClient={state.isClient}
         isSearching={state.isSearching}
