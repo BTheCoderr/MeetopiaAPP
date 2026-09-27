@@ -128,8 +128,46 @@ function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   removeFromMatchQueues(socket.id);
 }
 
+const DATING_QUEUE_TTL_MS = 5 * 60 * 1000;
+const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
+const ALLOWED_PREFERENCES = new Set(['male', 'female', 'both']);
+
+function normalizeDatingProfile(profile) {
+  if (!profile || typeof profile !== 'object') return null;
+
+  const age = Number(profile.age);
+  const name = typeof profile.name === 'string' ? profile.name.trim().slice(0, 60) : '';
+  const gender = typeof profile.gender === 'string' ? profile.gender.toLowerCase() : '';
+  const lookingFor = typeof profile.lookingFor === 'string' ? profile.lookingFor.toLowerCase() : '';
+
+  if (!name || !Number.isInteger(age) || age < 18 || age > 99) return null;
+  if (!ALLOWED_GENDERS.has(gender) || !ALLOWED_PREFERENCES.has(lookingFor)) return null;
+
+  return {
+    ...profile,
+    name,
+    age,
+    gender,
+    lookingFor,
+    interests: Array.isArray(profile.interests)
+      ? profile.interests.filter((item) => typeof item === 'string').slice(0, 20)
+      : [],
+    bio: typeof profile.bio === 'string' ? profile.bio.slice(0, 500) : '',
+  };
+}
+
+function pruneDatingQueue() {
+  const cutoff = Date.now() - DATING_QUEUE_TTL_MS;
+  for (const [socketId, entry] of datingUsers.entries()) {
+    if (!entry || entry.timestamp < cutoff || !io.sockets.sockets.has(socketId)) {
+      datingUsers.delete(socketId);
+    }
+  }
+}
+
 function findDatingMatch(userId, userProfile) {
   let bestMatch = null;
+  pruneDatingQueue();
 
   for (const [partnerId, partnerData] of datingUsers.entries()) {
     if (partnerId === userId) continue;
@@ -160,10 +198,25 @@ function runFindUser(socket, data = {}) {
   }
 
   const isDatingMode = data.mode === 'dating';
-  const profile = data.profile || null;
+  const profile = isDatingMode ? normalizeDatingProfile(data.profile) : null;
+
+  if (isDatingMode && !profile) {
+    removeFromMatchQueues(socket.id);
+    socket.emit('match-error', {
+      code: 'INVALID_DATING_PROFILE',
+      message: 'Dating requires a complete 18+ profile before matching.',
+    });
+    console.warn(`[Dating] rejected invalid profile from ${socket.id}`);
+    return;
+  }
 
   if (isDatingMode && profile) {
-    console.log(`User ${socket.id} is looking for a dating match with profile:`, profile);
+    console.log(`User ${socket.id} is looking for a dating match with profile:`, {
+      name: profile.name,
+      age: profile.age,
+      gender: profile.gender,
+      lookingFor: profile.lookingFor,
+    });
     datingUsers.set(socket.id, {
       profile,
       timestamp: Date.now()
