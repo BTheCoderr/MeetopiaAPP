@@ -115,8 +115,14 @@ export function useVideoChatSocket({
       setError(message || 'Unable to join matchmaking. Check your profile and try again.')
     })
 
+    newSocket.on('search-cancelled', () => {
+      setIsSearching(false)
+      setError(null)
+    })
+
     return () => {
       newSocket.off('match-error')
+      newSocket.off('search-cancelled')
       newSocket.disconnect()
       socketRef.current = null
     }
@@ -423,6 +429,13 @@ export function useVideoChatSocket({
     startCooldown()
   }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown, isDating, userProfile, router])
 
+  const handleCancelSearch = useCallback(() => {
+    if (!socket?.connected) return
+    socket.emit('cancel-search')
+    setIsSearching(false)
+    setError(null)
+  }, [socket, setIsSearching, setError])
+
   const handleNextPerson = useCallback(() => {
     if (isDemo) return 'leave' as const
     console.log(LOG, 'find-next-user')
@@ -473,6 +486,7 @@ export function useVideoChatSocket({
     isRemoteCameraOff,
     isRemoteAudioOff,
     handleStartChat,
+    handleCancelSearch,
     handleNextPerson,
     handleLeaveChat,
     reportExplicitContent,
