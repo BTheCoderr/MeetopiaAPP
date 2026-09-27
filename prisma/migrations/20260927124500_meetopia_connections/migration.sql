@@ -1,3 +1,6 @@
+-- Keep account creation compatible with the existing required interests column
+ALTER TABLE "User" ALTER COLUMN "interests" SET DEFAULT ARRAY[]::TEXT[];
+
 -- Add dating profile fields
 ALTER TABLE "User"
 ADD COLUMN "age" INTEGER,
