@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useRouter } from 'next/navigation'
-import type { UserProfile } from '@/types/videoChat'
 
 const LOG = '[WebRTC:Signaling]'
 
@@ -19,9 +18,6 @@ interface UseVideoChatSocketOptions {
   stream: MediaStream | null
   peerConnection: RTCPeerConnection | null
   restartConnection: () => void
-  isDating: boolean
-  isDemo: boolean
-  userProfile: UserProfile | null
   buttonCooldown: boolean
   setIsSearching: (v: boolean) => void
   setError: (v: string | null) => void
@@ -42,9 +38,6 @@ export function useVideoChatSocket({
   stream,
   peerConnection,
   restartConnection,
-  isDating,
-  isDemo,
-  userProfile,
   buttonCooldown,
   setIsSearching,
   setError,
@@ -147,7 +140,9 @@ export function useVideoChatSocket({
         setIsSearching(false)
         setError(message || 'Unable to join matchmaking. Check your profile and try again.')
         if (code === 'AUTH_REQUIRED') {
-          router.push('/auth/signin?next=/dating/profile')
+          router.push('/auth/signin?next=/start')
+        } else if (code === 'ADULT_CONFIRMATION_REQUIRED') {
+          router.push('/start')
         }
       })
 
@@ -296,7 +291,13 @@ export function useVideoChatSocket({
     pc.addEventListener('icecandidate', onIceCandidate)
     pc.addEventListener('connectionstatechange', onConnectionStateChange)
 
-    const handleUserFound = async ({ partnerId, profile }: { partnerId: string; profile?: unknown }) => {
+    const handleUserFound = async ({
+      partnerId,
+      partnerUserId,
+    }: {
+      partnerId: string
+      partnerUserId?: string | null
+    }) => {
       const sock = socketRef.current
       const activePc = peerConnectionRef.current
       if (!sock?.id || !activePc || !isPeerConnectionUsable(activePc)) {
@@ -311,13 +312,7 @@ export function useVideoChatSocket({
       setIsSearching(false)
       pendingIceCandidatesRef.current = []
 
-      if (isDating && profile) {
-        console.log(LOG, 'dating peer profile', profile)
-        if (typeof profile === 'object' && profile !== null && 'userId' in profile) {
-          const userId = (profile as { userId?: unknown }).userId
-          setCurrentPeerUserId(typeof userId === 'string' ? userId : null)
-        }
-      }
+      setCurrentPeerUserId(typeof partnerUserId === 'string' ? partnerUserId : null)
       setHasVibed(false)
       setMutualVibe(null)
 
@@ -337,11 +332,7 @@ export function useVideoChatSocket({
         await activePc.setLocalDescription(offer)
         console.log(LOG, 'created offer → call-user', partnerId)
 
-        if (isDating && userProfile) {
-          sock.emit('call-user', { offer, to: partnerId, profile: userProfile })
-        } else {
-          sock.emit('call-user', { offer, to: partnerId })
-        }
+        sock.emit('call-user', { offer, to: partnerId })
         setError(null)
       } catch (err) {
         console.error(LOG, 'createOffer failed (retrying):', err)
@@ -461,8 +452,6 @@ export function useVideoChatSocket({
   }, [
     peerConnection,
     stream,
-    isDating,
-    userProfile,
     socket,
     setIsSearching,
     setError,
@@ -511,24 +500,12 @@ export function useVideoChatSocket({
 
   const handleStartChat = useCallback(() => {
     if (!socket?.connected || !stream || buttonCooldown) return
-
-    if (isDating && !userProfile) {
-      setIsSearching(false)
-      setError('Create your 18+ dating profile before starting a Chemistry Check.')
-      router.push('/dating/profile')
-      return
-    }
-
     console.log(LOG, 'find-user')
     setIsSearching(true)
     setError(null)
-    if (isDating) {
-      socket.emit('find-user', { mode: 'dating', profile: userProfile })
-    } else {
-      socket.emit('find-user')
-    }
+    socket.emit('find-user')
     startCooldown()
-  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown, isDating, userProfile, router])
+  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown])
 
   const handleCancelSearch = useCallback(() => {
     if (!socket?.connected) return
@@ -538,7 +515,6 @@ export function useVideoChatSocket({
   }, [socket, setIsSearching, setError])
 
   const handleNextPerson = useCallback(() => {
-    if (isDemo) return 'leave' as const
     console.log(LOG, 'find-next-user')
     pendingIceCandidatesRef.current = []
     if (currentPeer) {
@@ -554,21 +530,17 @@ export function useVideoChatSocket({
     setIsSearching(true)
     setError(null)
     window.setTimeout(() => {
-      if (isDating && userProfile) {
-        socket?.emit('find-next-user', { mode: 'dating', profile: userProfile })
-      } else {
-        socket?.emit('find-next-user')
-      }
+      socket?.emit('find-next-user')
     }, 350)
     startCooldown()
     return 'next' as const
-  }, [isDemo, currentPeer, restartConnection, socket, startCooldown, setError, isDating, userProfile])
+  }, [currentPeer, restartConnection, socket, startCooldown, setError])
 
   const handleVibe = useCallback(() => {
-    if (!isDating || !socket?.connected || !currentPeer || hasVibed) return
+    if (!socket?.connected || !currentPeer || hasVibed) return
     socket.emit('vibe-tap', { to: currentPeer })
     setHasVibed(true)
-  }, [isDating, socket, currentPeer, hasVibed])
+  }, [socket, currentPeer, hasVibed])
 
   const handleBlock = useCallback(async () => {
     if (!socket?.connected || !currentPeer) return false
