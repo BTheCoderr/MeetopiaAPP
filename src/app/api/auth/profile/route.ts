@@ -24,9 +24,6 @@ export async function GET() {
         displayName: true,
         bio: true,
         interests: true,
-        age: true,
-        gender: true,
-        lookingFor: true,
       }
     })
 
@@ -57,27 +54,10 @@ export async function PUT(request: Request) {
       ? body.interests.filter((value: unknown): value is string => typeof value === 'string').map((value: string) => value.trim()).filter(Boolean).slice(0, 20)
       : undefined
 
-    let age: number | undefined
-    if (body.age !== undefined && body.age !== null && body.age !== '') {
-      const parsedAge = Number(body.age)
-      if (!Number.isInteger(parsedAge) || parsedAge < 18 || parsedAge > 99) {
-        return NextResponse.json({ error: 'Dating profiles must be 18+.' }, { status: 400 })
-      }
-      age = parsedAge
-    }
-
-    const gender = body.gender === undefined ? undefined : String(body.gender).toLowerCase()
-    const lookingFor = body.lookingFor === undefined ? undefined : String(body.lookingFor).toLowerCase()
-    if (gender !== undefined && !['male', 'female', 'other'].includes(gender)) {
-      return NextResponse.json({ error: 'Invalid gender selection.' }, { status: 400 })
-    }
-    if (lookingFor !== undefined && !['male', 'female', 'both'].includes(lookingFor)) {
-      return NextResponse.json({ error: 'Invalid dating preference.' }, { status: 400 })
-    }
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { displayName, bio, interests, age, gender, lookingFor },
+      data: { displayName, bio, interests },
       select: {
         id: true,
         email: true,
@@ -85,9 +65,6 @@ export async function PUT(request: Request) {
         displayName: true,
         bio: true,
         interests: true,
-        age: true,
-        gender: true,
-        lookingFor: true,
       }
     })
 
