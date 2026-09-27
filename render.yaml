@@ -24,5 +24,7 @@ services:
         sync: false
       - key: REPORT_ADMIN_TOKEN
         sync: false
+      - key: SOCKET_AUTH_SECRET
+        sync: false
     healthCheckPath: /health
     autoDeploy: true 

@@ -27,11 +27,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
               >
                 Home
               </Link>
-              <Link 
-                href="/chat/video" 
+              <Link
+                href="/start"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Start Chat
+                Start
+              </Link>
+              <Link
+                href="/connections"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Connections
               </Link>
               <a 
                 href="#" 
@@ -73,7 +79,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               Safety
             </Link>
           </nav>
-          <p>&copy; {new Date().getFullYear()} Meetopia — Video-first dating and real chemistry</p>
+          <p>&copy; {new Date().getFullYear()} Meetopia — Talk first. Vibe after.</p>
         </div>
       </footer>
     </div>

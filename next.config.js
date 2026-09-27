@@ -1,17 +1,44 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  webpack: (config) => {
-    config.externals = [...config.externals]
-    return config
+  poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+    ],
   },
-  experimental: {
-    serverComponentsExternalPackages: []
+  async redirects() {
+    return [
+      {
+        source: '/marketing',
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        dns: false,
+        tls: false,
+        fs: false,
+      }
+    }
+    return config
   },
   compiler: {
     styledComponents: true,
-    reactRemoveProperties: { properties: ['^data-new-gr-c-s-check-loaded$', '^data-gr-ext-installed$', '^cz-shortcut-listen$'] }
-  }
+    reactRemoveProperties: {
+      properties: [
+        '^data-new-gr-c-s-check-loaded$',
+        '^data-gr-ext-installed$',
+        '^cz-shortcut-listen$',
+      ],
+    },
+  },
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig

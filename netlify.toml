@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20.19.0"
+
+[context.production.environment]
+  NEXT_PUBLIC_SOCKET_URL = "https://meetopia-signaling-v2.onrender.com"
+
+[context.production]
+  command = "npx prisma migrate deploy && npm run build"

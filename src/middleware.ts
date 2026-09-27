@@ -1,49 +1,45 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Paths that don't require authentication
 const PUBLIC_PATHS = [
+  '/',
   '/auth/signin',
   '/auth/signup',
-  '/api/auth/signin',
-  '/api/auth/signup',
-  '/',
   '/chat',
   '/dating/profile',
   '/dating/interests',
+  '/privacy',
+  '/terms',
+  '/community-guidelines',
+  '/support',
+  '/safety',
 ]
+
+function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.some(path => {
+    if (path === '/') return pathname === '/'
+    return pathname === path || pathname.startsWith(`${path}/`)
+  })
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
+  // API handlers return their own 401/403 responses and should never be redirected to HTML.
+  if (pathname.startsWith('/api/') || isPublicPath(pathname)) {
     return NextResponse.next()
   }
 
-  // Check for session cookie
   const sessionCookie = request.cookies.get('meetopia_session')
-
-  // If no session, redirect to signin
   if (!sessionCookie) {
     const signinUrl = new URL('/auth/signin', request.url)
-    signinUrl.searchParams.set('from', pathname)
+    signinUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(signinUrl)
   }
 
   return NextResponse.next()
 }
 
-// Configure paths that trigger the middleware
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
-  ],
-} 
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|public/).*)'],
+}

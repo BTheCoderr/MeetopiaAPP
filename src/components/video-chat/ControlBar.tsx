@@ -8,11 +8,15 @@ interface ControlBarProps {
   isSearching: boolean
   buttonCooldown: boolean
   hasPeer: boolean
+  hasVibed: boolean
   isMuted: boolean
   isCameraOff: boolean
   isScreenSharing: boolean
   onStartChat: () => void
+  onCancelSearch: () => void
   onNextPerson: () => void
+  onVibe: () => void
+  onBlock: () => void
   onLeaveChat: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
@@ -69,11 +73,15 @@ export default function ControlBar({
   isSearching,
   buttonCooldown,
   hasPeer,
+  hasVibed,
   isMuted,
   isCameraOff,
   isScreenSharing,
   onStartChat,
+  onCancelSearch,
   onNextPerson,
+  onVibe,
+  onBlock,
   onLeaveChat,
   onToggleMute,
   onToggleCamera,
@@ -118,13 +126,15 @@ export default function ControlBar({
 
         {!hasPeer ? (
           <IconButton
-            onClick={onStartChat}
-            disabled={!isSocketConnected || isSearching || buttonCooldown}
+            onClick={isSearching ? onCancelSearch : onStartChat}
+            disabled={!isSocketConnected || (!isSearching && buttonCooldown)}
             primary
-            label="Make a Connection"
+            label={isSearching ? 'Cancel Search' : 'Make a Connection'}
           >
             {isSearching ? (
-              <div className="w-5 h-5 md:w-6 md:h-6 border-[2.5px] border-white/30 border-t-white rounded-full animate-spin" />
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 6h12v12H6z" />
+              </svg>
             ) : (
               <svg className="w-6 h-6 md:w-7 md:h-7" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
@@ -145,6 +155,21 @@ export default function ControlBar({
             <IconButton onClick={onNextPerson} label="Keep Exploring">
               <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+              </svg>
+            </IconButton>
+            <IconButton
+              onClick={onVibe}
+              disabled={hasVibed}
+              active={hasVibed}
+              label={hasVibed ? 'Vibe sent' : 'Send a Vibe'}
+            >
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21s-7-4.35-9.33-8.29C.72 9.42 2.07 5.5 5.72 4.53 8.08 3.9 10.14 5.1 12 7.17c1.86-2.07 3.92-3.27 6.28-2.64 3.65.97 5 4.89 3.05 8.18C19 16.65 12 21 12 21z" />
+              </svg>
+            </IconButton>
+            <IconButton onClick={onBlock} label="Block this person">
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 015.29 14L6 6.71A7.96 7.96 0 0112 4zm-5.29 2L18 17.29A8 8 0 016.71 6z" />
               </svg>
             </IconButton>
             <IconButton onClick={onLeaveChat} danger label="Back to Base">

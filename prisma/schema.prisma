@@ -1,7 +1,7 @@
 // This is your Prisma schema file
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
@@ -10,36 +10,42 @@ generator client {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  username      String    @unique
-  displayName   String?
-  bio           String?
-  interests     String[]
-  isFlagged     Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // Relationships
-  friends       User[]    @relation("UserFriends")
-  friendOf      User[]    @relation("UserFriends")
-  sentMessages     Message[]  @relation("SentMessages")
-  receivedMessages Message[]  @relation("ReceivedMessages")
-  sessions      Session[]
-  reportsSubmitted Report[] @relation("ReportsSubmitted")
-  reportsReceived Report[] @relation("ReportsReceived")
-  feedback      Feedback[]
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  username    String   @unique
+  displayName String?
+  bio         String?
+  interests   String[]  @default([])
+  adultConfirmedAt DateTime?
+  isFlagged   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  friends          User[]       @relation("UserFriends")
+  friendOf         User[]       @relation("UserFriends")
+  sentMessages     Message[]    @relation("SentMessages")
+  receivedMessages Message[]    @relation("ReceivedMessages")
+  sessions         Session[]
+  reportsSubmitted Report[]     @relation("ReportsSubmitted")
+  reportsReceived  Report[]     @relation("ReportsReceived")
+  feedback         Feedback[]
+  vibesSent        Vibe[]       @relation("VibeSender")
+  vibesReceived    Vibe[]       @relation("VibeReceiver")
+  connectionsAsA   Connection[] @relation("ConnectionUserA")
+  connectionsAsB   Connection[] @relation("ConnectionUserB")
+  blocksMade       Block[]      @relation("Blocker")
+  blocksReceived   Block[]      @relation("Blocked")
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  content     String
-  createdAt   DateTime @default(now())
-  senderId    String
-  receiverId  String
-  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  id         String   @id @default(cuid())
+  content    String
+  createdAt  DateTime @default(now())
+  senderId   String
+  receiverId String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
 }
 
 model Session {
@@ -48,31 +54,70 @@ model Session {
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Report {
-  id            String   @id @default(cuid())
-  reporterId    String
+  id             String   @id @default(cuid())
+  reporterId     String
   reportedUserId String
-  reason        String
-  details       String?
-  status        String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  reporter      User     @relation("ReportsSubmitted", fields: [reporterId], references: [id])
-  reportedUser  User     @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+  reason         String
+  details        String?
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reporter     User @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  reportedUser User @relation("ReportsReceived", fields: [reportedUserId], references: [id])
 }
 
 model Feedback {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // connection_issues, audio_video_quality, feature_request, bug_report, other
+  type      String
   details   String?
-  status    String   @default("NEW") // NEW, REVIEWED, IMPLEMENTED, DISMISSED
+  status    String   @default("NEW")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  user      User     @relation(fields: [userId], references: [id])
-} 
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Vibe {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("VibeSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("VibeReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
+}
+
+model Connection {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
