@@ -10,7 +10,6 @@ import { videoChatLayout } from './videoChatLayout'
 export type VideoStageMode = 'idle' | 'searching' | 'connecting' | 'connected'
 
 interface VideoStageProps {
-  isDating: boolean
   isDarkTheme: boolean
   isClient: boolean
   isSearching: boolean
@@ -53,7 +52,6 @@ export function deriveVideoStageMode(
 }
 
 export default function VideoStage({
-  isDating,
   isDarkTheme,
   isClient,
   isSearching,
@@ -80,12 +78,8 @@ export default function VideoStage({
   const showStatusOverlay = mode === 'searching' || mode === 'connecting'
   const overlayMessage =
     mode === 'connecting'
-      ? isDating
-        ? 'Connecting video to your match…'
-        : 'Connecting video…'
-      : isDating
-        ? 'Finding your match…'
-        : 'Looking for someone…'
+      ? 'Starting your Chemistry Check…'
+      : 'Finding someone to talk to…'
 
   useEffect(() => {
     const el = localVideoRef.current
