@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
+const { verifySocketToken, createConnectionProof } = require('./socketAuth');
 
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
@@ -84,6 +85,7 @@ const waitingUsers = new Set();
 const datingUsers = new Map();
 // Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
 const activePairs = new Map();
+const vibeTargets = new Map();
 // Keep a short-lived memory of recent peers so "Next" does not immediately rematch the same two people.
 const recentPeers = new Map();
 const RECENT_PEER_TTL_MS = 10 * 60 * 1000;
@@ -110,11 +112,29 @@ function hasRecentPeer(userId, peerId) {
   return true;
 }
 
+function isBlockedBetween(socketIdA, socketIdB) {
+  const socketA = io.sockets.sockets.get(socketIdA);
+  const socketB = io.sockets.sockets.get(socketIdB);
+  if (!socketA || !socketB) return false;
+
+  const userA = socketA.data.userId;
+  const userB = socketB.data.userId;
+  if (!userA || !userB) return false;
+
+  return socketA.data.blockedUserIds?.has(userB) || socketB.data.blockedUserIds?.has(userA);
+}
+
 function canPair(userIdA, userIdB) {
-  return !hasRecentPeer(userIdA, userIdB) && !hasRecentPeer(userIdB, userIdA);
+  return (
+    !hasRecentPeer(userIdA, userIdB) &&
+    !hasRecentPeer(userIdB, userIdA) &&
+    !isBlockedBetween(userIdA, userIdB)
+  );
 }
 
 function pairUsers(userIdA, userIdB) {
+  vibeTargets.delete(userIdA);
+  vibeTargets.delete(userIdB);
   activePairs.set(userIdA, userIdB);
   activePairs.set(userIdB, userIdA);
   rememberRecentPeer(userIdA, userIdB);
@@ -127,6 +147,8 @@ function clearActivePair(socketId, notifyPeer = true) {
   if (!peerId) return null;
   activePairs.delete(socketId);
   activePairs.delete(peerId);
+  vibeTargets.delete(socketId);
+  vibeTargets.delete(peerId);
   if (notifyPeer) {
     io.to(peerId).emit('peer-left');
     console.log(`[Signaling] peer-left: ${socketId} -> notified ${peerId}`);
@@ -230,6 +252,16 @@ function runFindUser(socket, data = {}) {
   }
 
   const isDatingMode = data.mode === 'dating';
+
+  if (isDatingMode && !socket.data.userId) {
+    removeFromMatchQueues(socket.id);
+    socket.emit('match-error', {
+      code: 'AUTH_REQUIRED',
+      message: 'Sign in to use Meetopia dating and save Connections.',
+    });
+    return;
+  }
+
   const profile = isDatingMode ? normalizeDatingProfile(data.profile) : null;
 
   if (isDatingMode && !profile) {
@@ -249,12 +281,18 @@ function runFindUser(socket, data = {}) {
       gender: profile.gender,
       lookingFor: profile.lookingFor,
     });
+    const trustedProfile = {
+      ...profile,
+      userId: socket.data.userId,
+      name: socket.data.displayName || profile.name,
+    };
+
     datingUsers.set(socket.id, {
-      profile,
+      profile: trustedProfile,
       timestamp: Date.now()
     });
 
-    const partnerId = findDatingMatch(socket.id, profile);
+    const partnerId = findDatingMatch(socket.id, trustedProfile);
     if (partnerId) {
       const partnerProfile = datingUsers.get(partnerId).profile;
       datingUsers.delete(socket.id);
@@ -266,7 +304,7 @@ function runFindUser(socket, data = {}) {
       });
       io.to(partnerId).emit('user-found', {
         partnerId: socket.id,
-        profile
+        profile: trustedProfile
       });
       pairUsers(socket.id, partnerId);
       console.log(`Dating match found between ${socket.id} and ${partnerId}`);
@@ -293,6 +331,14 @@ function runFindUser(socket, data = {}) {
   waitingUsers.add(socket.id);
   console.log(`User ${socket.id} is waiting for a match`);
 }
+
+io.use((socket, next) => {
+  const payload = verifySocketToken(socket.handshake.auth?.token);
+  socket.data.userId = payload?.sub || null;
+  socket.data.displayName = payload?.displayName || null;
+  socket.data.blockedUserIds = new Set(Array.isArray(payload?.blocked) ? payload.blocked : []);
+  next();
+});
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -428,9 +474,39 @@ io.on('connection', (socket) => {
   });
 
   socket.on('vibe-tap', ({ to }) => {
-    if (!to) return;
-    socket.to(to).emit('vibe-tap', { from: socket.id });
+    if (!to || activePairs.get(socket.id) !== to) return;
+
+    vibeTargets.set(socket.id, to);
+    socket.to(to).emit('vibe-received', { from: socket.id });
     console.log(`[Signaling] vibe-tap ${socket.id} -> ${to}`);
+
+    if (vibeTargets.get(to) !== socket.id) return;
+
+    const peerSocket = io.sockets.sockets.get(to);
+    const userId = socket.data.userId;
+    const peerUserId = peerSocket?.data.userId || null;
+    const proof = userId && peerUserId ? createConnectionProof(userId, peerUserId) : null;
+
+    socket.emit('mutual-vibe', {
+      partnerUserId: peerUserId,
+      partnerDisplayName: peerSocket?.data.displayName || null,
+      connectionProof: proof,
+    });
+    io.to(to).emit('mutual-vibe', {
+      partnerUserId: userId,
+      partnerDisplayName: socket.data.displayName || null,
+      connectionProof: proof,
+    });
+  });
+
+  socket.on('block-user', ({ to }) => {
+    if (!to || activePairs.get(socket.id) !== to) return;
+    const peerSocket = io.sockets.sockets.get(to);
+    const peerUserId = peerSocket?.data.userId;
+    if (peerUserId) socket.data.blockedUserIds.add(peerUserId);
+    clearActivePair(socket.id, true);
+    removeFromMatchQueues(socket.id);
+    socket.emit('blocked-user', { userId: peerUserId || null });
   });
 
   socket.on('report-user', (payload = {}) => {
