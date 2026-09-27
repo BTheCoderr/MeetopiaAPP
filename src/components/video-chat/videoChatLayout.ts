@@ -15,5 +15,5 @@ export const videoChatLayout = {
   statusChips: 'fixed top-16 left-3 sm:left-4 z-20 flex flex-wrap gap-2 max-w-[calc(100vw-8rem)]',
   safetyControls: 'fixed top-[calc(4rem+5.25rem)] sm:top-[calc(4rem+6.25rem)] md:top-[calc(4rem+7.25rem)] lg:top-[calc(4rem+8.25rem)] right-3 sm:right-4 z-20 flex gap-2',
   idleHint:
-    'fixed left-1/2 -translate-x-1/2 z-20 w-[calc(100vw-2rem)] max-w-xs text-center bottom-[calc(env(safe-area-inset-bottom)+11rem)] md:bottom-40 pointer-events-none',
+    'fixed inset-x-4 z-20 mx-auto w-auto max-w-xs text-center bottom-[calc(env(safe-area-inset-bottom)+11rem)] md:bottom-40 pointer-events-none',
 } as const
