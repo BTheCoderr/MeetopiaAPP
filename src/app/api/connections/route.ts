@@ -15,9 +15,6 @@ const personSelect = {
   id: true,
   username: true,
   displayName: true,
-  bio: true,
-  interests: true,
-  age: true,
 } as const
 
 export async function GET() {
