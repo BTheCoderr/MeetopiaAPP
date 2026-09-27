@@ -92,6 +92,7 @@ const waitingUsers = new Set();
 // Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
 const activePairs = new Map();
 const vibeTargets = new Map();
+const activeDatingSocketsByUser = new Map();
 // Keep a short-lived memory of recent peers so "Next" does not immediately rematch the same two people.
 const recentPeers = new Map();
 const RECENT_PEER_TTL_MS = 10 * 60 * 1000;
@@ -294,6 +295,9 @@ io.on('connection', (socket) => {
     clearActivePair(socket.id, true);
     leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
+    if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
+      activeDatingSocketsByUser.delete(socket.data.userId);
+    }
   });
 
   socket.on('call-user', ({ offer, to }) => {
@@ -352,6 +356,9 @@ io.on('connection', (socket) => {
     clearActivePair(socket.id, true);
     leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
+    if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
+      activeDatingSocketsByUser.delete(socket.data.userId);
+    }
     recentPeers.delete(socket.id);
     for (const [userId, peers] of recentPeers.entries()) {
       peers.delete(socket.id);
