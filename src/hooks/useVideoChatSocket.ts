@@ -7,6 +7,14 @@ import type { UserProfile } from '@/types/videoChat'
 
 const LOG = '[WebRTC:Signaling]'
 
+interface MutualVibeState {
+  partnerUserId: string | null
+  partnerDisplayName: string | null
+  connectionId: string | null
+  saved: boolean
+  error: string | null
+}
+
 interface UseVideoChatSocketOptions {
   stream: MediaStream | null
   peerConnection: RTCPeerConnection | null
@@ -52,6 +60,9 @@ export function useVideoChatSocket({
   const [isPeerConnected, setIsPeerConnected] = useState(false)
   const [isRemoteCameraOff, setIsRemoteCameraOff] = useState(false)
   const [isRemoteAudioOff, setIsRemoteAudioOff] = useState(false)
+  const [currentPeerUserId, setCurrentPeerUserId] = useState<string | null>(null)
+  const [hasVibed, setHasVibed] = useState(false)
+  const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -72,61 +83,141 @@ export function useVideoChatSocket({
   }, [currentPeer])
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
-    console.log(LOG, 'socket URL', socketUrl)
+    let disposed = false
+    let newSocket: Socket | null = null
 
-    const newSocket = io(socketUrl, {
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,
-    })
-    setSocket(newSocket)
-    socketRef.current = newSocket
+    const connect = async () => {
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
+      console.log(LOG, 'socket URL', socketUrl)
 
-    newSocket.on('connect', () => {
-      const transport = newSocket.io.engine?.transport?.name ?? 'unknown'
-      console.log(LOG, 'socket connected', newSocket.id, 'transport', transport)
-      setIsSocketConnected(true)
-      setError(null)
+      let token: string | undefined
+      try {
+        const tokenResponse = await fetch('/api/auth/socket-token', { cache: 'no-store' })
+        if (tokenResponse.ok) {
+          const data = await tokenResponse.json()
+          token = data.token
+        }
+      } catch (error) {
+        console.warn(LOG, 'socket token unavailable', error)
+      }
 
-      newSocket.io.engine?.on('upgrade', (transport) => {
-        console.log(LOG, 'transport upgraded to', transport.name)
+      if (disposed) return
+
+      newSocket = io(socketUrl, {
+        transports: ['polling', 'websocket'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000,
+        auth: token ? { token } : {},
       })
-    })
+      setSocket(newSocket)
+      socketRef.current = newSocket
 
-    newSocket.on('connect_error', (err) => {
-      console.error(LOG, 'connect_error', err.message)
-    })
+      newSocket.on('connect', () => {
+        const transport = newSocket?.io.engine?.transport?.name ?? 'unknown'
+        console.log(LOG, 'socket connected', newSocket?.id, 'transport', transport)
+        setIsSocketConnected(true)
+        setError(null)
 
-    newSocket.on('disconnect', () => {
-      console.log(LOG, 'socket disconnected')
-      setIsSocketConnected(false)
-      setCurrentPeer(null)
-      currentPeerRef.current = null
-      setRemoteStream(null)
-      setIsSearching(false)
-      setError('Connection lost. Attempting to reconnect...')
-    })
+        newSocket?.io.engine?.on('upgrade', (transport) => {
+          console.log(LOG, 'transport upgraded to', transport.name)
+        })
+      })
 
-    newSocket.on('match-error', ({ message }: { code?: string; message?: string }) => {
-      console.warn(LOG, 'match-error', message)
-      setIsSearching(false)
-      setError(message || 'Unable to join matchmaking. Check your profile and try again.')
-    })
+      newSocket.on('connect_error', (err) => {
+        console.error(LOG, 'connect_error', err.message)
+        setError('Unable to connect to Meetopia right now. Please try again.')
+      })
 
-    newSocket.on('search-cancelled', () => {
-      setIsSearching(false)
-      setError(null)
-    })
+      newSocket.on('disconnect', () => {
+        console.log(LOG, 'socket disconnected')
+        setIsSocketConnected(false)
+        setCurrentPeer(null)
+        setCurrentPeerUserId(null)
+        currentPeerRef.current = null
+        setRemoteStream(null)
+        setIsSearching(false)
+        setHasVibed(false)
+        setMutualVibe(null)
+        setError('Connection lost. Attempting to reconnect...')
+      })
+
+      newSocket.on('match-error', ({ code, message }: { code?: string; message?: string }) => {
+        console.warn(LOG, 'match-error', code, message)
+        setIsSearching(false)
+        setError(message || 'Unable to join matchmaking. Check your profile and try again.')
+        if (code === 'AUTH_REQUIRED') {
+          router.push('/auth/signin?next=/dating/profile')
+        }
+      })
+
+      newSocket.on('search-cancelled', () => {
+        setIsSearching(false)
+        setError(null)
+      })
+
+      newSocket.on(
+        'mutual-vibe',
+        async ({
+          partnerUserId,
+          partnerDisplayName,
+          connectionProof,
+        }: {
+          partnerUserId?: string | null
+          partnerDisplayName?: string | null
+          connectionProof?: string | null
+        }) => {
+          setHasVibed(true)
+
+          if (!connectionProof) {
+            setMutualVibe({
+              partnerUserId: partnerUserId || null,
+              partnerDisplayName: partnerDisplayName || null,
+              connectionId: null,
+              saved: false,
+              error: 'Mutual Vibe confirmed, but this Connection could not be saved.',
+            })
+            return
+          }
+
+          try {
+            const response = await fetch('/api/connections', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ connectionProof }),
+            })
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.error || 'Failed to save Connection')
+
+            setMutualVibe({
+              partnerUserId: partnerUserId || null,
+              partnerDisplayName: partnerDisplayName || data.connection?.person?.displayName || null,
+              connectionId: data.connection?.id || null,
+              saved: true,
+              error: null,
+            })
+          } catch (error) {
+            setMutualVibe({
+              partnerUserId: partnerUserId || null,
+              partnerDisplayName: partnerDisplayName || null,
+              connectionId: null,
+              saved: false,
+              error: error instanceof Error ? error.message : 'Failed to save Connection',
+            })
+          }
+        }
+      )
+    }
+
+    void connect()
 
     return () => {
-      newSocket.off('match-error')
-      newSocket.off('search-cancelled')
-      newSocket.disconnect()
+      disposed = true
+      newSocket?.removeAllListeners()
+      newSocket?.disconnect()
       socketRef.current = null
     }
-  }, [setError, setIsSearching])
+  }, [router, setError, setIsSearching])
 
   // WebRTC handlers on the current peer connection (stable refs for ICE peer id)
   useEffect(() => {
@@ -222,7 +313,13 @@ export function useVideoChatSocket({
 
       if (isDating && profile) {
         console.log(LOG, 'dating peer profile', profile)
+        if (typeof profile === 'object' && profile !== null && 'userId' in profile) {
+          const userId = (profile as { userId?: unknown }).userId
+          setCurrentPeerUserId(typeof userId === 'string' ? userId : null)
+        }
       }
+      setHasVibed(false)
+      setMutualVibe(null)
 
       const shouldOffer = partnerId > sock.id
       isCallerRef.current = shouldOffer
@@ -330,7 +427,10 @@ export function useVideoChatSocket({
       console.log(LOG, 'peer-left')
       currentPeerRef.current = null
       setCurrentPeer(null)
+      setCurrentPeerUserId(null)
       setRemoteStream(null)
+      setHasVibed(false)
+      setMutualVibe(null)
       setIsPeerConnected(false)
       setIsRemoteCameraOff(false)
       setIsRemoteAudioOff(false)
@@ -363,6 +463,7 @@ export function useVideoChatSocket({
     stream,
     isDating,
     userProfile,
+    socket,
     setIsSearching,
     setError,
   ])
@@ -446,6 +547,9 @@ export function useVideoChatSocket({
     setIsPeerConnected(false)
     currentPeerRef.current = null
     setCurrentPeer(null)
+    setCurrentPeerUserId(null)
+    setHasVibed(false)
+    setMutualVibe(null)
     setRemoteStream(null)
     setIsSearching(true)
     setError(null)
@@ -460,12 +564,52 @@ export function useVideoChatSocket({
     return 'next' as const
   }, [isDemo, currentPeer, restartConnection, socket, startCooldown, setError, isDating, userProfile])
 
+  const handleVibe = useCallback(() => {
+    if (!isDating || !socket?.connected || !currentPeer || hasVibed) return
+    socket.emit('vibe-tap', { to: currentPeer })
+    setHasVibed(true)
+  }, [isDating, socket, currentPeer, hasVibed])
+
+  const handleBlock = useCallback(async () => {
+    if (!socket?.connected || !currentPeer) return false
+
+    if (currentPeerUserId) {
+      try {
+        const response = await fetch('/api/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blockedUserId: currentPeerUserId }),
+        })
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to block user')
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to block user')
+        return false
+      }
+    }
+
+    socket.emit('block-user', { to: currentPeer })
+    currentPeerRef.current = null
+    setCurrentPeer(null)
+    setCurrentPeerUserId(null)
+    setRemoteStream(null)
+    setHasVibed(false)
+    setMutualVibe(null)
+    setIsSearching(false)
+    return true
+  }, [socket, currentPeer, currentPeerUserId, setError, setIsSearching])
+
   const handleLeaveChat = useCallback(() => {
     const confirmLeave = window.confirm('Are you sure you want to leave the chat?')
     if (!confirmLeave) return false
     socket?.emit('leave-chat')
     currentPeerRef.current = null
     setCurrentPeer(null)
+    setCurrentPeerUserId(null)
+    setHasVibed(false)
+    setMutualVibe(null)
     setRemoteStream(null)
     setIsSearching(false)
     router.push('/')
@@ -480,14 +624,20 @@ export function useVideoChatSocket({
     socket,
     isSocketConnected,
     currentPeer,
+    currentPeerUserId,
     remoteStream,
     setRemoteStream,
     isPeerConnected,
     isRemoteCameraOff,
     isRemoteAudioOff,
+    hasVibed,
+    mutualVibe,
+    dismissMutualVibe: () => setMutualVibe(null),
     handleStartChat,
     handleCancelSearch,
     handleNextPerson,
+    handleVibe,
+    handleBlock,
     handleLeaveChat,
     reportExplicitContent,
   }
