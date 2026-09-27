@@ -17,9 +17,7 @@ model User {
   displayName String?
   bio         String?
   interests   String[]  @default([])
-  age         Int?
-  gender      String?
-  lookingFor  String?
+  adultConfirmedAt DateTime?
   isFlagged   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
