@@ -35,11 +35,11 @@ export default function SignUpPage() {
         throw new Error(data.error || 'Failed to sign up')
       }
 
-      setSuccess(`Account created successfully for ${username}! Let’s build your profile...`)
+      setSuccess(`Account created successfully for ${username}! Let’s get you into a Chemistry Check...`)
       
       // Wait 2 seconds before redirecting
       setTimeout(() => {
-        window.location.href = '/dating/profile'
+        window.location.href = '/start'
       }, 2000)
     } catch (err: any) {
       setError(err.message || 'Failed to sign up')
