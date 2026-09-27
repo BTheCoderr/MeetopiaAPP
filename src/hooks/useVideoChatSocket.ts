@@ -138,7 +138,7 @@ export function useVideoChatSocket({
       newSocket.on('match-error', ({ code, message }: { code?: string; message?: string }) => {
         console.warn(LOG, 'match-error', code, message)
         setIsSearching(false)
-        setError(message || 'Unable to join matchmaking. Check your profile and try again.')
+        setError(message || 'Unable to start a Chemistry Check. Please try again.')
         if (code === 'AUTH_REQUIRED') {
           router.push('/auth/signin?next=/start')
         } else if (code === 'ADULT_CONFIRMATION_REQUIRED') {
