@@ -212,18 +212,46 @@ export function useVideoChatState(searchParams: VideoChatSearchParams) {
   }, [simulateDemoStream, simulateDemoChat])
 
   useEffect(() => {
-    if (isDating) {
-      const savedProfile = localStorage.getItem('datingProfileFormatted')
-      if (savedProfile) {
-        try {
-          setUserProfile(JSON.parse(savedProfile))
-        } catch (e) {
-          console.error('Error parsing saved profile', e)
+    let cancelled = false
+
+    const loadDatingProfile = async () => {
+      if (!isDating) return
+
+      try {
+        const response = await fetch('/api/auth/profile', { cache: 'no-store' })
+        if (response.status === 401) {
+          router.replace('/auth/signin?next=/dating/profile')
+          return
         }
-      } else {
-        router.push('/dating/profile')
+        if (!response.ok) throw new Error('Failed to load dating profile')
+
+        const profile = await response.json()
+        if (!profile.age || !profile.gender || !profile.lookingFor) {
+          router.replace('/dating/profile')
+          return
+        }
+
+        const formattedProfile: UserProfile = {
+          name: profile.name || profile.username,
+          age: profile.age,
+          gender: profile.gender,
+          lookingFor: profile.lookingFor,
+          interests: Array.isArray(profile.interests) ? profile.interests : [],
+          bio: profile.bio || '',
+        }
+
+        if (!cancelled) {
+          setUserProfile(formattedProfile)
+          localStorage.setItem('datingProfileFormatted', JSON.stringify(formattedProfile))
+        }
+      } catch (e) {
+        console.error('Error loading dating profile', e)
+        if (!cancelled) setError('Could not load your Meetopia profile. Please try again.')
       }
     }
+
+    void loadDatingProfile()
+
     if (isDemo && demoPartnerId) {
       const savedDemoPartner = localStorage.getItem('demoPartner')
       if (savedDemoPartner) {
@@ -236,6 +264,10 @@ export function useVideoChatState(searchParams: VideoChatSearchParams) {
           console.error('Error parsing demo partner', e)
         }
       }
+    }
+
+    return () => {
+      cancelled = true
     }
   }, [isDating, isDemo, demoPartnerId, router, simulateDemoConnection])
 
