@@ -1,11 +1,10 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { verifyConnectionProof } from '@/lib/socketToken'
 
-async function currentUserId() {
-  const sessionId = cookies().get('meetopia_session')?.value
+async function currentUserId(request: NextRequest) {
+  const sessionId = request.cookies.get('meetopia_session')?.value
   if (!sessionId) return null
   const session = await getSession(sessionId)
   return session?.userId || null
@@ -17,8 +16,8 @@ const personSelect = {
   displayName: true,
 } as const
 
-export async function GET() {
-  const userId = await currentUserId()
+export async function GET(request: NextRequest) {
+  const userId = await currentUserId(request)
   if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const connections = await prisma.connection.findMany({
@@ -41,9 +40,9 @@ export async function GET() {
   })
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const userId = await currentUserId()
+    const userId = await currentUserId(request)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const { connectionProof } = await request.json()
@@ -68,27 +67,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Connection cannot be saved because one user has blocked the other.' }, { status: 409 })
     }
 
-    const connection = await prisma.$transaction(async tx => {
-      await tx.vibe.upsert({
-        where: { senderId_receiverId: { senderId: userAId, receiverId: userBId } },
-        update: {},
-        create: { senderId: userAId, receiverId: userBId },
-      })
-      await tx.vibe.upsert({
-        where: { senderId_receiverId: { senderId: userBId, receiverId: userAId } },
-        update: {},
-        create: { senderId: userBId, receiverId: userAId },
-      })
+    await prisma.vibe.upsert({
+      where: { senderId_receiverId: { senderId: userAId, receiverId: userBId } },
+      update: {},
+      create: { senderId: userAId, receiverId: userBId },
+    })
 
-      return tx.connection.upsert({
-        where: { userAId_userBId: { userAId, userBId } },
-        update: {},
-        create: { userAId, userBId },
-        include: {
-          userA: { select: personSelect },
-          userB: { select: personSelect },
-        },
-      })
+    await prisma.vibe.upsert({
+      where: { senderId_receiverId: { senderId: userBId, receiverId: userAId } },
+      update: {},
+      create: { senderId: userBId, receiverId: userAId },
+    })
+
+    const connection = await prisma.connection.upsert({
+      where: { userAId_userBId: { userAId, userBId } },
+      update: {},
+      create: { userAId, userBId },
+      include: {
+        userA: { select: personSelect },
+        userB: { select: personSelect },
+      },
     })
 
     return NextResponse.json({
