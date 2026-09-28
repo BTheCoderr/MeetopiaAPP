@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: meetopia-signaling
+    name: meetopia-signaling-v2
     env: node
     root: server
     buildCommand: npm install
@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: 3003
       - key: CORS_ORIGINS
-        value: https://meeetopia.netlify.app,https://meetopia-live.netlify.app
+        value: https://meetopia-live.netlify.app
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
