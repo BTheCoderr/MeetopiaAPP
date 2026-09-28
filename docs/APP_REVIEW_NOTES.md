@@ -38,7 +38,7 @@ If you want to schedule a live video test between two real devices, email **ermi
 
 ## Signaling backend
 
-Production signaling: `https://meetopiaapp.onrender.com`  
+Production signaling: `https://meetopia-signaling-v2.onrender.com`  
 (Cold start may take ~30 seconds on first connection.)
 
 ## Hardware

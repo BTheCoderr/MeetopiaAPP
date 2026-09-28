@@ -92,7 +92,7 @@ All links open in Safari from Settings (`apps/mobile/src/config/links.ts`):
 Before external review, confirm:
 
 1. [ ] Live policy URLs on https://meetopia-live.netlify.app (`/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`)
-2. [ ] **App Store Connect URLs** use `https://meetopia-live.netlify.app` — not `meeetopia.netlify.app`, not `/marketing` (use home URL for Marketing URL)
+2. [ ] **App Store Connect URLs** use `https://meetopia-live.netlify.app` (use the home URL for Marketing URL)
 3. [ ] Report persistence: Supabase `mobile_reports` on Render
 4. [ ] Block persists on device (profile fingerprint + socket ID)
 5. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
