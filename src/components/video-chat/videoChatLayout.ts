@@ -1,7 +1,7 @@
 /** Shared mobile-first layout tokens for /chat/video — same hierarchy on all breakpoints. */
 export const videoChatLayout = {
-  root: 'relative min-h-[100dvh] h-[100dvh] w-full overflow-x-hidden overflow-y-hidden bg-black',
-  mainVideo: 'absolute inset-0 h-full w-full object-cover',
+  root: 'fixed inset-0 h-[100dvh] w-screen overflow-hidden bg-black overscroll-none',
+  mainVideo: 'absolute inset-0 h-full w-full object-cover object-center',
   header: 'fixed top-0 left-0 right-0 z-30',
   pip: 'fixed top-16 right-3 z-30 w-28 h-20 sm:w-36 sm:h-24 md:w-44 md:h-28 lg:w-52 lg:h-32 rounded-2xl overflow-hidden',
   messagePill:
