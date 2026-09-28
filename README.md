@@ -1,98 +1,96 @@
-# Meetopia - Video Chat & Speed Dating App
+# Meetopia
 
-Meetopia is a modern random video chat and speed dating application that connects users through live video with optional in-call messaging.
+Meetopia is a conversation-first social dating app for adults. Instead of swiping through profiles or relying on a compatibility score, two people meet live in a **Chemistry Check**, talk, and decide for themselves whether there is a vibe.
 
-## Features
+**Production frontend:** https://meetopia-live.netlify.app  
+**Production signaling:** https://meetopia-signaling-v2.onrender.com
 
-### 🎥 Video Chat
-- Instant video connections with other users
-- High-quality WebRTC video and audio
-- Text chat alongside video
+## Current product flow
 
-### ⏱️ Speed Dating Mode
-- 3-minute timed rounds with automatic matching
-- Perfect for meeting multiple people quickly
-- Automatic transition to new matches when time expires
+1. Create an account or sign in.
+2. Confirm that you are 18 or older.
+3. Allow camera and microphone access.
+4. Start a Chemistry Check.
+5. Meet another available user on live video.
+6. Chat, mute, turn the camera off, flip cameras, go full screen, report, block, leave, or move to the next person.
+7. Tap **Vibe** if the conversation feels right.
+8. A saved **Connection** is created only when both people Vibe.
 
-### 👀 Blind Date Feature
-- Video starts blurred for the first 30 seconds
-- Focus on conversation before seeing each other
-- Creates a unique and exciting dating experience
+## Core features
 
-### 🔄 Quick Next Match
-- One-click to find a new match
-- No waiting or swiping required
-- Instant connections with new people
+- Authenticated 18+ Chemistry Checks
+- Random two-person matching
+- WebRTC audio/video
+- Socket.IO signaling
+- In-call text chat and typing/read-state support
+- Next-person matching
+- Mutual Vibe detection
+- Saved Connections
+- Block and report flows
+- Responsive mobile-first web UI
+- FaceTime-style edge-to-edge call shell
+- Front/rear camera switching
+- Fullscreen/PWA support
+- STUN/TURN fallback configuration
 
-### 🛡️ Safety Features
-- Report and block functionality
-- Moderation system to prevent inappropriate behavior
+## Architecture
 
-## Getting Started
+### Web app
+- Next.js
+- React
+- Tailwind CSS
+- Prisma
+- Supabase Postgres
+- Netlify
 
-### Prerequisites
-- Node.js 16+
-- npm or yarn
+### Real-time/video
+- Socket.IO signaling service on Render
+- WebRTC peer-to-peer media
+- Shared socket-auth secret between the web app and signaling service
 
-### Installation
+### Data
+- Users and sessions
+- Adult confirmation
+- Blocks and reports
+- Vibes
+- Connections
 
-1. Clone the repository
-```bash
-git clone https://github.com/yourusername/meetopia.git
-cd meetopia
-```
+## Local development
 
-2. Install dependencies
+Install the web dependencies:
+
 ```bash
 npm install
-# or
-yarn install
 ```
 
-3. Start the development server
+Run the Next.js app and signaling server together:
+
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
-4. Start the signaling server
+Or run them separately:
+
 ```bash
-cd server
-npm install
-npm start
+npm run dev:next
+npm run dev:server
 ```
 
-5. Open your browser and navigate to `http://localhost:3000`
+The local web app defaults to `http://localhost:3000` and the local signaling server to `http://localhost:3003`.
 
-## How to Use
+Environment variables are documented in `.env.example` and `server/.env.example`.
 
-1. **Start Matching**
-   - Choose between Regular Chat or Speed Dating mode
-   - Click "Start Matching Now" on the video chat page
+## Production source of truth
 
-2. **During a Match**
-   - In Speed Dating mode, a 3-minute timer will count down
-   - The first 30 seconds will have blurred video (Blind Date feature)
-   - Use the chat box to send messages
-   - Click "Next Match" at any time to find someone new
+- GitHub production branch: `main`
+- Netlify production site: `meetopia-live`
+- Render signaling service: `meetopia-signaling-v2`
+- Supabase project: the dedicated Meetopia project configured in production environment variables
 
-3. **Safety**
-   - Use the "Report User" button if you encounter inappropriate behavior
-   - Use the "Block User" button to prevent future matches with that person
+Legacy explicit-room WebRTC, old component showcase pages, public camera test pages, and abandoned Feed/Explore prototypes have been removed from the production code path.
 
-## Technology Stack
+## Product principle
 
-- Next.js for the frontend
-- Socket.IO for real-time communication
-- WebRTC for peer-to-peer video
-- Tailwind CSS for styling
+**Talk first. Vibe after.**
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Thanks to all contributors who have helped make Meetopia better
-- Inspired by the need for meaningful connections in a digital world
+The conversation is the profile.
