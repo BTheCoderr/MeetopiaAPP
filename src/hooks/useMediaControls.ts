@@ -28,6 +28,7 @@ export function useMediaControls({
   const [isRemoteMuted, setIsRemoteMuted] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
 
   const emitStreamState = useCallback((type: 'audio' | 'video', state: boolean) => {
     if (socket && currentPeer) {
@@ -54,6 +55,38 @@ export function useMediaControls({
       emitStreamState('audio', audioTrack.enabled)
     }
   }, [stream, emitStreamState])
+
+  const switchCamera = useCallback(async () => {
+    if (!stream) return
+
+    const nextFacingMode = facingMode === 'user' ? 'environment' : 'user'
+    const currentVideoTrack = stream.getVideoTracks()[0]
+
+    try {
+      const replacementStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: nextFacingMode } },
+        audio: false,
+      })
+      const replacementTrack = replacementStream.getVideoTracks()[0]
+      if (!replacementTrack) return
+
+      replacementTrack.enabled = !isCameraOff
+
+      if (peerConnection) {
+        const sender = peerConnection.getSenders().find(sender => sender.track?.kind === 'video')
+        if (sender) await sender.replaceTrack(replacementTrack)
+      }
+
+      if (currentVideoTrack) {
+        stream.removeTrack(currentVideoTrack)
+        currentVideoTrack.stop()
+      }
+      stream.addTrack(replacementTrack)
+      setFacingMode(nextFacingMode)
+    } catch (error) {
+      console.error('Error switching camera:', error)
+    }
+  }, [stream, peerConnection, facingMode, isCameraOff])
 
   const toggleScreenShare = useCallback(async () => {
     try {
@@ -152,6 +185,7 @@ export function useMediaControls({
     isScreenSharing,
     toggleLocalCamera,
     toggleLocalMute,
+    switchCamera,
     toggleScreenShare,
     toggleRemoteAudio,
     toggleRemoteVideo,
