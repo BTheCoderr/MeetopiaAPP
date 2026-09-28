@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import Link from 'next/link'
 import { usePeerConnection } from '@/hooks/usePeerConnection'
 import { useReporting } from '@/hooks/useReporting'
@@ -18,12 +18,17 @@ import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 
 export default function VideoChatPage() {
   const state = useVideoChatState()
+  const [directConnectionId, setDirectConnectionId] = useState<string | null>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localPipVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
 
   const { stream } = useLocalMediaStream(localVideoRef, state.setError)
   const { peerConnection, restartConnection } = usePeerConnection(stream)
+
+  useEffect(() => {
+    setDirectConnectionId(new URLSearchParams(window.location.search).get('connection'))
+  }, [])
 
   const chat = useVideoChatSocket({
     stream,
@@ -35,6 +40,7 @@ export default function VideoChatPage() {
     startCooldown: state.startCooldown,
     setBandwidthQuality: state.setBandwidthQuality,
     isAdaptiveQuality: state.isAdaptiveQuality,
+    directConnectionId,
   })
 
   const media = useMediaControls({
@@ -283,13 +289,21 @@ export default function VideoChatPage() {
               )}
             </div>
             <div className="mt-6 grid gap-3">
-              {chat.mutualVibe.saved && (
-                <Link
-                  href="/connections"
-                  className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
-                >
-                  View Connections
-                </Link>
+              {chat.mutualVibe.saved && chat.mutualVibe.connectionId && (
+                <>
+                  <Link
+                    href={`/connections/${chat.mutualVibe.connectionId}`}
+                    className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
+                  >
+                    Message later
+                  </Link>
+                  <Link
+                    href={`/chat/video?connection=${chat.mutualVibe.connectionId}`}
+                    className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white/90 hover:bg-white/10"
+                  >
+                    Call again later
+                  </Link>
+                </>
               )}
               <button
                 onClick={chat.dismissMutualVibe}

@@ -47,7 +47,21 @@ function createConnectionProof(userIdA, userIdB) {
   return `${body}.${signature(body)}`;
 }
 
+function verifyDirectCallProof(token) {
+  const payload = verifySignedPayload(token);
+  if (!payload || payload.type !== 'direct-call') return null;
+  if (
+    typeof payload.callerId !== 'string' ||
+    typeof payload.calleeId !== 'string' ||
+    typeof payload.connectionId !== 'string'
+  ) {
+    return null;
+  }
+  return payload;
+}
+
 module.exports = {
   verifySocketToken,
   createConnectionProof,
+  verifyDirectCallProof,
 };

@@ -14,6 +14,14 @@ type ConnectionProofPayload = {
   exp: number
 }
 
+type DirectCallProofPayload = {
+  type: 'direct-call'
+  callerId: string
+  calleeId: string
+  connectionId: string
+  exp: number
+}
+
 function secret() {
   const value = process.env.SOCKET_AUTH_SECRET
   if (!value) throw new Error('SOCKET_AUTH_SECRET is not configured')
@@ -53,5 +61,22 @@ export function verifyConnectionProof(token: string) {
   const payload = verify<ConnectionProofPayload>(token)
   if (!payload || payload.type !== 'connection' || payload.exp < Date.now()) return null
   if (!Array.isArray(payload.users) || payload.users.length !== 2) return null
+  return payload
+}
+
+
+export function createDirectCallProof(payload: Omit<DirectCallProofPayload, 'type' | 'exp'>) {
+  const body = encode({
+    type: 'direct-call',
+    ...payload,
+    exp: Date.now() + 2 * 60 * 1000,
+  })
+  return `${body}.${signature(body)}`
+}
+
+export function verifyDirectCallProof(token: string) {
+  const payload = verify<DirectCallProofPayload>(token)
+  if (!payload || payload.type !== 'direct-call' || payload.exp < Date.now()) return null
+  if (!payload.callerId || !payload.calleeId || !payload.connectionId) return null
   return payload
 }
