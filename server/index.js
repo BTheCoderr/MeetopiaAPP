@@ -249,10 +249,15 @@ function runFindUser(socket) {
 
 io.use((socket, next) => {
   const payload = verifySocketToken(socket.handshake.auth?.token);
-  socket.data.userId = payload?.sub || null;
-  socket.data.displayName = payload?.displayName || null;
-  socket.data.adultConfirmed = payload?.adultConfirmed === true;
-  socket.data.blockedUserIds = new Set(Array.isArray(payload?.blocked) ? payload.blocked : []);
+  if (!payload) {
+    console.warn('[Auth] Rejected unauthenticated signaling connection');
+    return next(new Error('AUTH_REQUIRED'));
+  }
+
+  socket.data.userId = payload.sub;
+  socket.data.displayName = payload.displayName || null;
+  socket.data.adultConfirmed = payload.adultConfirmed === true;
+  socket.data.blockedUserIds = new Set(Array.isArray(payload.blocked) ? payload.blocked : []);
   next();
 });
 
