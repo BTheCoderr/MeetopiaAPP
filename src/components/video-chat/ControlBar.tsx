@@ -20,6 +20,8 @@ interface ControlBarProps {
   onLeaveChat: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
+  onSwitchCamera: () => void
+  onToggleFullscreen: () => void
   onToggleScreenShare: () => void
   onOpenTroubleshooting: () => void
   onOpenReport: () => void
@@ -86,6 +88,8 @@ export default function ControlBar({
   onLeaveChat,
   onToggleMute,
   onToggleCamera,
+  onSwitchCamera,
+  onToggleFullscreen,
   onToggleScreenShare,
   onOpenTroubleshooting,
   onOpenReport,
@@ -124,6 +128,18 @@ export default function ControlBar({
             ) : (
               <path d="M18 10.48V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4.48l4 3.98v-11l-4 3.98zm-2-.79V18H4V6h12v3.69L18 8V6.48l2 1.99L18 9.69z" />
             )}
+          </svg>
+        </IconButton>
+
+        <IconButton onClick={onSwitchCamera} label="Flip camera">
+          <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7.5 6.5h2l1-1.5h3l1 1.5h2A2.5 2.5 0 0119 9v6.5a2.5 2.5 0 01-2.5 2.5h-9A2.5 2.5 0 015 15.5V9a2.5 2.5 0 012.5-2.5zM12 9a3.25 3.25 0 100 6.5A3.25 3.25 0 0012 9zm7.5-4.5v2.25l2.75-2.75L19.5 1.25V3.5H16v1h3.5zM4.5 20.5v-2.25L1.75 21l2.75 2.75V21.5H8v-1H4.5z" />
+          </svg>
+        </IconButton>
+
+        <IconButton onClick={onToggleFullscreen} label="Full screen">
+          <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 3H3v4h2V5h2V3zm10 0v2h2v2h2V3h-4zM5 17H3v4h4v-2H5v-2zm14 0v2h-2v2h4v-4h-2z" />
           </svg>
         </IconButton>
 
