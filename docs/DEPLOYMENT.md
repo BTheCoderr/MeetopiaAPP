@@ -5,13 +5,9 @@
 | Service | Target | Config |
 |---------|--------|--------|
 | **Frontend** | Netlify | Root Next.js app (`npm run build`) — https://meetopia-live.netlify.app |
-| **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) — https://meetopiaapp.onrender.com |
+| **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) — https://meetopia-signaling-v2.onrender.com |
 
-**App Store / public links:** use `https://meetopia-live.netlify.app` only. Do not use `meeetopia.netlify.app` or `/marketing` (redirects to home).
-
-Historical URLs (deprecated):
-- Frontend: `https://meetopia-app.vercel.app`
-- Signaling: `https://meetopia-signaling.onrender.com`
+**App Store / public links:** use `https://meetopia-live.netlify.app` only. The canonical production signaling service is `https://meetopia-signaling-v2.onrender.com`.
 
 ## Production environment
 
