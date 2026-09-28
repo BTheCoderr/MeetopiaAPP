@@ -21,7 +21,7 @@
 
 | Variable | Purpose |
 |----------|---------|
-| `NEXT_PUBLIC_SOCKET_URL` | HTTPS signaling URL, e.g. `https://meetopia-signaling.onrender.com` |
+| `NEXT_PUBLIC_SOCKET_URL` | HTTPS signaling URL, e.g. `https://meetopia-signaling-v2.onrender.com` |
 | `NEXT_PUBLIC_TURN_URL` | TURN URI(s) for strict NAT / mobile LTE |
 | `NEXT_PUBLIC_TURN_USERNAME` | TURN username |
 | `NEXT_PUBLIC_TURN_CREDENTIAL` | TURN credential |
