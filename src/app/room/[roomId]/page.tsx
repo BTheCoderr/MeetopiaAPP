@@ -45,7 +45,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
         router.push('/')
         break
       case 'base':
-        router.push('/explore')
+        router.push('/start')
         break
       case 'feedback':
         break
