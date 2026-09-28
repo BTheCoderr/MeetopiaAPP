@@ -24,7 +24,7 @@ export default function SignInPage() {
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.message || 'Failed to sign in')
+        throw new Error(data.error || data.message || 'Failed to sign in')
       }
 
       const nextPath = new URLSearchParams(window.location.search).get('next') || '/start'
