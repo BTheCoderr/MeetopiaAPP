@@ -46,7 +46,7 @@ const TROUBLESHOOTING_SECTIONS = [
     items: [
       'Try a different browser (Chrome or Firefox recommended).',
       'Clear browser cache and reload the page.',
-      'Visit /test-video to verify your camera works independently.',
+      'Check your browser camera and microphone permissions, then reload Meetopia.',
     ],
   },
 ];
