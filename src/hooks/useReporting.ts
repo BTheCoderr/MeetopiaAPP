@@ -1,10 +1,13 @@
 import { useState } from 'react'
 
+type ReportType = 'report' | 'improvement'
+
 export function useReporting() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const [reportedUserId, setReportedUserId] = useState<string | null>(null)
 
   const openReportModal = (userId: string) => {
+    if (!userId) return
     setReportedUserId(userId)
     setIsReportModalOpen(true)
   }
@@ -14,26 +17,41 @@ export function useReporting() {
     setReportedUserId(null)
   }
 
-  const handleReport = async (type: 'report' | 'improvement', reason: string, details: string) => {
+  const submitReportForUser = async (
+    userId: string,
+    type: ReportType,
+    reason: string,
+    details = ''
+  ) => {
+    if (!userId) throw new Error('No matched user is available to report.')
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type,
+        reportedUserId: userId,
+        reason,
+        details,
+      }),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to submit report')
+    }
+
+    return data
+  }
+
+  const handleReport = async (type: ReportType, reason: string, details: string) => {
     try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          reportedUserId,
-          reason,
-          details
-        })
-      })
-
-      if (!res.ok) {
-        throw new Error('Failed to submit report')
-      }
-
+      if (!reportedUserId) throw new Error('No matched user is available to report.')
+      await submitReportForUser(reportedUserId, type, reason, details)
       closeReportModal()
     } catch (err) {
       console.error('Error submitting report:', err)
+      throw err
     }
   }
 
@@ -42,6 +60,7 @@ export function useReporting() {
     reportedUserId,
     openReportModal,
     closeReportModal,
-    handleReport
+    handleReport,
+    submitReportForUser,
   }
-} 
+}

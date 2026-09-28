@@ -53,7 +53,13 @@ export default function VideoChatPage() {
     chatOpen: state.isChatOpen,
   })
 
-  const { isReportModalOpen, handleReport, openReportModal, closeReportModal } = useReporting()
+  const {
+    isReportModalOpen,
+    handleReport,
+    openReportModal,
+    closeReportModal,
+    submitReportForUser,
+  } = useReporting()
 
   useEffect(() => {
     document.body.classList.add('overflow-hidden', 'bg-black')
@@ -71,33 +77,48 @@ export default function VideoChatPage() {
     chat.handleNextPerson()
   }, [chat])
 
-  const handleSubmitLegacyReport = useCallback(() => {
-    if (!state.reportReason || !chat.socket) return
+  const handleSubmitLegacyReport = useCallback(async () => {
+    if (!state.reportReason || !chat.currentPeerUserId) return
     state.setIsReporting(true)
-    chat.socket.emit('report-user', {
-      reason: state.reportReason,
-      timestamp: new Date().toISOString(),
-    })
-    setTimeout(() => {
-      state.setIsReporting(false)
+    try {
+      await submitReportForUser(
+        chat.currentPeerUserId,
+        'report',
+        state.reportReason,
+        'Submitted from the live Chemistry Check report panel.'
+      )
       state.setReportSuccess(true)
-      setTimeout(() => {
+      window.setTimeout(() => {
         state.setShowReportPanel(false)
         state.setReportSuccess(false)
         state.setReportReason('')
         handleNextPerson()
-      }, 2000)
-    }, 1000)
-  }, [state, chat.socket, handleNextPerson])
+      }, 1200)
+    } catch (error) {
+      console.error('Error submitting live report:', error)
+      state.setError(error instanceof Error ? error.message : 'Could not submit report.')
+    } finally {
+      state.setIsReporting(false)
+    }
+  }, [state, chat.currentPeerUserId, submitReportForUser, handleNextPerson])
 
-  const handleReportExplicit = useCallback(() => {
+  const handleReportExplicit = useCallback(async () => {
+    if (!chat.currentPeerUserId) return
     state.setHasExplicitContent(true)
-    chat.reportExplicitContent()
-    alert(
-      'Potentially inappropriate content detected. The video has been blurred for your safety. You can unblur it or find a new chat partner.'
-    )
     state.toggleBlurRemoteVideo()
-  }, [state, chat])
+
+    try {
+      await submitReportForUser(
+        chat.currentPeerUserId,
+        'report',
+        'explicit_content',
+        'Reported from the live explicit-content safety control.'
+      )
+    } catch (error) {
+      console.error('Error submitting explicit-content report:', error)
+      state.setError(error instanceof Error ? error.message : 'Could not submit report.')
+    }
+  }, [state, chat.currentPeerUserId, submitReportForUser])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
