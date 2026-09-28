@@ -60,10 +60,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
     }
 
-    const content =
-      typeof (await request.clone().json().catch(() => null))?.content === 'string'
-        ? String((await request.json()).content).trim()
-        : ''
+    const body = await request.json().catch(() => null)
+    const content = typeof body?.content === 'string' ? body.content.trim() : ''
 
     if (!content) {
       return NextResponse.json({ error: 'Message cannot be empty.' }, { status: 400 })
