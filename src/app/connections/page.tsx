@@ -125,9 +125,24 @@ export default function ConnectionsPage() {
                     You met live first and both chose to keep the connection.
                   </p>
 
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                    <Link
+                      href={`/connections/${connection.id}`}
+                      className="flex-1 rounded-xl bg-gray-950 px-4 py-3 text-center text-sm font-bold text-white hover:bg-gray-800"
+                    >
+                      Message
+                    </Link>
+                    <Link
+                      href={`/chat/video?connection=${connection.id}`}
+                      className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-center text-sm font-bold text-gray-800 hover:bg-gray-50"
+                    >
+                      Call again
+                    </Link>
+                  </div>
+
                   <button
                     onClick={() => void blockPerson(person)}
-                    className="mt-5 text-xs font-semibold text-red-600 hover:text-red-700"
+                    className="mt-4 text-xs font-semibold text-red-600 hover:text-red-700"
                   >
                     Block & remove
                   </button>
