@@ -1,17 +1,16 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 
-async function currentUserId() {
-  const sessionId = cookies().get('meetopia_session')?.value
+async function currentUserId(request: NextRequest) {
+  const sessionId = request.cookies.get('meetopia_session')?.value
   if (!sessionId) return null
   const session = await getSession(sessionId)
   return session?.userId || null
 }
 
-export async function GET() {
-  const userId = await currentUserId()
+export async function GET(request: NextRequest) {
+  const userId = await currentUserId(request)
   if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const blocks = await prisma.block.findMany({
@@ -27,8 +26,8 @@ export async function GET() {
   return NextResponse.json({ blocks })
 }
 
-export async function POST(request: Request) {
-  const userId = await currentUserId()
+export async function POST(request: NextRequest) {
+  const userId = await currentUserId(request)
   if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { blockedUserId } = await request.json()
@@ -58,8 +57,8 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(request: Request) {
-  const userId = await currentUserId()
+export async function DELETE(request: NextRequest) {
+  const userId = await currentUserId(request)
   if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { blockedUserId } = await request.json()
