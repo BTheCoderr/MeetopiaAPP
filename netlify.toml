@@ -4,6 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "20.19.0"
+  # These NEXT_PUBLIC values are intentionally bundled into client code.
+  # Keep secret scanning enabled for real server-side secrets.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SOCKET_URL,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,NEXT_PUBLIC_SUPABASE_ANON_KEY"
 
 # Database migrations are applied separately. Keeping production deploys to the
 # application build prevents a database configuration issue from blocking a
