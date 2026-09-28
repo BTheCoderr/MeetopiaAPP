@@ -136,39 +136,6 @@ export function useVideoChatSocket({
           console.log(LOG, 'transport upgraded to', transport.name)
         })
 
-        if (
-          directConnectionId &&
-          directCallAttemptedRef.current !== directConnectionId
-        ) {
-          directCallAttemptedRef.current = directConnectionId
-          setIsSearching(true)
-
-          try {
-            const response = await fetch(
-              `/api/connections/${directConnectionId}/call-proof`,
-              {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { Accept: 'application/json' },
-              }
-            )
-            const data = await response.json().catch(() => null)
-
-            if (!response.ok || !data?.proof) {
-              throw new Error(data?.error || 'Could not start this Connection call.')
-            }
-
-            newSocket?.emit('call-connection', { proof: data.proof })
-          } catch (error) {
-            console.error(LOG, 'direct Connection call failed to start', error)
-            setIsSearching(false)
-            setError(
-              error instanceof Error
-                ? error.message
-                : 'Could not start this Connection call.'
-            )
-          }
-        }
       })
 
       newSocket.on('connect_error', (err) => {
@@ -515,6 +482,57 @@ export function useVideoChatSocket({
     peerConnection,
     stream,
     socket,
+    setIsSearching,
+    setError,
+  ])
+
+  useEffect(() => {
+    if (
+      !directConnectionId ||
+      !socket?.connected ||
+      !peerConnection ||
+      directCallAttemptedRef.current === directConnectionId
+    ) {
+      return
+    }
+
+    directCallAttemptedRef.current = directConnectionId
+    setIsSearching(true)
+    setError(null)
+
+    const startDirectCall = async () => {
+      try {
+        const response = await fetch(
+          `/api/connections/${directConnectionId}/call-proof`,
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          }
+        )
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok || !data?.proof) {
+          throw new Error(data?.error || 'Could not start this Connection call.')
+        }
+
+        socket.emit('call-connection', { proof: data.proof })
+      } catch (error) {
+        console.error(LOG, 'direct Connection call failed to start', error)
+        setIsSearching(false)
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Could not start this Connection call.'
+        )
+      }
+    }
+
+    void startDirectCall()
+  }, [
+    directConnectionId,
+    socket,
+    peerConnection,
     setIsSearching,
     setError,
   ])
