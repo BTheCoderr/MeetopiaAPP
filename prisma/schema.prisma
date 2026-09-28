@@ -17,8 +17,10 @@ model User {
   displayName String?
   bio         String?
   interests   String[]  @default([])
-  adultConfirmedAt DateTime?
-  isFlagged   Boolean  @default(false)
+  adultConfirmedAt        DateTime?
+  resetPasswordTokenHash   String?   @unique
+  resetPasswordExpiresAt   DateTime?
+  isFlagged                 Boolean   @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
