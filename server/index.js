@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
-const { verifySocketToken, createConnectionProof } = require('./socketAuth');
+const { verifySocketToken, createConnectionProof, verifyDirectCallProof } = require('./socketAuth');
 
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
@@ -242,6 +242,9 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
+  if (socket.data.userId) {
+    activeDatingSocketsByUser.set(socket.data.userId, socket.id);
+  }
 
   socket.on('find-user', () => {
     if (activePairs.has(socket.id)) {
@@ -250,6 +253,57 @@ io.on('connection', (socket) => {
     }
     leaveCurrentRoom(socket, { notifyVideoPeer: false });
     runFindUser(socket);
+  });
+
+  socket.on('call-connection', ({ proof } = {}) => {
+    const payload = verifyDirectCallProof(proof);
+    if (!payload || payload.callerId !== socket.data.userId) {
+      socket.emit('direct-call-unavailable', {
+        message: 'This call invitation is invalid or has expired.',
+      });
+      return;
+    }
+
+    if (!socket.data.adultConfirmed) {
+      socket.emit('match-error', {
+        code: 'ADULT_CONFIRMATION_REQUIRED',
+        message: 'Confirm you are 18 or older before starting a call.',
+      });
+      return;
+    }
+
+    const targetSocketId = activeDatingSocketsByUser.get(payload.calleeId);
+    const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
+
+    if (
+      !targetSocket ||
+      !targetSocket.data.adultConfirmed ||
+      activePairs.has(socket.id) ||
+      activePairs.has(targetSocket.id) ||
+      isBlockedBetween(socket.id, targetSocket.id)
+    ) {
+      socket.emit('direct-call-unavailable', {
+        message: 'Your Connection is not available for a video call right now.',
+      });
+      return;
+    }
+
+    removeFromMatchQueues(socket.id);
+    removeFromMatchQueues(targetSocket.id);
+
+    socket.emit('user-found', {
+      partnerId: targetSocket.id,
+      partnerUserId: targetSocket.data.userId,
+    });
+    targetSocket.emit('user-found', {
+      partnerId: socket.id,
+      partnerUserId: socket.data.userId,
+    });
+
+    pairUsers(socket.id, targetSocket.id);
+    console.log(
+      `[Signaling] direct Connection call matched: ${socket.data.userId} -> ${targetSocket.data.userId}`
+    );
   });
 
   socket.on('find-next-user', () => {
