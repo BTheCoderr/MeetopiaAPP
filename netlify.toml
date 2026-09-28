@@ -8,5 +8,6 @@
 [context.production.environment]
   NEXT_PUBLIC_SOCKET_URL = "https://meetopia-signaling-v2.onrender.com"
 
-[context.production]
-  command = "npx prisma migrate deploy && npm run build"
+# Database migrations are applied separately. Keeping production deploys to the
+# application build prevents a database configuration issue from blocking a
+# frontend fix from reaching Netlify.
