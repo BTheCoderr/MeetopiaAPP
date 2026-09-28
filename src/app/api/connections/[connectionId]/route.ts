@@ -63,6 +63,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       },
     })
 
+    await prisma.message.deleteMany({
+      where: {
+        OR: [
+          { senderId: userId, receiverId: otherUserId },
+          { senderId: otherUserId, receiverId: userId },
+        ],
+      },
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Remove connection error:', error)
