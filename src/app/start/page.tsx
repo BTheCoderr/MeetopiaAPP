@@ -15,7 +15,11 @@ export default function StartPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch('/api/auth/adult-confirmation', { cache: 'no-store' })
+        const response = await fetch('/api/auth/adult-confirmation', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        })
         if (response.status === 401) {
           router.replace('/auth/signin?next=/start')
           return
@@ -47,10 +51,16 @@ export default function StartPage() {
     setIsSaving(true)
     setError(null)
     try {
-      const response = await fetch('/api/auth/adult-confirmation', { method: 'POST' })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Could not save confirmation.')
-      router.push('/chat/video')
+      const response = await fetch('/api/auth/adult-confirmation', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.error || `Could not save confirmation (HTTP ${response.status}).`)
+      }
+      window.location.assign('/chat/video')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Could not save confirmation.')
     } finally {
