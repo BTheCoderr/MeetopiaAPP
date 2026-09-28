@@ -3,16 +3,16 @@ import { getSession } from '@/lib/auth/session'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 
-async function currentUserId() {
-  const sessionId = cookies().get('meetopia_session')?.value
+async function currentUserId(request: NextRequest) {
+  const sessionId = request.cookies.get('meetopia_session')?.value
   if (!sessionId) return null
   const session = await getSession(sessionId)
   return session?.userId || null
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const userId = await currentUserId()
+    const userId = await currentUserId(request)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const user = await prisma.user.findUnique({
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const userId = await currentUserId()
+    const userId = await currentUserId(request)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const body = await request.json()
