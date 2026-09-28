@@ -65,7 +65,7 @@ select * from mobile_reports order by created_at desc limit 20;
 **HTTP:**
 
 ```bash
-curl "https://meetopiaapp.onrender.com/admin/reports?token=YOUR_REPORT_ADMIN_TOKEN&limit=20"
+curl "https://meetopia-signaling-v2.onrender.com/admin/reports?token=YOUR_REPORT_ADMIN_TOKEN&limit=20"
 ```
 
 ## Persistence options
