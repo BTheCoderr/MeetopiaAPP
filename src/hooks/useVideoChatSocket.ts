@@ -24,6 +24,7 @@ interface UseVideoChatSocketOptions {
   startCooldown: () => void
   setBandwidthQuality: (q: 'high' | 'medium' | 'low') => void
   isAdaptiveQuality: boolean
+  directConnectionId?: string | null
 }
 
 function serializeCandidate(candidate: RTCIceCandidate): RTCIceCandidateInit {
@@ -44,6 +45,7 @@ export function useVideoChatSocket({
   startCooldown,
   setBandwidthQuality,
   isAdaptiveQuality,
+  directConnectionId = null,
 }: UseVideoChatSocketOptions) {
   const router = useRouter()
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -62,6 +64,7 @@ export function useVideoChatSocket({
   const currentPeerRef = useRef<string | null>(null)
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([])
   const isCallerRef = useRef(false)
+  const directCallAttemptedRef = useRef<string | null>(null)
 
   useEffect(() => {
     socketRef.current = socket
@@ -123,7 +126,7 @@ export function useVideoChatSocket({
       setSocket(newSocket)
       socketRef.current = newSocket
 
-      newSocket.on('connect', () => {
+      newSocket.on('connect', async () => {
         const transport = newSocket?.io.engine?.transport?.name ?? 'unknown'
         console.log(LOG, 'socket connected', newSocket?.id, 'transport', transport)
         setIsSocketConnected(true)
@@ -132,6 +135,40 @@ export function useVideoChatSocket({
         newSocket?.io.engine?.on('upgrade', (transport) => {
           console.log(LOG, 'transport upgraded to', transport.name)
         })
+
+        if (
+          directConnectionId &&
+          directCallAttemptedRef.current !== directConnectionId
+        ) {
+          directCallAttemptedRef.current = directConnectionId
+          setIsSearching(true)
+
+          try {
+            const response = await fetch(
+              `/api/connections/${directConnectionId}/call-proof`,
+              {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+              }
+            )
+            const data = await response.json().catch(() => null)
+
+            if (!response.ok || !data?.proof) {
+              throw new Error(data?.error || 'Could not start this Connection call.')
+            }
+
+            newSocket?.emit('call-connection', { proof: data.proof })
+          } catch (error) {
+            console.error(LOG, 'direct Connection call failed to start', error)
+            setIsSearching(false)
+            setError(
+              error instanceof Error
+                ? error.message
+                : 'Could not start this Connection call.'
+            )
+          }
+        }
       })
 
       newSocket.on('connect_error', (err) => {
@@ -167,6 +204,14 @@ export function useVideoChatSocket({
         setIsSearching(false)
         setError(null)
       })
+
+      newSocket.on(
+        'direct-call-unavailable',
+        ({ message }: { message?: string }) => {
+          setIsSearching(false)
+          setError(message || 'Your Connection is not available for a video call right now.')
+        }
+      )
 
       newSocket.on(
         'mutual-vibe',
@@ -229,7 +274,7 @@ export function useVideoChatSocket({
       newSocket?.disconnect()
       socketRef.current = null
     }
-  }, [router, setError, setIsSearching])
+  }, [router, setError, setIsSearching, directConnectionId])
 
   // WebRTC handlers on the current peer connection (stable refs for ICE peer id)
   useEffect(() => {
