@@ -283,13 +283,21 @@ export default function VideoChatPage() {
               )}
             </div>
             <div className="mt-6 grid gap-3">
-              {chat.mutualVibe.saved && (
-                <Link
-                  href="/connections"
-                  className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
-                >
-                  View Connections
-                </Link>
+              {chat.mutualVibe.saved && chat.mutualVibe.connectionId && (
+                <>
+                  <Link
+                    href={`/connections/${chat.mutualVibe.connectionId}`}
+                    className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
+                  >
+                    Message later
+                  </Link>
+                  <Link
+                    href={`/chat/video?connection=${chat.mutualVibe.connectionId}`}
+                    className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white/90 hover:bg-white/10"
+                  >
+                    Call again later
+                  </Link>
+                </>
               )}
               <button
                 onClick={chat.dismissMutualVibe}
