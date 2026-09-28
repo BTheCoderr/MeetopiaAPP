@@ -9,7 +9,6 @@ const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
 
 const productionOrigins = [
-  'https://meeetopia.netlify.app',
   'https://meetopia-live.netlify.app',
 ];
 
@@ -23,10 +22,7 @@ const allowedOrigins = [...new Set([...configuredOrigins, ...productionOrigins])
 
 const isMeetopiaPreviewOrigin = (origin) =>
   typeof origin === 'string' &&
-  (
-    /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(origin) ||
-    /^https:\/\/deploy-preview-\d+--meeetopia\.netlify\.app$/.test(origin)
-  );
+  /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(origin);
 
 const corsOriginCheck = (origin, callback) => {
   const normalizedOrigin = normalizeOrigin(origin);
