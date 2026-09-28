@@ -1,18 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 
-async function currentUserId() {
-  const sessionId = cookies().get('meetopia_session')?.value
+async function currentUserId(request: NextRequest) {
+  const sessionId = request.cookies.get('meetopia_session')?.value
   if (!sessionId) return null
   const session = await getSession(sessionId)
   return session?.userId || null
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const userId = await currentUserId()
+    const userId = await currentUserId(request)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const user = await prisma.user.findUnique({
@@ -39,9 +38,9 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const userId = await currentUserId()
+    const userId = await currentUserId(request)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const body = await request.json()
@@ -51,9 +50,12 @@ export async function PUT(request: Request) {
         : undefined
     const bio = typeof body.bio === 'string' ? body.bio.trim().slice(0, 500) : undefined
     const interests = Array.isArray(body.interests)
-      ? body.interests.filter((value: unknown): value is string => typeof value === 'string').map((value: string) => value.trim()).filter(Boolean).slice(0, 20)
+      ? body.interests
+          .filter((value: unknown): value is string => typeof value === 'string')
+          .map((value: string) => value.trim())
+          .filter(Boolean)
+          .slice(0, 20)
       : undefined
-
 
     const user = await prisma.user.update({
       where: { id: userId },
