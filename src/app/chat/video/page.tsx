@@ -56,11 +56,44 @@ export default function VideoChatPage() {
   const { isReportModalOpen, handleReport, openReportModal, closeReportModal } = useReporting()
 
   useEffect(() => {
-    document.body.classList.add('overflow-hidden', 'bg-black')
+    document.body.classList.add('overflow-hidden', 'video-chat-active')
     return () => {
-      document.body.classList.remove('overflow-hidden', 'bg-black')
+      document.body.classList.remove('overflow-hidden', 'video-chat-active')
     }
   }, [])
+
+  const handleToggleFullscreen = useCallback(async () => {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null
+      webkitExitFullscreen?: () => Promise<void> | void
+    }
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void
+    }
+
+    try {
+      if (document.fullscreenElement || doc.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen()
+        else await doc.webkitExitFullscreen?.()
+        return
+      }
+
+      if (root.requestFullscreen) {
+        await root.requestFullscreen()
+        return
+      }
+
+      if (root.webkitRequestFullscreen) {
+        await root.webkitRequestFullscreen()
+        return
+      }
+
+      state.setError('For true full-screen on iPhone, add Meetopia to your Home Screen and open it from there.')
+    } catch (error) {
+      console.error('Fullscreen request failed:', error)
+      state.setError('Full-screen mode is not available in this browser. Add Meetopia to your Home Screen for the FaceTime-style view.')
+    }
+  }, [state.setError])
 
   useEffect(() => {
     if (chat.currentPeer) state.showControlsTemporarily()
@@ -169,6 +202,8 @@ export default function VideoChatPage() {
         onLeaveChat={chat.handleLeaveChat}
         onToggleMute={media.toggleLocalMute}
         onToggleCamera={media.toggleLocalCamera}
+        onSwitchCamera={media.switchCamera}
+        onToggleFullscreen={handleToggleFullscreen}
         onToggleScreenShare={media.toggleScreenShare}
         onOpenTroubleshooting={() => state.setShowTroubleshooting(true)}
         onOpenReport={() => openReportModal(chat.currentPeerUserId || '')}
