@@ -5,9 +5,6 @@
 [build.environment]
   NODE_VERSION = "20.19.0"
 
-[context.production.environment]
-  NEXT_PUBLIC_SOCKET_URL = "https://meetopia-signaling-v2.onrender.com"
-
 # Database migrations are applied separately. Keeping production deploys to the
 # application build prevents a database configuration issue from blocking a
 # frontend fix from reaching Netlify.
