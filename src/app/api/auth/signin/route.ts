@@ -5,18 +5,28 @@ import { createSession } from '@/lib/auth/session'
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json()
+    const { identifier, email, password } = await req.json()
+    const login = typeof identifier === 'string'
+      ? identifier.trim()
+      : typeof email === 'string'
+        ? email.trim()
+        : ''
 
-    if (typeof email !== 'string' || typeof password !== 'string') {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    if (!login || typeof password !== 'string') {
+      return NextResponse.json({ error: 'Email or username and password are required' }, { status: 400 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() }
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: login.toLowerCase() },
+          { username: { equals: login, mode: 'insensitive' } },
+        ],
+      },
     })
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid email/username or password' }, { status: 401 })
     }
 
     const session = await createSession(user.id)
