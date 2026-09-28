@@ -13,7 +13,30 @@ function normalizePostgresUrl(value?: string | null) {
   normalized = normalized.replace(/^DATABASE_URL(?:_UNPOOLED)?=/, '').trim()
   normalized = normalized.replace(/^['"]|['"]$/g, '').trim()
 
-  return /^postgres(?:ql)?:\/\//i.test(normalized) ? normalized : null
+  if (!/^postgres(?:ql)?:\/\//i.test(normalized)) return null
+
+  // Supabase/Supavisor transaction mode runs on port 6543. Prisma needs
+  // PgBouncer mode there so it does not use prepared statements, and a
+  // single client connection is the safe default for serverless functions.
+  try {
+    const url = new URL(normalized)
+    const isSupabaseTransactionPooler =
+      url.hostname.endsWith('.pooler.supabase.com') && url.port === '6543'
+
+    if (isSupabaseTransactionPooler) {
+      if (!url.searchParams.has('pgbouncer')) {
+        url.searchParams.set('pgbouncer', 'true')
+      }
+      if (!url.searchParams.has('connection_limit')) {
+        url.searchParams.set('connection_limit', '1')
+      }
+      normalized = url.toString()
+    }
+  } catch {
+    return null
+  }
+
+  return normalized
 }
 
 function resolveDatabaseUrl() {
