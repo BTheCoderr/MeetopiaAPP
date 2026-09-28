@@ -12,9 +12,9 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  title: 'Meetopia — Video-First Dating for Real Chemistry',
-  description: 'Meetopia is profile-based, video-first dating. Create a profile, choose your intent, browse suggested matches, and request a Chemistry Check. 18+ only.',
-  keywords: 'video dating, dating app, chemistry check, profile-based dating, meet people, singles, local dating, new friends',
+  title: 'Meetopia — Talk First. Vibe After.',
+  description: 'Meetopia connects adults through live Chemistry Checks. Talk first, decide for yourself, then Vibe or move on. 18+ only.',
+  keywords: 'video dating, live conversation, chemistry check, video chat, meet people, singles, dating app',
   authors: [{ name: 'Meetopia Team' }],
   robots: 'index, follow',
   manifest: '/manifest.json',
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   openGraph: {
-    title: 'Meetopia — Video-First Dating for Real Chemistry',
-    description: 'Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check. 18+ only.',
+    title: 'Meetopia — Talk First. Vibe After.',
+    description: 'Live video Chemistry Checks for adults. Talk first, then Vibe or move on. 18+ only.',
     type: 'website',
     locale: 'en_US',
     siteName: 'Meetopia',
@@ -40,8 +40,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Meetopia — Video-First Dating for Real Chemistry',
-    description: 'Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check. 18+ only.',
+    title: 'Meetopia — Talk First. Vibe After.',
+    description: 'Live video Chemistry Checks for adults. Talk first, then Vibe or move on. 18+ only.',
     images: ['/og-image.png']
   }
 }

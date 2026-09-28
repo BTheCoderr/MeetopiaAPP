@@ -66,18 +66,18 @@ export default function ConnectionsPage() {
 
   return (
     <MainLayout>
-      <section className="mx-auto max-w-4xl px-4 py-10">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-purple-600">Both of you chose it</p>
-            <h1 className="mt-1 text-4xl font-black text-gray-950">Connections</h1>
-            <p className="mt-2 max-w-2xl text-gray-600">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-600 sm:text-sm">Both of you chose it</p>
+            <h1 className="mt-1 text-3xl font-black text-gray-950 sm:text-4xl">Connections</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
               Nobody appears here because an algorithm guessed. A Connection is saved only after you talked live and both tapped Vibe.
             </p>
           </div>
           <Link
             href="/start"
-            className="rounded-xl bg-gray-950 px-5 py-3 text-center font-semibold text-white hover:bg-gray-800"
+            className="w-full rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800 md:w-auto"
           >
             Start another Chemistry Check
           </Link>
@@ -102,19 +102,19 @@ export default function ConnectionsPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             {connections.map(connection => {
               const person = connection.person
               const name = person.displayName || person.username
 
               return (
-                <article key={connection.id} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+                <article key={connection.id} className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-200 sm:p-6">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-950 text-xl font-black text-white">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-950 text-lg font-black text-white sm:h-14 sm:w-14 sm:text-xl">
                       {name.slice(0, 1).toUpperCase()}
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-950">{name}</h2>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-bold text-gray-950 sm:text-xl">{name}</h2>
                       <p className="text-xs text-gray-400">
                         Connected {new Date(connection.createdAt).toLocaleDateString()}
                       </p>
