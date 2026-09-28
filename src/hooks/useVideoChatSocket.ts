@@ -80,10 +80,7 @@ export function useVideoChatSocket({
     let newSocket: Socket | null = null
 
     const connect = async () => {
-      const socketUrl =
-        process.env.NODE_ENV === 'production'
-          ? 'https://meetopia-signaling-v2.onrender.com'
-          : process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
       console.log(LOG, 'socket URL', socketUrl)
 
       let token: string | undefined
