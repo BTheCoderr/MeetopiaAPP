@@ -77,6 +77,6 @@ cd apps/mobile && npm run typecheck
 
 # Local native (physical iPhone)
 cd apps/mobile
-cp .env.example .env   # set EXPO_PUBLIC_SOCKET_URL=https://meetopiaapp.onrender.com
+cp .env.example .env   # set EXPO_PUBLIC_SOCKET_URL=https://meetopia-signaling-v2.onrender.com
 npx expo run:ios -d
 ```
