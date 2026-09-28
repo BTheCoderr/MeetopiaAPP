@@ -241,7 +241,7 @@ export function useVideoChatSocket({
       newSocket?.disconnect()
       socketRef.current = null
     }
-  }, [router, setError, setIsSearching, directConnectionId])
+  }, [router, setError, setIsSearching])
 
   // WebRTC handlers on the current peer connection (stable refs for ICE peer id)
   useEffect(() => {
