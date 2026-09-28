@@ -90,8 +90,6 @@ io.engine.on('headers', (headers, req) => {
   }
 });
 
-// Legacy explicit-room flow (/room/[roomId], join-room) — separate from /chat/video random matching.
-const rooms = new Map();
 const waitingUsers = new Set();
 // Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
 const activePairs = new Map();
@@ -167,27 +165,12 @@ function clearActivePair(socketId, notifyPeer = true) {
   return peerId;
 }
 
-function leaveLegacyRooms(socket) {
-  rooms.forEach((users, roomId) => {
-    if (users.has(socket.id)) {
-      users.delete(socket.id);
-      for (const userId of users) {
-        io.to(userId).emit('peer-left');
-      }
-      if (users.size === 0) {
-        rooms.delete(roomId);
-      }
-    }
-  });
-}
-
 function removeFromMatchQueues(socketId) {
   waitingUsers.delete(socketId);
 }
 
 function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   clearActivePair(socket.id, notifyVideoPeer);
-  leaveLegacyRooms(socket);
   removeFromMatchQueues(socket.id);
 }
 
@@ -260,23 +243,6 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  socket.on('join-room', ({ roomId }) => {
-    socket.join(roomId);
-
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, new Set());
-    }
-    rooms.get(roomId).add(socket.id);
-
-    const room = rooms.get(roomId);
-    if (room.size === 2) {
-      const users = Array.from(room);
-      io.to(roomId).emit('start-call', { users });
-    }
-
-    console.log(`User ${socket.id} joined room ${roomId}`);
-  });
-
   socket.on('find-user', () => {
     if (activePairs.has(socket.id)) {
       console.log(`User ${socket.id} already paired, ignoring duplicate find-user`);
@@ -288,7 +254,6 @@ io.on('connection', (socket) => {
 
   socket.on('find-next-user', () => {
     clearActivePair(socket.id, true);
-    leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
     runFindUser(socket);
   });
@@ -302,7 +267,6 @@ io.on('connection', (socket) => {
   socket.on('leave-chat', () => {
     console.log(`User ${socket.id} is leaving chat`);
     clearActivePair(socket.id, true);
-    leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
     if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
       activeDatingSocketsByUser.delete(socket.data.userId);
@@ -348,22 +312,9 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('leave-room', ({ roomId }) => {
-    socket.leave(roomId);
-    if (rooms.has(roomId)) {
-      rooms.get(roomId).delete(socket.id);
-      if (rooms.get(roomId).size === 0) {
-        rooms.delete(roomId);
-      }
-    }
-    io.to(roomId).emit('peer-left', { peerId: socket.id });
-    console.log(`User ${socket.id} left room ${roomId}`);
-  });
-
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     clearActivePair(socket.id, true);
-    leaveLegacyRooms(socket);
     removeFromMatchQueues(socket.id);
     if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
       activeDatingSocketsByUser.delete(socket.data.userId);
