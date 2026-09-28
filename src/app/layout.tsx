@@ -5,7 +5,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#000000',
 }
 
 export const metadata: Metadata = {
@@ -15,6 +17,12 @@ export const metadata: Metadata = {
   keywords: 'video dating, dating app, chemistry check, profile-based dating, meet people, singles, local dating, new friends',
   authors: [{ name: 'Meetopia Team' }],
   robots: 'index, follow',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'Meetopia',
+    statusBarStyle: 'black-translucent',
+  },
   openGraph: {
     title: 'Meetopia — Video-First Dating for Real Chemistry',
     description: 'Profile-based, video-first dating. Browse suggested matches and request a Chemistry Check. 18+ only.',
