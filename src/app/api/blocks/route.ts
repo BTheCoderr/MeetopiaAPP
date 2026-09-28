@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
         ],
       },
     }),
+    prisma.message.deleteMany({
+      where: {
+        OR: [
+          { senderId: userId, receiverId: blockedUserId },
+          { senderId: blockedUserId, receiverId: userId },
+        ],
+      },
+    }),
   ])
 
   return NextResponse.json({ success: true })
