@@ -3,12 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth/session'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { reportedUserId, reason, details } = await request.json()
 
     // Get the current user's ID from the session
-    const sessionId = cookies().get('meetopia_session')?.value
+    const sessionId = request.cookies.get('meetopia_session')?.value
     if (!sessionId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
