@@ -64,7 +64,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
-  "description": "A modern meeting scheduling and management application built with Next.js that helps teams coordinate and organize their meetings efficiently.",
+  "description": "Conversation-first live video dating: Talk first. Vibe after.",
   "main": "next.config.js",
   "keywords": [],
   "author": "",
