@@ -45,13 +45,24 @@ export async function PATCH(request: NextRequest) {
       ? body.ids.filter((id: unknown): id is string => typeof id === 'string').slice(0, 100)
       : []
     const markAll = body?.all === true
+    const connectionId =
+      typeof body?.connectionId === 'string' ? body.connectionId : null
     const readAt = new Date()
 
     await prisma.notification.updateMany({
       where: {
         userId,
         readAt: null,
-        ...(markAll ? {} : { id: { in: ids } }),
+        ...(markAll
+          ? {}
+          : connectionId
+            ? {
+                data: {
+                  path: ['connectionId'],
+                  equals: connectionId,
+                },
+              }
+            : { id: { in: ids } }),
       },
       data: { readAt },
     })
