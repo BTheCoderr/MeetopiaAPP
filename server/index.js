@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { randomUUID } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const { verifySocketToken, createConnectionProof, verifyDirectCallProof } = require('./socketAuth');
 
@@ -95,6 +96,9 @@ const waitingUsers = new Set();
 const activePairs = new Map();
 const vibeTargets = new Map();
 const activeDatingSocketsByUser = new Map();
+const pendingConnectionCalls = new Map();
+const pendingCallByCallerSocket = new Map();
+const CONNECTION_CALL_TTL_MS = 30 * 1000;
 // Keep a short-lived memory of recent peers so "Next" does not immediately rematch the same two people.
 const recentPeers = new Map();
 const RECENT_PEER_TTL_MS = 10 * 60 * 1000;
@@ -167,6 +171,45 @@ function clearActivePair(socketId, notifyPeer = true) {
 
 function removeFromMatchQueues(socketId) {
   waitingUsers.delete(socketId);
+}
+
+function clearPendingConnectionCall(inviteId, callerEvent, targetEvent) {
+  const invite = pendingConnectionCalls.get(inviteId);
+  if (!invite) return null;
+
+  pendingConnectionCalls.delete(inviteId);
+  if (pendingCallByCallerSocket.get(invite.callerSocketId) === inviteId) {
+    pendingCallByCallerSocket.delete(invite.callerSocketId);
+  }
+  if (invite.timeout) clearTimeout(invite.timeout);
+
+  const callerSocket = io.sockets.sockets.get(invite.callerSocketId);
+  if (callerEvent && callerSocket) {
+    callerSocket.emit(callerEvent, {
+      inviteId,
+      connectionId: invite.connectionId,
+      calleeUserId: invite.calleeUserId,
+    });
+  }
+
+  const targetSocketId = activeDatingSocketsByUser.get(invite.calleeUserId);
+  const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
+  if (targetEvent && targetSocket) {
+    targetSocket.emit(targetEvent, {
+      inviteId,
+      connectionId: invite.connectionId,
+      callerUserId: invite.callerUserId,
+    });
+  }
+
+  return invite;
+}
+
+function cancelPendingCallFromCaller(socketId) {
+  const inviteId = pendingCallByCallerSocket.get(socketId);
+  if (!inviteId) return false;
+  clearPendingConnectionCall(inviteId, null, 'connection-call-cancelled');
+  return true;
 }
 
 function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
@@ -288,22 +331,121 @@ io.on('connection', (socket) => {
       return;
     }
 
-    removeFromMatchQueues(socket.id);
-    removeFromMatchQueues(targetSocket.id);
+    cancelPendingCallFromCaller(socket.id);
 
-    socket.emit('user-found', {
-      partnerId: targetSocket.id,
-      partnerUserId: targetSocket.data.userId,
+    const inviteId = randomUUID();
+    const invite = {
+      inviteId,
+      callerSocketId: socket.id,
+      callerUserId: socket.data.userId,
+      callerDisplayName: socket.data.displayName || 'Your Connection',
+      calleeUserId: payload.calleeId,
+      connectionId: payload.connectionId,
+      expiresAt: Date.now() + CONNECTION_CALL_TTL_MS,
+      timeout: null,
+    };
+
+    invite.timeout = setTimeout(() => {
+      if (!pendingConnectionCalls.has(inviteId)) return;
+      clearPendingConnectionCall(
+        inviteId,
+        'connection-call-expired',
+        'connection-call-expired'
+      );
+    }, CONNECTION_CALL_TTL_MS);
+
+    pendingConnectionCalls.set(inviteId, invite);
+    pendingCallByCallerSocket.set(socket.id, inviteId);
+
+    socket.emit('connection-call-ringing', {
+      inviteId,
+      connectionId: payload.connectionId,
+      calleeUserId: payload.calleeId,
     });
-    targetSocket.emit('user-found', {
+
+    targetSocket.emit('incoming-connection-call', {
+      inviteId,
+      connectionId: payload.connectionId,
+      callerUserId: socket.data.userId,
+      callerDisplayName: socket.data.displayName || 'Your Connection',
+      expiresAt: invite.expiresAt,
+    });
+
+    console.log(
+      `[Signaling] Connection call invite: ${socket.data.userId} -> ${payload.calleeId}`
+    );
+  });
+
+  socket.on('accept-connection-call', ({ inviteId } = {}) => {
+    const invite = pendingConnectionCalls.get(inviteId);
+    if (!invite || invite.expiresAt < Date.now()) {
+      socket.emit('direct-call-unavailable', {
+        message: 'This call invitation has expired.',
+      });
+      return;
+    }
+
+    if (invite.calleeUserId !== socket.data.userId) {
+      socket.emit('direct-call-unavailable', {
+        message: 'This call invitation does not belong to your account.',
+      });
+      return;
+    }
+
+    const callerSocket = io.sockets.sockets.get(invite.callerSocketId);
+    if (
+      !callerSocket ||
+      !callerSocket.data.adultConfirmed ||
+      !socket.data.adultConfirmed ||
+      activePairs.has(callerSocket.id) ||
+      activePairs.has(socket.id) ||
+      isBlockedBetween(callerSocket.id, socket.id)
+    ) {
+      clearPendingConnectionCall(inviteId, 'direct-call-unavailable', null);
+      socket.emit('direct-call-unavailable', {
+        message: 'This Connection is no longer available for a video call.',
+      });
+      return;
+    }
+
+    pendingConnectionCalls.delete(inviteId);
+    if (pendingCallByCallerSocket.get(callerSocket.id) === inviteId) {
+      pendingCallByCallerSocket.delete(callerSocket.id);
+    }
+    if (invite.timeout) clearTimeout(invite.timeout);
+
+    removeFromMatchQueues(callerSocket.id);
+    removeFromMatchQueues(socket.id);
+
+    callerSocket.emit('connection-call-accepted', {
+      inviteId,
+      connectionId: invite.connectionId,
+    });
+    socket.emit('connection-call-accepted', {
+      inviteId,
+      connectionId: invite.connectionId,
+    });
+
+    callerSocket.emit('user-found', {
       partnerId: socket.id,
       partnerUserId: socket.data.userId,
     });
+    socket.emit('user-found', {
+      partnerId: callerSocket.id,
+      partnerUserId: callerSocket.data.userId,
+    });
 
-    pairUsers(socket.id, targetSocket.id);
+    pairUsers(callerSocket.id, socket.id);
     console.log(
-      `[Signaling] direct Connection call matched: ${socket.data.userId} -> ${targetSocket.data.userId}`
+      `[Signaling] accepted Connection call: ${callerSocket.data.userId} <-> ${socket.data.userId}`
     );
+  });
+
+  socket.on('decline-connection-call', ({ inviteId } = {}) => {
+    const invite = pendingConnectionCalls.get(inviteId);
+    if (!invite || invite.calleeUserId !== socket.data.userId) return;
+    clearPendingConnectionCall(inviteId, 'connection-call-declined', null);
+    socket.emit('connection-call-declined', { inviteId });
   });
 
   socket.on('find-next-user', () => {
@@ -313,9 +455,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('cancel-search', () => {
+    const cancelledCall = cancelPendingCallFromCaller(socket.id);
     removeFromMatchQueues(socket.id);
-    socket.emit('search-cancelled');
-    console.log(`[Signaling] search cancelled by ${socket.id}`);
+    socket.emit('search-cancelled', { cancelledCall });
+    console.log(`[Signaling] search/call cancelled by ${socket.id}`);
   });
 
   socket.on('leave-chat', () => {
@@ -368,6 +511,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+    cancelPendingCallFromCaller(socket.id);
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
     if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
