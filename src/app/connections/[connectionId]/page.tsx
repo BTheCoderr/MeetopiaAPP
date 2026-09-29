@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/Layout/MainLayout'
+import { useConnectionThreadRealtime } from '@/hooks/useConnectionThreadRealtime'
 
 type Person = {
   id: string
@@ -11,18 +12,21 @@ type Person = {
   displayName: string | null
   bio: string | null
   interests: string[]
+  lastSeenAt: string | null
 }
 
 type Connection = {
   id: string
   createdAt: string
   person: Person
+  realtimeProof: string
 }
 
 type Message = {
   id: string
   content: string
   createdAt: string
+  readAt: string | null
   senderId: string
   receiverId: string
   mine: boolean
@@ -35,6 +39,18 @@ const reportReasons = [
   'Safety concern',
   'Other',
 ]
+
+function activityLabel(person: Person, online: boolean) {
+  if (online) return 'Online now'
+  if (!person.lastSeenAt) return 'Offline'
+
+  const lastSeen = new Date(person.lastSeenAt)
+  const minutes = Math.floor((Date.now() - lastSeen.getTime()) / 60_000)
+  if (minutes < 2) return 'Active recently'
+  if (minutes < 60) return `Active ${minutes}m ago`
+  if (minutes < 24 * 60) return `Active ${Math.floor(minutes / 60)}h ago`
+  return `Active ${lastSeen.toLocaleDateString([], { month: 'short', day: 'numeric' })}`
+}
 
 export default function ConnectionDetailPage() {
   const params = useParams<{ connectionId: string }>()
@@ -52,7 +68,10 @@ export default function ConnectionDetailPage() {
   const [reportReason, setReportReason] = useState(reportReasons[0])
   const [reportDetails, setReportDetails] = useState('')
   const [reportSent, setReportSent] = useState(false)
+  const [peerOnline, setPeerOnline] = useState(false)
+  const [peerTyping, setPeerTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const emitReadRef = useRef<(messageIds: string[]) => void>(() => undefined)
 
   const loadConnection = useCallback(async () => {
     const response = await fetch(`/api/connections/${connectionId}`, {
@@ -71,27 +90,89 @@ export default function ConnectionDetailPage() {
     return data.connection as Connection
   }, [connectionId, router])
 
-  const loadMessages = useCallback(async (quiet = false) => {
-    try {
-      const response = await fetch(`/api/connections/${connectionId}/messages`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      })
-      if (response.status === 401) {
-        router.replace(`/auth/signin?next=/connections/${connectionId}`)
-        return
-      }
+  const markMessagesRead = useCallback(
+    async (messageIds: string[]) => {
+      if (messageIds.length === 0) return
 
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Could not load messages.')
-      setMessages(data.messages || [])
-      if (!quiet) setError(null)
-    } catch (loadError) {
-      if (!quiet) {
-        setError(loadError instanceof Error ? loadError.message : 'Could not load messages.')
+      const response = await fetch(`/api/connections/${connectionId}/messages`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageIds }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data?.messageIds) || data.messageIds.length === 0) return
+
+      setMessages(current =>
+        current.map(message =>
+          data.messageIds.includes(message.id)
+            ? { ...message, readAt: data.readAt || new Date().toISOString() }
+            : message,
+        ),
+      )
+      emitReadRef.current(data.messageIds)
+      window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
+    },
+    [connectionId],
+  )
+
+  const loadMessages = useCallback(
+    async (quiet = false) => {
+      try {
+        const response = await fetch(`/api/connections/${connectionId}/messages`, {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        })
+        if (response.status === 401) {
+          router.replace(`/auth/signin?next=/connections/${connectionId}`)
+          return
+        }
+
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Could not load messages.')
+        setMessages(data.messages || [])
+        if (Array.isArray(data.newlyReadIds) && data.newlyReadIds.length > 0) {
+          emitReadRef.current(data.newlyReadIds)
+          window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
+        }
+        if (!quiet) setError(null)
+      } catch (loadError) {
+        if (!quiet) {
+          setError(loadError instanceof Error ? loadError.message : 'Could not load messages.')
+        }
       }
-    }
-  }, [connectionId, router])
+    },
+    [connectionId, router],
+  )
+
+  const realtime = useConnectionThreadRealtime({
+    connectionId,
+    realtimeProof: connection?.realtimeProof || null,
+    otherUserId: connection?.person.id || null,
+    onMessage: message => {
+      setMessages(current => {
+        if (current.some(existing => existing.id === message.id)) return current
+        return [...current, { ...message, readAt: message.readAt || null }]
+      })
+      setPeerOnline(true)
+      void markMessagesRead([message.id])
+    },
+    onTyping: setPeerTyping,
+    onRead: (messageIds, readAt) => {
+      setMessages(current =>
+        current.map(message =>
+          messageIds.includes(message.id)
+            ? { ...message, readAt }
+            : message,
+        ),
+      )
+    },
+    onPresence: setPeerOnline,
+  })
+
+  useEffect(() => {
+    emitReadRef.current = realtime.emitRead
+  }, [realtime.emitRead])
 
   useEffect(() => {
     let cancelled = false
@@ -113,7 +194,7 @@ export default function ConnectionDetailPage() {
 
     const interval = window.setInterval(() => {
       void loadMessages(true)
-    }, 4000)
+    }, 30_000)
 
     return () => {
       cancelled = true
@@ -123,7 +204,18 @@ export default function ConnectionDetailPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [messages.length])
+  }, [messages.length, peerTyping])
+
+  useEffect(() => {
+    if (!draft.trim() || !realtime.isConnected) {
+      realtime.emitTyping(false)
+      return
+    }
+
+    realtime.emitTyping(true)
+    const timeout = window.setTimeout(() => realtime.emitTyping(false), 1_200)
+    return () => window.clearTimeout(timeout)
+  }, [draft, realtime.isConnected, realtime.emitTyping])
 
   const sendMessage = async (event: FormEvent) => {
     event.preventDefault()
@@ -132,6 +224,7 @@ export default function ConnectionDetailPage() {
 
     setIsSending(true)
     setError(null)
+    realtime.emitTyping(false)
 
     try {
       const response = await fetch(`/api/connections/${connectionId}/messages`, {
@@ -143,8 +236,12 @@ export default function ConnectionDetailPage() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not send message.')
 
-      setMessages(current => [...current, data.message])
+      setMessages(current => {
+        if (current.some(message => message.id === data.message.id)) return current
+        return [...current, data.message]
+      })
       setDraft('')
+      realtime.emitMessage(data.message)
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Could not send message.')
     } finally {
@@ -256,14 +353,19 @@ export default function ConnectionDetailPage() {
           <header className="border-b border-gray-100 p-5 sm:p-7">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-950 text-xl font-black text-white sm:h-16 sm:w-16">
+                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-950 text-xl font-black text-white sm:h-16 sm:w-16">
                   {name.slice(0, 1).toUpperCase()}
+                  <span
+                    className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-white ${
+                      peerOnline ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  />
                 </div>
                 <div className="min-w-0">
                   <h1 className="truncate text-2xl font-black text-gray-950 sm:text-3xl">{name}</h1>
                   <p className="mt-1 text-sm text-gray-500">@{person.username}</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Connected {new Date(connection.createdAt).toLocaleDateString()}
+                  <p className={`mt-1 text-xs font-semibold ${peerOnline ? 'text-green-600' : 'text-gray-400'}`}>
+                    {activityLabel(person, peerOnline)}
                   </p>
                 </div>
               </div>
@@ -380,11 +482,21 @@ export default function ConnectionDetailPage() {
                       <p className="whitespace-pre-wrap break-words">{message.content}</p>
                       <p className={`mt-1 text-[10px] ${message.mine ? 'text-blue-100' : 'text-gray-400'}`}>
                         {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        {message.mine && message.readAt ? ' · Read' : ''}
                       </p>
                     </div>
                   </div>
                 ))
               )}
+
+              {peerTyping && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2 text-sm font-semibold text-gray-400 shadow-sm ring-1 ring-gray-200">
+                    {name} is typing…
+                  </div>
+                </div>
+              )}
+
               <div ref={bottomRef} />
             </div>
 
@@ -413,6 +525,9 @@ export default function ConnectionDetailPage() {
                   {isSending ? 'Sending…' : 'Send'}
                 </button>
               </div>
+              <p className="mt-2 text-center text-[11px] text-gray-400">
+                {realtime.isConnected ? 'Live messaging connected' : 'Messages will still save if realtime reconnects'}
+              </p>
             </form>
           </section>
         </section>
