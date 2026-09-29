@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { verifyConnectionProof } from '@/lib/socketToken'
+import { createConnectionRealtimeProof, verifyConnectionProof } from '@/lib/socketToken'
 
 async function currentUserId(request: NextRequest) {
   const sessionId = request.cookies.get('meetopia_session')?.value
@@ -14,6 +14,7 @@ const personSelect = {
   id: true,
   username: true,
   displayName: true,
+  lastSeenAt: true,
 } as const
 
 export async function GET(request: NextRequest) {
@@ -34,7 +35,8 @@ export async function GET(request: NextRequest) {
   const connectionSummaries = await Promise.all(
     connections.map(async connection => {
       const person = connection.userAId === userId ? connection.userB : connection.userA
-      const lastMessage = await prisma.message.findFirst({
+      const [lastMessage, unreadCount] = await Promise.all([
+        prisma.message.findFirst({
         where: {
           OR: [
             { senderId: userId, receiverId: person.id },
@@ -48,12 +50,26 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           senderId: true,
         },
-      })
+        }),
+        prisma.message.count({
+          where: {
+            senderId: person.id,
+            receiverId: userId,
+            readAt: null,
+          },
+        }),
+      ])
 
       return {
         id: connection.id,
         createdAt: connection.createdAt,
         person,
+        unreadCount,
+        realtimeProof: createConnectionRealtimeProof(
+          userId,
+          person.id,
+          connection.id,
+        ),
         lastMessage: lastMessage
           ? {
               id: lastMessage.id,
