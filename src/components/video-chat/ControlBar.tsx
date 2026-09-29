@@ -12,6 +12,7 @@ interface ControlBarProps {
   isMuted: boolean
   isCameraOff: boolean
   isScreenSharing: boolean
+  canScreenShare: boolean
   onStartChat: () => void
   onCancelSearch: () => void
   onNextPerson: () => void
@@ -80,6 +81,7 @@ export default function ControlBar({
   isMuted,
   isCameraOff,
   isScreenSharing,
+  canScreenShare,
   onStartChat,
   onCancelSearch,
   onNextPerson,
@@ -162,15 +164,17 @@ export default function ControlBar({
           </IconButton>
         ) : (
           <>
-            <IconButton
-              onClick={onToggleScreenShare}
-              active={isScreenSharing}
-              label={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-            >
-              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
-              </svg>
-            </IconButton>
+            {canScreenShare && (
+              <IconButton
+                onClick={onToggleScreenShare}
+                active={isScreenSharing}
+                label={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+              >
+                <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
+                </svg>
+              </IconButton>
+            )}
             <IconButton onClick={onNextPerson} label="Keep Exploring">
               <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
