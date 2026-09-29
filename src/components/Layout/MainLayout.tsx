@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import IncomingConnectionCall from '@/components/IncomingConnectionCall'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -20,6 +21,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
+      <IncomingConnectionCall />
       <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/" className="shrink-0" onClick={() => setMenuOpen(false)}>
