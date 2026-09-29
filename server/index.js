@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { validateConnection } = require('./connectionAccess');
 const { randomUUID, timingSafeEqual } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const {
@@ -282,7 +283,7 @@ function cancelPendingCallFromCaller(socketId) {
   return true;
 }
 
-function realtimeConnectionContext(socket, proof) {
+async function realtimeConnectionContext(socket, proof, details = {}) {
   const payload = verifyConnectionRealtimeProof(proof);
   if (!payload || !socket.data.userId || !payload.users.includes(socket.data.userId)) {
     return null;
@@ -291,9 +292,13 @@ function realtimeConnectionContext(socket, proof) {
   const otherUserId = payload.users.find(userId => userId !== socket.data.userId);
   if (!otherUserId) return null;
 
+  const current = await validateConnection(socket.data.userId, proof, details);
+  if (!socket.connected || !current || current.connectionId !== payload.connectionId || current.otherUserId !== otherUserId) return null;
+
   return {
     payload,
     otherUserId,
+    current,
   };
 }
 
@@ -383,7 +388,7 @@ io.on('connection', (socket) => {
     runFindUser(socket);
   });
 
-  socket.on('call-connection', ({ proof } = {}) => {
+  socket.on('call-connection', async ({ proof } = {}) => {
     const payload = verifyDirectCallProof(proof);
     if (!payload || payload.callerId !== socket.data.userId) {
       socket.emit('direct-call-unavailable', {
@@ -400,6 +405,12 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const current = await validateConnection(socket.data.userId, proof);
+    if (!socket.connected) return;
+    if (!current || current.connectionId !== payload.connectionId || current.otherUserId !== payload.calleeId) {
+      socket.emit('direct-call-unavailable', { message: 'This Connection is no longer available.' });
+      return;
+    }
     const targetSocket = preferredActiveSocketForUser(payload.calleeId);
 
     if (
@@ -425,6 +436,7 @@ io.on('connection', (socket) => {
       callerDisplayName: socket.data.displayName || 'Your Connection',
       calleeUserId: payload.calleeId,
       connectionId: payload.connectionId,
+      proof,
       expiresAt: Date.now() + CONNECTION_CALL_TTL_MS,
       timeout: null,
     };
@@ -460,7 +472,7 @@ io.on('connection', (socket) => {
     );
   });
 
-  socket.on('accept-connection-call', ({ inviteId } = {}) => {
+  socket.on('accept-connection-call', async ({ inviteId } = {}) => {
     const invite = pendingConnectionCalls.get(inviteId);
     if (!invite || invite.expiresAt < Date.now()) {
       socket.emit('direct-call-unavailable', {
@@ -476,8 +488,14 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const current = await validateConnection(invite.callerUserId, invite.proof);
+    // A second tab, cancellation, expiry, or a block may win while validation runs.
+    if (!socket.connected || pendingConnectionCalls.get(inviteId) !== invite) return;
     const callerSocket = io.sockets.sockets.get(invite.callerSocketId);
     if (
+      !current ||
+      current.connectionId !== invite.connectionId ||
+      current.otherUserId !== socket.data.userId ||
       !callerSocket ||
       !callerSocket.data.adultConfirmed ||
       !socket.data.adultConfirmed ||
@@ -542,12 +560,12 @@ io.on('connection', (socket) => {
     socket.emit('connection-call-declined', { inviteId });
   });
 
-  socket.on('connection-presence-query', ({ proofs } = {}) => {
+  socket.on('connection-presence-query', async ({ proofs } = {}) => {
     const values = Array.isArray(proofs) ? proofs.slice(0, 100) : [];
     const presence = [];
 
     for (const proof of values) {
-      const context = realtimeConnectionContext(socket, proof);
+      const context = await realtimeConnectionContext(socket, proof);
       if (!context) continue;
       presence.push({
         connectionId: context.payload.connectionId,
@@ -559,35 +577,23 @@ io.on('connection', (socket) => {
     socket.emit('connection-presence-result', { presence });
   });
 
-  socket.on('connection-message-created', ({ proof, message } = {}) => {
-    const context = realtimeConnectionContext(socket, proof);
-    if (!context || !message || typeof message !== 'object') return;
-    if (
-      message.senderId !== socket.data.userId ||
-      message.receiverId !== context.otherUserId ||
-      typeof message.id !== 'string' ||
-      typeof message.content !== 'string'
-    ) {
-      return;
-    }
+  socket.on('connection-message-created', async ({ proof, message } = {}) => {
+    if (!message || typeof message.id !== 'string') return;
+    const context = await realtimeConnectionContext(socket, proof, { messageId: message.id });
+    if (!context || !context.current.message) return;
 
     emitToUser(context.otherUserId, 'connection-message-created', {
       connectionId: context.payload.connectionId,
       senderDisplayName: socket.data.displayName || 'A Connection',
       message: {
-        id: message.id,
-        content: message.content,
-        createdAt: message.createdAt,
-        readAt: message.readAt || null,
-        senderId: message.senderId,
-        receiverId: message.receiverId,
+        ...context.current.message,
         mine: false,
       },
     });
   });
 
-  socket.on('connection-typing', ({ proof, typing } = {}) => {
-    const context = realtimeConnectionContext(socket, proof);
+  socket.on('connection-typing', async ({ proof, typing } = {}) => {
+    const context = await realtimeConnectionContext(socket, proof);
     if (!context) return;
 
     emitToUser(context.otherUserId, 'connection-typing', {
@@ -597,15 +603,16 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('connection-read', ({ proof, messageIds } = {}) => {
-    const context = realtimeConnectionContext(socket, proof);
-    if (!context || !Array.isArray(messageIds)) return;
+  socket.on('connection-read', async ({ proof, messageIds } = {}) => {
+    if (!Array.isArray(messageIds)) return;
+    const context = await realtimeConnectionContext(socket, proof, { messageIds });
+    if (!context || !context.current.readMessages?.length) return;
 
     emitToUser(context.otherUserId, 'connection-read', {
       connectionId: context.payload.connectionId,
       userId: socket.data.userId,
-      messageIds: messageIds.filter(id => typeof id === 'string').slice(0, 100),
-      readAt: new Date().toISOString(),
+      messageIds: context.current.readMessages.map(message => message.id),
+      readAt: context.current.readMessages[0].readAt,
     });
   });
 
