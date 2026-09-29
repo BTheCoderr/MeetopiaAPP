@@ -55,6 +55,7 @@ export default function VideoChatPage() {
     remoteVideoRef,
     bandwidthQuality: state.bandwidthQuality,
     isAdaptiveQuality: state.isAdaptiveQuality,
+    onError: state.setError,
   })
 
   const messages = useVideoChatMessages({
@@ -204,6 +205,7 @@ export default function VideoChatPage() {
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
+        canScreenShare={media.canScreenShare}
         onStartChat={chat.handleStartChat}
         onCancelSearch={chat.handleCancelSearch}
         onNextPerson={handleNextPerson}
