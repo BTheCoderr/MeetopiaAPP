@@ -87,6 +87,16 @@ export default function ConnectionDetailPage() {
     const data = await response.json()
     if (!response.ok) throw new Error(data.error || 'Could not load this Connection.')
     setConnection(data.connection)
+
+    void fetch('/api/notifications', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connectionId }),
+    }).then(() => {
+      window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
+    })
+
     return data.connection as Connection
   }, [connectionId, router])
 
