@@ -7,7 +7,7 @@
 | **Frontend** | Netlify | Root Next.js app (`npm run build`) — https://meetopia-live.netlify.app |
 | **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) — https://meetopia-signaling-v2.onrender.com |
 
-**App Store / public links:** use `https://meetopia-live.netlify.app` only. The canonical production signaling service is `https://meetopia-signaling-v2.onrender.com`.
+**App Store / public links:** use `https://meetopia-live.netlify.app` only. The deprecated `https://meeetopia.netlify.app` hostname is redirected to the canonical site by application middleware. The canonical production signaling service is `https://meetopia-signaling-v2.onrender.com` and Render should deploy the `main` branch.
 
 ## Production environment
 
@@ -57,3 +57,11 @@ npm run build
 ## Mobile native app
 
 Separate Expo app under `apps/mobile/` — does not replace this deploy. Uses same signaling server via `EXPO_PUBLIC_SOCKET_URL`. See [MOBILE_APP_AUDIT.md](./MOBILE_APP_AUDIT.md).
+
+
+## Production security notes
+
+- Browser code does not connect directly to Supabase. Prisma/Postgres handles application data server-side.
+- The Render reporting service uses the Supabase service-role key only on the server.
+- Deprecated production traffic from `meeetopia.netlify.app` is redirected to `meetopia-live.netlify.app`.
+- CI fails on high-severity production dependency advisories for both the web app and signaling service.
