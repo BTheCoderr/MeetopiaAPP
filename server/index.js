@@ -260,6 +260,21 @@ function cancelPendingCallFromCaller(socketId) {
   return true;
 }
 
+function realtimeConnectionContext(socket, proof) {
+  const payload = verifyConnectionRealtimeProof(proof);
+  if (!payload || !socket.data.userId || !payload.users.includes(socket.data.userId)) {
+    return null;
+  }
+
+  const otherUserId = payload.users.find(userId => userId !== socket.data.userId);
+  if (!otherUserId) return null;
+
+  return {
+    payload,
+    otherUserId,
+  };
+}
+
 function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   clearActivePair(socket.id, notifyVideoPeer);
   removeFromMatchQueues(socket.id);
@@ -493,6 +508,72 @@ io.on('connection', (socket) => {
     if (!invite || invite.calleeUserId !== socket.data.userId) return;
     clearPendingConnectionCall(inviteId, 'connection-call-declined', null);
     socket.emit('connection-call-declined', { inviteId });
+  });
+
+  socket.on('connection-presence-query', ({ proofs } = {}) => {
+    const values = Array.isArray(proofs) ? proofs.slice(0, 100) : [];
+    const presence = [];
+
+    for (const proof of values) {
+      const context = realtimeConnectionContext(socket, proof);
+      if (!context) continue;
+      presence.push({
+        connectionId: context.payload.connectionId,
+        userId: context.otherUserId,
+        online: isUserOnline(context.otherUserId),
+      });
+    }
+
+    socket.emit('connection-presence-result', { presence });
+  });
+
+  socket.on('connection-message-created', ({ proof, message } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context || !message || typeof message !== 'object') return;
+    if (
+      message.senderId !== socket.data.userId ||
+      message.receiverId !== context.otherUserId ||
+      typeof message.id !== 'string' ||
+      typeof message.content !== 'string'
+    ) {
+      return;
+    }
+
+    emitToUser(context.otherUserId, 'connection-message-created', {
+      connectionId: context.payload.connectionId,
+      message: {
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        readAt: message.readAt || null,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        mine: false,
+      },
+    });
+  });
+
+  socket.on('connection-typing', ({ proof, typing } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context) return;
+
+    emitToUser(context.otherUserId, 'connection-typing', {
+      connectionId: context.payload.connectionId,
+      userId: socket.data.userId,
+      typing: typing === true,
+    });
+  });
+
+  socket.on('connection-read', ({ proof, messageIds } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context || !Array.isArray(messageIds)) return;
+
+    emitToUser(context.otherUserId, 'connection-read', {
+      connectionId: context.payload.connectionId,
+      userId: socket.data.userId,
+      messageIds: messageIds.filter(id => typeof id === 'string').slice(0, 100),
+      readAt: new Date().toISOString(),
+    });
   });
 
   socket.on('find-next-user', () => {
