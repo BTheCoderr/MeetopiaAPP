@@ -7,7 +7,7 @@
 | **Frontend** | Netlify | Root Next.js app (`npm run build`) — https://meetopia-live.netlify.app |
 | **Signaling** | Render | `server/` via [`render.yaml`](../render.yaml) — https://meetopia-signaling-v2.onrender.com |
 
-**App Store / public links:** use `https://meetopia-live.netlify.app` only. The deprecated `https://meeetopia.netlify.app` hostname is redirected to the canonical site by application middleware. The canonical production signaling service is `https://meetopia-signaling-v2.onrender.com` and Render should deploy the `main` branch.
+**App Store / public links:** use `https://meetopia-live.netlify.app` only. **Vercel is not a Meetopia production target and should not be connected to this repository for production deployments or status checks.** The deprecated `https://meeetopia.netlify.app` hostname is redirected to the canonical site by application middleware. The canonical production signaling service is `https://meetopia-signaling-v2.onrender.com` and Render should deploy the `main` branch.
 
 ## Production environment
 
