@@ -42,6 +42,13 @@ export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -118,12 +125,26 @@ export default function ConnectionsPage() {
               Your post-Chemistry Check inbox. Message someone you both chose, or invite them to talk again.
             </p>
           </div>
-          <Link
-            href="/start"
-            className="w-full rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800 md:w-auto"
-          >
-            New Chemistry Check
-          </Link>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            {notificationPermission === 'default' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const permission = await Notification.requestPermission()
+                  setNotificationPermission(permission)
+                }}
+                className="rounded-2xl border border-gray-300 bg-white px-5 py-3.5 text-center text-sm font-bold text-gray-800 hover:bg-gray-50"
+              >
+                Enable call alerts
+              </button>
+            )}
+            <Link
+              href="/start"
+              className="rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800"
+            >
+              New Chemistry Check
+            </Link>
+          </div>
         </div>
 
         {error && <div className="mb-6 rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
