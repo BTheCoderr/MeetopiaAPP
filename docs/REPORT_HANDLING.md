@@ -50,7 +50,7 @@ Status values: `new`, `reviewed`, `actioned` (update in Supabase SQL editor or d
 | `REPORT_NOTIFY_EMAIL` | Optional | Inbox for new report alerts (Resend) |
 | `RESEND_API_KEY` | Optional | Resend API key |
 | `REPORT_FROM_EMAIL` | Optional | Sender, e.g. `Meetopia Reports <onboarding@resend.dev>` |
-| `REPORT_ADMIN_TOKEN` | Optional | Protects `GET /admin/reports` |
+| `REPORT_ADMIN_TOKEN` | Optional | Protects `GET /admin/reports`; send it only as a Bearer token |
 
 See [`server/.env.example`](../server/.env.example).
 
@@ -65,7 +65,8 @@ select * from mobile_reports order by created_at desc limit 20;
 **HTTP:**
 
 ```bash
-curl "https://meetopia-signaling-v2.onrender.com/admin/reports?token=YOUR_REPORT_ADMIN_TOKEN&limit=20"
+curl -H "Authorization: Bearer YOUR_REPORT_ADMIN_TOKEN" \
+  "https://meetopia-signaling-v2.onrender.com/admin/reports?limit=20"
 ```
 
 ## Persistence options
