@@ -53,6 +53,7 @@ model Message {
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
 
   @@index([receiverId, readAt])
+  @@index([senderId])
 }
 
 model Notification {
@@ -77,6 +78,8 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Report {
@@ -91,6 +94,9 @@ model Report {
 
   reporter     User @relation("ReportsSubmitted", fields: [reporterId], references: [id])
   reportedUser User @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+
+  @@index([reporterId])
+  @@index([reportedUserId])
 }
 
 model Feedback {
@@ -103,6 +109,8 @@ model Feedback {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Vibe {
