@@ -28,8 +28,8 @@ export default function SafetyPage() {
                 <strong>Report</strong> — choose a category and submit during a live Chemistry Check.
               </li>
               <li>
-                <strong>Block</strong> — immediately leave the chat; blocked people are not matched
-                with you again on your device.
+                <strong>Block</strong> — immediately end the relationship, remove the saved Connection
+                and private messages, and prevent future Chemistry Check matching.
               </li>
               <li>
                 <strong>Leave</strong> — exit any call at any time.
@@ -65,9 +65,10 @@ export default function SafetyPage() {
           title: 'Blocking',
           body: (
             <p>
-              When you block someone, you leave the current chat immediately. Their profile
-              fingerprint is saved on your device so they are not rematched during future sessions on
-              that install. Server-side bans require authenticated accounts (planned).
+              Blocks are tied to your authenticated Meetopia account. Blocking removes the saved
+              Connection and conversation between the two accounts and keeps that person out of your
+              future Chemistry Check matching. You can review and unblock people later from Profile
+              → Blocked users.
             </p>
           ),
         },
