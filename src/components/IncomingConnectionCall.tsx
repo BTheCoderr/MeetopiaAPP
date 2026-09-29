@@ -147,6 +147,17 @@ export default function IncomingConnectionCall() {
         )
 
         liveSocket.on(
+          'connection-call-resolved',
+          ({ inviteId, result }: { inviteId?: string; result?: 'accepted' | 'declined' }) => {
+            setIncomingCall(current =>
+              current && (!inviteId || current.inviteId === inviteId) ? null : current
+            )
+            if (result === 'accepted') setStatus('Call answered on another Meetopia screen.')
+            if (result === 'declined') setStatus('Call declined.')
+          }
+        )
+
+        liveSocket.on(
           'connection-call-cancelled',
           ({ inviteId }: { inviteId?: string }) => {
             setIncomingCall(current =>
