@@ -25,6 +25,7 @@ interface UseVideoChatSocketOptions {
   setBandwidthQuality: (q: 'high' | 'medium' | 'low') => void
   isAdaptiveQuality: boolean
   directConnectionId?: string | null
+  incomingCallId?: string | null
 }
 
 function serializeCandidate(candidate: RTCIceCandidate): RTCIceCandidateInit {
@@ -46,6 +47,7 @@ export function useVideoChatSocket({
   setBandwidthQuality,
   isAdaptiveQuality,
   directConnectionId = null,
+  incomingCallId = null,
 }: UseVideoChatSocketOptions) {
   const router = useRouter()
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -65,6 +67,7 @@ export function useVideoChatSocket({
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([])
   const isCallerRef = useRef(false)
   const directCallAttemptedRef = useRef<string | null>(null)
+  const incomingCallAcceptedRef = useRef<string | null>(null)
 
   useEffect(() => {
     socketRef.current = socket
@@ -179,6 +182,26 @@ export function useVideoChatSocket({
           setError(message || 'Your Connection is not available for a video call right now.')
         }
       )
+
+      newSocket.on('connection-call-ringing', () => {
+        setIsSearching(true)
+        setError('Calling your Connection…')
+      })
+
+      newSocket.on('connection-call-accepted', () => {
+        setIsSearching(false)
+        setError(null)
+      })
+
+      newSocket.on('connection-call-declined', () => {
+        setIsSearching(false)
+        setError('Your Connection declined the call.')
+      })
+
+      newSocket.on('connection-call-expired', () => {
+        setIsSearching(false)
+        setError('No answer. You can try again later.')
+      })
 
       newSocket.on(
         'mutual-vibe',
@@ -489,6 +512,7 @@ export function useVideoChatSocket({
   useEffect(() => {
     if (
       !directConnectionId ||
+      incomingCallId ||
       !socket?.connected ||
       !peerConnection ||
       directCallAttemptedRef.current === directConnectionId
@@ -531,6 +555,29 @@ export function useVideoChatSocket({
     void startDirectCall()
   }, [
     directConnectionId,
+    incomingCallId,
+    socket,
+    peerConnection,
+    setIsSearching,
+    setError,
+  ])
+
+  useEffect(() => {
+    if (
+      !incomingCallId ||
+      !socket?.connected ||
+      !peerConnection ||
+      incomingCallAcceptedRef.current === incomingCallId
+    ) {
+      return
+    }
+
+    incomingCallAcceptedRef.current = incomingCallId
+    setIsSearching(true)
+    setError('Connecting your call…')
+    socket.emit('accept-connection-call', { inviteId: incomingCallId })
+  }, [
+    incomingCallId,
     socket,
     peerConnection,
     setIsSearching,
