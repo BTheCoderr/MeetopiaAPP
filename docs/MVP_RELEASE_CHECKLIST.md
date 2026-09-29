@@ -17,7 +17,7 @@
 
 ## Environment variables
 
-### Frontend (Vercel / host)
+### Frontend (Netlify)
 
 | Variable | Purpose |
 |----------|---------|
@@ -52,7 +52,7 @@ Reference: [`.env.example`](../.env.example), ICE via [`src/lib/iceServers.ts`](
 ## 2. Frontend deploy
 
 - [ ] Build passes: `npx tsc --noEmit` and `npm run build`
-- [ ] Deploy Next.js app (e.g. Vercel)
+- [ ] Deploy the Next.js app to the canonical Netlify site (`meetopia-live`)
 - [ ] `NEXT_PUBLIC_SOCKET_URL` points at **deployed** signaling server (HTTPS, not `localhost:3003`)
 - [ ] Public routes work without login: `/chat`, `/chat/video`, `/dating/profile`, `/dating/interests` ([`src/middleware.ts`](../src/middleware.ts))
 
@@ -97,7 +97,7 @@ Use **production URLs** (not `localhost`).
 
 - [ ] Server logs: `paired`, `call-user`, `make-answer`, clean `peer-left` on disconnect
 - [ ] No sustained client runtime errors on `/chat/video`
-- [ ] Rollback plan: previous Vercel + Render deploy IDs noted
+- [ ] Rollback plan: previous Netlify + Render deploy IDs noted
 
 ---
 
