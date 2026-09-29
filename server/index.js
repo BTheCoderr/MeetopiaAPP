@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { randomUUID } = require('crypto');
+const { randomUUID, timingSafeEqual } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const {
   verifySocketToken,
@@ -45,7 +45,14 @@ const corsOriginCheck = (origin, callback) => {
 };
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors({ origin: corsOriginCheck, credentials: true }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 app.get('/health', (req, res) => {
   res.json({
@@ -56,9 +63,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+function secureTokenEquals(provided, expected) {
+  if (!provided || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 app.get('/admin/reports', async (req, res) => {
-  const token = process.env.REPORT_ADMIN_TOKEN;
-  if (!token || req.query.token !== token) {
+  const expectedToken = process.env.REPORT_ADMIN_TOKEN;
+  const authorization = req.get('authorization') || '';
+  const providedToken = authorization.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : '';
+
+  if (!secureTokenEquals(providedToken, expectedToken)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -78,6 +97,9 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  // SDP, ICE, chat, and control events are all small. A conservative limit
+  // prevents oversized Socket.IO packets from becoming a memory-exhaustion path.
+  maxHttpBufferSize: 100_000,
 });
 
 // Ensure ACAO on Engine.io polling/WebSocket handshake responses (not always set by callback alone).
