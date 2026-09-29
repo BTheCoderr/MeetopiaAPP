@@ -1,16 +1,21 @@
 services:
   - type: web
     name: meetopia-signaling-v2
-    env: node
-    root: server
-    buildCommand: npm install
+    runtime: node
+    branch: main
+    rootDir: server
+    buildCommand: npm ci
     startCommand: npm start
+    autoDeployTrigger: commit
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3003
       - key: CORS_ORIGINS
+        value: https://meetopia-live.netlify.app
+      - key: WEB_APP_URL
         value: https://meetopia-live.netlify.app
       - key: SUPABASE_URL
         sync: false
@@ -26,5 +31,3 @@ services:
         sync: false
       - key: SOCKET_AUTH_SECRET
         sync: false
-    healthCheckPath: /health
-    autoDeploy: true 
