@@ -60,6 +60,7 @@ export function useVideoChatSocket({
   const [currentPeerUserId, setCurrentPeerUserId] = useState<string | null>(null)
   const [hasVibed, setHasVibed] = useState(false)
   const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
+  const [callStatus, setCallStatus] = useState<string | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -179,27 +180,32 @@ export function useVideoChatSocket({
         'direct-call-unavailable',
         ({ message }: { message?: string }) => {
           setIsSearching(false)
+          setCallStatus(null)
           setError(message || 'Your Connection is not available for a video call right now.')
         }
       )
 
       newSocket.on('connection-call-ringing', () => {
         setIsSearching(true)
-        setError('Calling your Connection…')
+        setError(null)
+        setCallStatus('Calling your Connection…')
       })
 
       newSocket.on('connection-call-accepted', () => {
         setIsSearching(false)
+        setCallStatus('Connecting…')
         setError(null)
       })
 
       newSocket.on('connection-call-declined', () => {
         setIsSearching(false)
+        setCallStatus(null)
         setError('Your Connection declined the call.')
       })
 
       newSocket.on('connection-call-expired', () => {
         setIsSearching(false)
+        setCallStatus(null)
         setError('No answer. You can try again later.')
       })
 
@@ -362,6 +368,7 @@ export function useVideoChatSocket({
       currentPeerRef.current = partnerId
       setCurrentPeer(partnerId)
       setIsSearching(false)
+      setCallStatus(null)
       pendingIceCandidatesRef.current = []
 
       setCurrentPeerUserId(typeof partnerUserId === 'string' ? partnerUserId : null)
@@ -574,7 +581,8 @@ export function useVideoChatSocket({
 
     incomingCallAcceptedRef.current = incomingCallId
     setIsSearching(true)
-    setError('Connecting your call…')
+    setError(null)
+    setCallStatus('Connecting your call…')
     socket.emit('accept-connection-call', { inviteId: incomingCallId })
   }, [
     incomingCallId,
@@ -732,6 +740,7 @@ export function useVideoChatSocket({
     isRemoteAudioOff,
     hasVibed,
     mutualVibe,
+    callStatus,
     dismissMutualVibe: () => setMutualVibe(null),
     handleStartChat,
     handleCancelSearch,
