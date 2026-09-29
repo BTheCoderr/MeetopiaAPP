@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUserId, getConnectionForUser, isBlockedBetween } from '@/lib/connectionAccess'
+import { prisma } from '@/lib/prisma'
 import { createDirectCallProof } from '@/lib/socketToken'
 
 type RouteContext = {
@@ -22,6 +23,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (await isBlockedBetween(userId, record.person.id)) {
       return NextResponse.json({ error: 'Calling is unavailable for this Connection.' }, { status: 403 })
     }
+
+    const caller = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        displayName: true,
+        username: true,
+      },
+    })
+
+    const callerName = caller?.displayName || caller?.username || 'A Connection'
+    await prisma.notification.create({
+      data: {
+        userId: record.person.id,
+        type: 'call',
+        title: `${callerName} wants to talk again`,
+        body: 'Open Meetopia to answer or call them back.',
+        data: {
+          connectionId,
+          callerId: userId,
+          path: `/connections/${connectionId}`,
+        },
+      },
+    })
 
     return NextResponse.json({
       proof: createDirectCallProof({

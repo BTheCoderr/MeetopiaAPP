@@ -21,6 +21,7 @@ model User {
   resetPasswordTokenHash   String?   @unique
   resetPasswordExpiresAt   DateTime?
   isFlagged                 Boolean   @default(false)
+  lastSeenAt                 DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -38,16 +39,36 @@ model User {
   connectionsAsB   Connection[] @relation("ConnectionUserB")
   blocksMade       Block[]      @relation("Blocker")
   blocksReceived   Block[]      @relation("Blocked")
+  notifications    Notification[]
 }
 
 model Message {
   id         String   @id @default(cuid())
   content    String
   createdAt  DateTime @default(now())
+  readAt     DateTime?
   senderId   String
   receiverId String
   sender     User     @relation("SentMessages", fields: [senderId], references: [id])
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([receiverId, readAt])
+  @@index([senderId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }
 
 model Session {
@@ -57,6 +78,8 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Report {
@@ -71,6 +94,9 @@ model Report {
 
   reporter     User @relation("ReportsSubmitted", fields: [reporterId], references: [id])
   reportedUser User @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+
+  @@index([reporterId])
+  @@index([reportedUserId])
 }
 
 model Feedback {
@@ -83,6 +109,8 @@ model Feedback {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Vibe {

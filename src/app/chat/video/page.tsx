@@ -73,6 +73,38 @@ export default function VideoChatPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const heartbeat = async () => {
+      try {
+        await fetch('/api/presence/heartbeat', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          keepalive: true,
+        })
+      } catch {
+        // Live socket presence remains authoritative while the call is open.
+      }
+    }
+
+    void heartbeat()
+    const interval = window.setInterval(() => {
+      if (!cancelled) void heartbeat()
+    }, 45_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      void fetch('/api/presence/heartbeat', {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: true,
+      }).catch(() => undefined)
+    }
+  }, [])
+
   const handleToggleFullscreen = useCallback(async () => {
     const doc = document as Document & {
       webkitFullscreenElement?: Element | null

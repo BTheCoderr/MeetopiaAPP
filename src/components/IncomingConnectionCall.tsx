@@ -12,6 +12,20 @@ type IncomingCall = {
   expiresAt?: number
 }
 
+type RealtimeMessagePayload = {
+  connectionId: string
+  senderDisplayName?: string
+  message: {
+    id: string
+    content: string
+    createdAt: string
+    readAt?: string | null
+    senderId: string
+    receiverId: string
+    mine: boolean
+  }
+}
+
 export default function IncomingConnectionCall() {
   const pathname = usePathname()
   const router = useRouter()
@@ -23,6 +37,40 @@ export default function IncomingConnectionCall() {
     () => pathname !== '/chat/video' && !pathname.startsWith('/auth/'),
     [pathname]
   )
+
+  useEffect(() => {
+    if (!enabled) return
+
+    let cancelled = false
+
+    const heartbeat = async () => {
+      try {
+        await fetch('/api/presence/heartbeat', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        })
+      } catch {
+        // Presence falls back to last known activity if this heartbeat misses.
+      }
+    }
+
+    void heartbeat()
+    const interval = window.setInterval(() => {
+      if (!cancelled && document.visibilityState === 'visible') void heartbeat()
+    }, 45_000)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void heartbeat()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [enabled])
 
   useEffect(() => {
     if (!enabled) return
@@ -58,6 +106,7 @@ export default function IncomingConnectionCall() {
         liveSocket.on('incoming-connection-call', (call: IncomingCall) => {
           setStatus(null)
           setIncomingCall(call)
+          window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
 
           if (
             typeof window !== 'undefined' &&
@@ -67,9 +116,46 @@ export default function IncomingConnectionCall() {
           ) {
             new Notification('Meetopia call', {
               body: `${call.callerDisplayName || 'A Connection'} wants to talk.`,
+              tag: `meetopia-call-${call.connectionId}`,
             })
           }
         })
+
+        liveSocket.on(
+          'connection-message-created',
+          (payload: RealtimeMessagePayload) => {
+            window.dispatchEvent(
+              new CustomEvent('meetopia-connection-message', {
+                detail: payload,
+              })
+            )
+            window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
+
+            const isOpenThread = pathname === `/connections/${payload.connectionId}`
+            if (
+              !isOpenThread &&
+              typeof window !== 'undefined' &&
+              'Notification' in window &&
+              Notification.permission === 'granted'
+            ) {
+              new Notification(payload.senderDisplayName || 'New Meetopia message', {
+                body: payload.message.content.slice(0, 120),
+                tag: `meetopia-message-${payload.connectionId}`,
+              })
+            }
+          }
+        )
+
+        liveSocket.on(
+          'connection-call-resolved',
+          ({ inviteId, result }: { inviteId?: string; result?: 'accepted' | 'declined' }) => {
+            setIncomingCall(current =>
+              current && (!inviteId || current.inviteId === inviteId) ? null : current
+            )
+            if (result === 'accepted') setStatus('Call answered on another Meetopia screen.')
+            if (result === 'declined') setStatus('Call declined.')
+          }
+        )
 
         liveSocket.on(
           'connection-call-cancelled',
@@ -88,10 +174,11 @@ export default function IncomingConnectionCall() {
               current && (!inviteId || current.inviteId === inviteId) ? null : current
             )
             setStatus('You missed a Meetopia call.')
+            window.dispatchEvent(new CustomEvent('meetopia-notifications-changed'))
           }
         )
       } catch {
-        // Incoming calls are optional enhancement; page navigation should keep working.
+        // Realtime is an enhancement. Core navigation and persisted data still work.
       }
     }
 
@@ -104,7 +191,7 @@ export default function IncomingConnectionCall() {
       setSocket(null)
       setIncomingCall(null)
     }
-  }, [enabled])
+  }, [enabled, pathname])
 
   const accept = () => {
     if (!incomingCall) return

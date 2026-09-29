@@ -4,7 +4,12 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
-const { verifySocketToken, createConnectionProof, verifyDirectCallProof } = require('./socketAuth');
+const {
+  verifySocketToken,
+  createConnectionProof,
+  verifyDirectCallProof,
+  verifyConnectionRealtimeProof,
+} = require('./socketAuth');
 
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
@@ -96,6 +101,51 @@ const waitingUsers = new Set();
 const activePairs = new Map();
 const vibeTargets = new Map();
 const activeDatingSocketsByUser = new Map();
+
+function addActiveSocket(userId, socketId) {
+  if (!userId) return;
+  const sockets = activeDatingSocketsByUser.get(userId) || new Set();
+  sockets.add(socketId);
+  activeDatingSocketsByUser.set(userId, sockets);
+}
+
+function removeActiveSocket(userId, socketId) {
+  if (!userId) return;
+  const sockets = activeDatingSocketsByUser.get(userId);
+  if (!sockets) return;
+  sockets.delete(socketId);
+  if (sockets.size === 0) activeDatingSocketsByUser.delete(userId);
+}
+
+function activeSocketIdsForUser(userId) {
+  const sockets = activeDatingSocketsByUser.get(userId);
+  if (!sockets) return [];
+  const active = [...sockets].filter(socketId => io.sockets.sockets.has(socketId));
+  if (active.length !== sockets.size) {
+    activeDatingSocketsByUser.set(userId, new Set(active));
+  }
+  return active;
+}
+
+function preferredActiveSocketForUser(userId) {
+  const socketId = activeSocketIdsForUser(userId)[0];
+  return socketId ? io.sockets.sockets.get(socketId) : null;
+}
+
+function emitToUser(userId, event, payload) {
+  for (const socketId of activeSocketIdsForUser(userId)) {
+    io.to(socketId).emit(event, payload);
+  }
+}
+
+function isUserOnline(userId) {
+  return activeSocketIdsForUser(userId).length > 0;
+}
+
+function isUserBusy(userId) {
+  return activeSocketIdsForUser(userId).some(socketId => activePairs.has(socketId));
+}
+
 const pendingConnectionCalls = new Map();
 const pendingCallByCallerSocket = new Map();
 const CONNECTION_CALL_TTL_MS = 30 * 1000;
@@ -192,10 +242,8 @@ function clearPendingConnectionCall(inviteId, callerEvent, targetEvent) {
     });
   }
 
-  const targetSocketId = activeDatingSocketsByUser.get(invite.calleeUserId);
-  const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
-  if (targetEvent && targetSocket) {
-    targetSocket.emit(targetEvent, {
+  if (targetEvent) {
+    emitToUser(invite.calleeUserId, targetEvent, {
       inviteId,
       connectionId: invite.connectionId,
       callerUserId: invite.callerUserId,
@@ -210,6 +258,21 @@ function cancelPendingCallFromCaller(socketId) {
   if (!inviteId) return false;
   clearPendingConnectionCall(inviteId, null, 'connection-call-cancelled');
   return true;
+}
+
+function realtimeConnectionContext(socket, proof) {
+  const payload = verifyConnectionRealtimeProof(proof);
+  if (!payload || !socket.data.userId || !payload.users.includes(socket.data.userId)) {
+    return null;
+  }
+
+  const otherUserId = payload.users.find(userId => userId !== socket.data.userId);
+  if (!otherUserId) return null;
+
+  return {
+    payload,
+    otherUserId,
+  };
 }
 
 function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
@@ -286,7 +349,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
   if (socket.data.userId) {
-    activeDatingSocketsByUser.set(socket.data.userId, socket.id);
+    addActiveSocket(socket.data.userId, socket.id);
   }
 
   socket.on('find-user', () => {
@@ -315,14 +378,13 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const targetSocketId = activeDatingSocketsByUser.get(payload.calleeId);
-    const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
+    const targetSocket = preferredActiveSocketForUser(payload.calleeId);
 
     if (
       !targetSocket ||
       !targetSocket.data.adultConfirmed ||
       activePairs.has(socket.id) ||
-      activePairs.has(targetSocket.id) ||
+      isUserBusy(payload.calleeId) ||
       isBlockedBetween(socket.id, targetSocket.id)
     ) {
       socket.emit('direct-call-unavailable', {
@@ -363,7 +425,7 @@ io.on('connection', (socket) => {
       calleeUserId: payload.calleeId,
     });
 
-    targetSocket.emit('incoming-connection-call', {
+    emitToUser(payload.calleeId, 'incoming-connection-call', {
       inviteId,
       connectionId: payload.connectionId,
       callerUserId: socket.data.userId,
@@ -425,6 +487,11 @@ io.on('connection', (socket) => {
       inviteId,
       connectionId: invite.connectionId,
     });
+    emitToUser(invite.calleeUserId, 'connection-call-resolved', {
+      inviteId,
+      connectionId: invite.connectionId,
+      result: 'accepted',
+    });
 
     callerSocket.emit('user-found', {
       partnerId: socket.id,
@@ -445,7 +512,79 @@ io.on('connection', (socket) => {
     const invite = pendingConnectionCalls.get(inviteId);
     if (!invite || invite.calleeUserId !== socket.data.userId) return;
     clearPendingConnectionCall(inviteId, 'connection-call-declined', null);
+    emitToUser(invite.calleeUserId, 'connection-call-resolved', {
+      inviteId,
+      connectionId: invite.connectionId,
+      result: 'declined',
+    });
     socket.emit('connection-call-declined', { inviteId });
+  });
+
+  socket.on('connection-presence-query', ({ proofs } = {}) => {
+    const values = Array.isArray(proofs) ? proofs.slice(0, 100) : [];
+    const presence = [];
+
+    for (const proof of values) {
+      const context = realtimeConnectionContext(socket, proof);
+      if (!context) continue;
+      presence.push({
+        connectionId: context.payload.connectionId,
+        userId: context.otherUserId,
+        online: isUserOnline(context.otherUserId),
+      });
+    }
+
+    socket.emit('connection-presence-result', { presence });
+  });
+
+  socket.on('connection-message-created', ({ proof, message } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context || !message || typeof message !== 'object') return;
+    if (
+      message.senderId !== socket.data.userId ||
+      message.receiverId !== context.otherUserId ||
+      typeof message.id !== 'string' ||
+      typeof message.content !== 'string'
+    ) {
+      return;
+    }
+
+    emitToUser(context.otherUserId, 'connection-message-created', {
+      connectionId: context.payload.connectionId,
+      senderDisplayName: socket.data.displayName || 'A Connection',
+      message: {
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        readAt: message.readAt || null,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        mine: false,
+      },
+    });
+  });
+
+  socket.on('connection-typing', ({ proof, typing } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context) return;
+
+    emitToUser(context.otherUserId, 'connection-typing', {
+      connectionId: context.payload.connectionId,
+      userId: socket.data.userId,
+      typing: typing === true,
+    });
+  });
+
+  socket.on('connection-read', ({ proof, messageIds } = {}) => {
+    const context = realtimeConnectionContext(socket, proof);
+    if (!context || !Array.isArray(messageIds)) return;
+
+    emitToUser(context.otherUserId, 'connection-read', {
+      connectionId: context.payload.connectionId,
+      userId: socket.data.userId,
+      messageIds: messageIds.filter(id => typeof id === 'string').slice(0, 100),
+      readAt: new Date().toISOString(),
+    });
   });
 
   socket.on('find-next-user', () => {
@@ -465,9 +604,7 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} is leaving chat`);
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
-    if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
-      activeDatingSocketsByUser.delete(socket.data.userId);
-    }
+    removeActiveSocket(socket.data.userId, socket.id);
   });
 
   socket.on('call-user', ({ offer, to }) => {
@@ -514,9 +651,7 @@ io.on('connection', (socket) => {
     cancelPendingCallFromCaller(socket.id);
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
-    if (socket.data.userId && activeDatingSocketsByUser.get(socket.data.userId) === socket.id) {
-      activeDatingSocketsByUser.delete(socket.data.userId);
-    }
+    removeActiveSocket(socket.data.userId, socket.id);
     recentPeers.delete(socket.id);
     for (const [userId, peers] of recentPeers.entries()) {
       peers.delete(socket.id);

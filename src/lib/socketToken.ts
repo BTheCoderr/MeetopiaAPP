@@ -22,6 +22,13 @@ type DirectCallProofPayload = {
   exp: number
 }
 
+type ConnectionRealtimeProofPayload = {
+  type: 'connection-realtime'
+  users: [string, string]
+  connectionId: string
+  exp: number
+}
+
 function secret() {
   const value = process.env.SOCKET_AUTH_SECRET
   if (!value) throw new Error('SOCKET_AUTH_SECRET is not configured')
@@ -78,5 +85,28 @@ export function verifyDirectCallProof(token: string) {
   const payload = verify<DirectCallProofPayload>(token)
   if (!payload || payload.type !== 'direct-call' || payload.exp < Date.now()) return null
   if (!payload.callerId || !payload.calleeId || !payload.connectionId) return null
+  return payload
+}
+
+
+export function createConnectionRealtimeProof(
+  userIdA: string,
+  userIdB: string,
+  connectionId: string,
+) {
+  const users = [userIdA, userIdB].sort() as [string, string]
+  const body = encode({
+    type: 'connection-realtime',
+    users,
+    connectionId,
+    exp: Date.now() + 60 * 60 * 1000,
+  })
+  return `${body}.${signature(body)}`
+}
+
+export function verifyConnectionRealtimeProof(token: string) {
+  const payload = verify<ConnectionRealtimeProofPayload>(token)
+  if (!payload || payload.type !== 'connection-realtime' || payload.exp < Date.now()) return null
+  if (!Array.isArray(payload.users) || payload.users.length !== 2 || !payload.connectionId) return null
   return payload
 }

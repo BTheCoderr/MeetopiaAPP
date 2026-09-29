@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/Layout/MainLayout'
+import { useConnectionPresence } from '@/hooks/useConnectionPresence'
 
 type ConnectionPerson = {
   id: string
   username: string
   displayName: string | null
+  lastSeenAt: string | null
 }
 
 type LastMessage = {
@@ -23,6 +25,8 @@ type Connection = {
   createdAt: string
   person: ConnectionPerson
   lastMessage: LastMessage | null
+  unreadCount: number
+  realtimeProof: string
 }
 
 function formatActivity(date: string) {
@@ -37,6 +41,17 @@ function formatActivity(date: string) {
   return value.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
+function lastSeenLabel(person: ConnectionPerson, online: boolean) {
+  if (online) return 'Online'
+  if (!person.lastSeenAt) return 'Offline'
+
+  const minutes = Math.floor((Date.now() - new Date(person.lastSeenAt).getTime()) / 60_000)
+  if (minutes < 2) return 'Active recently'
+  if (minutes < 60) return `Active ${minutes}m ago`
+  if (minutes < 24 * 60) return `Active ${Math.floor(minutes / 60)}h ago`
+  return 'Offline'
+}
+
 export default function ConnectionsPage() {
   const router = useRouter()
   const [connections, setConnections] = useState<Connection[]>([])
@@ -44,53 +59,63 @@ export default function ConnectionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
 
+  const onlineByConnection = useConnectionPresence(
+    connections.map(connection => ({
+      id: connection.id,
+      realtimeProof: connection.realtimeProof,
+    })),
+  )
+
   useEffect(() => {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission)
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
+  const loadConnections = useCallback(async (quiet = false) => {
+    try {
+      const response = await fetch('/api/connections', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      })
 
-    const loadConnections = async (quiet = false) => {
-      try {
-        const response = await fetch('/api/connections', {
-          cache: 'no-store',
-          credentials: 'same-origin',
-        })
-
-        if (response.status === 401) {
-          router.replace('/auth/signin?next=/connections')
-          return
-        }
-
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.error || 'Could not load Connections.')
-
-        if (!cancelled) {
-          setConnections(data.connections || [])
-          if (!quiet) setError(null)
-        }
-      } catch (loadError) {
-        if (!cancelled && !quiet) {
-          setError(loadError instanceof Error ? loadError.message : 'Could not load Connections.')
-        }
-      } finally {
-        if (!cancelled && !quiet) setIsLoading(false)
+      if (response.status === 401) {
+        router.replace('/auth/signin?next=/connections')
+        return
       }
-    }
 
-    void loadConnections()
-    const interval = window.setInterval(() => {
-      void loadConnections(true)
-    }, 8000)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Could not load Connections.')
 
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
+      setConnections(data.connections || [])
+      if (!quiet) setError(null)
+    } catch (loadError) {
+      if (!quiet) {
+        setError(loadError instanceof Error ? loadError.message : 'Could not load Connections.')
+      }
+    } finally {
+      if (!quiet) setIsLoading(false)
     }
   }, [router])
+
+  useEffect(() => {
+    void loadConnections()
+
+    const fallback = window.setInterval(() => {
+      void loadConnections(true)
+    }, 30_000)
+
+    const onLiveMessage = () => void loadConnections(true)
+    const onNotificationsChanged = () => void loadConnections(true)
+    window.addEventListener('meetopia-connection-message', onLiveMessage)
+    window.addEventListener('meetopia-notifications-changed', onNotificationsChanged)
+
+    return () => {
+      window.clearInterval(fallback)
+      window.removeEventListener('meetopia-connection-message', onLiveMessage)
+      window.removeEventListener('meetopia-notifications-changed', onNotificationsChanged)
+    }
+  }, [loadConnections])
 
   const blockPerson = async (person: ConnectionPerson) => {
     const name = person.displayName || person.username
@@ -112,6 +137,8 @@ export default function ConnectionsPage() {
     setError(data.error || 'Could not block this person.')
   }
 
+  const totalUnread = connections.reduce((sum, connection) => sum + connection.unreadCount, 0)
+
   return (
     <MainLayout>
       <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
@@ -120,9 +147,16 @@ export default function ConnectionsPage() {
             <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-600 sm:text-sm">
               Both of you chose it
             </p>
-            <h1 className="mt-1 text-3xl font-black text-gray-950 sm:text-4xl">Connections</h1>
+            <h1 className="mt-1 text-3xl font-black text-gray-950 sm:text-4xl">
+              Connections
+              {totalUnread > 0 && (
+                <span className="ml-3 inline-flex min-w-7 items-center justify-center rounded-full bg-blue-600 px-2 py-1 align-middle text-xs font-black text-white">
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </span>
+              )}
+            </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
-              Your post-Chemistry Check inbox. Message someone you both chose, or invite them to talk again.
+              Your post-Chemistry Check inbox. Messages arrive live, unread messages stay counted, and you can see when a Connection is available.
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
@@ -135,7 +169,7 @@ export default function ConnectionsPage() {
                 }}
                 className="rounded-2xl border border-gray-300 bg-white px-5 py-3.5 text-center text-sm font-bold text-gray-800 hover:bg-gray-50"
               >
-                Enable call alerts
+                Enable alerts
               </button>
             )}
             <Link
@@ -173,26 +207,41 @@ export default function ConnectionsPage() {
               const person = connection.person
               const name = person.displayName || person.username
               const activityDate = connection.lastMessage?.createdAt || connection.createdAt
+              const online = onlineByConnection[connection.id] === true
 
               return (
                 <article
                   key={connection.id}
-                  className={`group p-4 sm:p-5 ${index > 0 ? 'border-t border-gray-100' : ''}`}
+                  className={`group p-4 transition hover:bg-gray-50/70 sm:p-5 ${index > 0 ? 'border-t border-gray-100' : ''}`}
                 >
                   <div className="flex gap-3 sm:gap-4">
                     <Link
                       href={`/connections/${connection.id}`}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-950 text-lg font-black text-white sm:h-14 sm:w-14 sm:text-xl"
+                      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-950 text-lg font-black text-white sm:h-14 sm:w-14 sm:text-xl"
                       aria-label={`Open ${name}`}
                     >
                       {name.slice(0, 1).toUpperCase()}
+                      <span
+                        className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${
+                          online ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      />
                     </Link>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <Link href={`/connections/${connection.id}`} className="min-w-0 flex-1">
-                          <h2 className="truncate text-base font-black text-gray-950 sm:text-lg">{name}</h2>
-                          <p className="truncate text-xs text-gray-400">@{person.username}</p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <h2 className="truncate text-base font-black text-gray-950 sm:text-lg">{name}</h2>
+                            {connection.unreadCount > 0 && (
+                              <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black text-white">
+                                {connection.unreadCount > 99 ? '99+' : connection.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          <p className={`truncate text-xs font-medium ${online ? 'text-green-600' : 'text-gray-400'}`}>
+                            {lastSeenLabel(person, online)}
+                          </p>
                         </Link>
                         <span className="shrink-0 text-xs font-medium text-gray-400">
                           {formatActivity(activityDate)}
@@ -201,7 +250,9 @@ export default function ConnectionsPage() {
 
                       <Link
                         href={`/connections/${connection.id}`}
-                        className="mt-2 block min-h-[2.5rem] text-sm leading-5 text-gray-600"
+                        className={`mt-2 block min-h-[2.5rem] text-sm leading-5 ${
+                          connection.unreadCount > 0 ? 'font-semibold text-gray-950' : 'text-gray-600'
+                        }`}
                       >
                         {connection.lastMessage ? (
                           <span className="line-clamp-2">
@@ -226,7 +277,7 @@ export default function ConnectionsPage() {
                           href={`/chat/video?connection=${connection.id}`}
                           className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
                         >
-                          Call again
+                          {online ? 'Call now' : 'Call again'}
                         </Link>
                         <button
                           onClick={() => void blockPerson(person)}

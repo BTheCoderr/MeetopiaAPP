@@ -23,6 +23,7 @@ export async function getConnectionForUser(connectionId: string, userId: string)
           displayName: true,
           bio: true,
           interests: true,
+          lastSeenAt: true,
         },
       },
       userB: {
@@ -32,6 +33,7 @@ export async function getConnectionForUser(connectionId: string, userId: string)
           displayName: true,
           bio: true,
           interests: true,
+          lastSeenAt: true,
         },
       },
     },

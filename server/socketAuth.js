@@ -60,8 +60,22 @@ function verifyDirectCallProof(token) {
   return payload;
 }
 
+function verifyConnectionRealtimeProof(token) {
+  const payload = verifySignedPayload(token);
+  if (!payload || payload.type !== 'connection-realtime') return null;
+  if (
+    !Array.isArray(payload.users) ||
+    payload.users.length !== 2 ||
+    typeof payload.connectionId !== 'string'
+  ) {
+    return null;
+  }
+  return payload;
+}
+
 module.exports = {
   verifySocketToken,
   createConnectionProof,
   verifyDirectCallProof,
+  verifyConnectionRealtimeProof,
 };
