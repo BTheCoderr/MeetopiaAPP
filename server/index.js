@@ -541,6 +541,7 @@ io.on('connection', (socket) => {
 
     emitToUser(context.otherUserId, 'connection-message-created', {
       connectionId: context.payload.connectionId,
+      senderDisplayName: socket.data.displayName || 'A Connection',
       message: {
         id: message.id,
         content: message.content,
