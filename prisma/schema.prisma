@@ -21,6 +21,7 @@ model User {
   resetPasswordTokenHash   String?   @unique
   resetPasswordExpiresAt   DateTime?
   isFlagged                 Boolean   @default(false)
+  lastSeenAt                 DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -38,16 +39,35 @@ model User {
   connectionsAsB   Connection[] @relation("ConnectionUserB")
   blocksMade       Block[]      @relation("Blocker")
   blocksReceived   Block[]      @relation("Blocked")
+  notifications    Notification[]
 }
 
 model Message {
   id         String   @id @default(cuid())
   content    String
   createdAt  DateTime @default(now())
+  readAt     DateTime?
   senderId   String
   receiverId String
   sender     User     @relation("SentMessages", fields: [senderId], references: [id])
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([receiverId, readAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }
 
 model Session {
