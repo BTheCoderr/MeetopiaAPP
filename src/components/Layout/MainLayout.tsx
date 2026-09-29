@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import IncomingConnectionCall from '@/components/IncomingConnectionCall'
@@ -13,12 +13,43 @@ const navItems = [
   { href: '/', label: 'Home' },
   { href: '/start', label: 'Start' },
   { href: '/connections', label: 'Connections' },
+  { href: '/notifications', label: 'Alerts' },
   { href: '/profile', label: 'Profile' },
 ]
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadNotificationCount = async () => {
+      try {
+        const response = await fetch('/api/notifications', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        if (!cancelled) setNotificationCount(Number(data.unreadCount) || 0)
+      } catch {
+        // Public pages and brief reconnects should not interrupt navigation.
+      }
+    }
+
+    void loadNotificationCount()
+    const interval = window.setInterval(loadNotificationCount, 30_000)
+    const onChanged = () => void loadNotificationCount()
+    window.addEventListener('meetopia-notifications-changed', onChanged)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener('meetopia-notifications-changed', onChanged)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -47,7 +78,14 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950'
                   }`}
                 >
-                  {item.label}
+                  <span className="inline-flex items-center gap-2">
+                    {item.label}
+                    {item.href === '/notifications' && notificationCount > 0 && (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black text-white">
+                        {notificationCount > 99 ? '99+' : notificationCount}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               )
             })}
