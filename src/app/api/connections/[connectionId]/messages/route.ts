@@ -164,3 +164,74 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Could not send message.' }, { status: 500 })
   }
 }
+
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    const userId = await currentUserId(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const { connectionId } = await context.params
+    const record = await getConnectionForUser(connectionId, userId)
+    if (!record) {
+      return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
+    }
+
+    const body = await request.json().catch(() => null)
+    const messageIds = Array.isArray(body?.messageIds)
+      ? body.messageIds
+          .filter((id: unknown): id is string => typeof id === 'string')
+          .slice(0, 100)
+      : []
+
+    if (messageIds.length === 0) {
+      return NextResponse.json({ readAt: null, messageIds: [] })
+    }
+
+    const readAt = new Date()
+    const messages = await prisma.message.findMany({
+      where: {
+        id: { in: messageIds },
+        senderId: record.person.id,
+        receiverId: userId,
+        readAt: null,
+      },
+      select: { id: true },
+    })
+
+    const validIds = messages.map(message => message.id)
+    if (validIds.length > 0) {
+      await prisma.message.updateMany({
+        where: {
+          id: { in: validIds },
+          receiverId: userId,
+          readAt: null,
+        },
+        data: { readAt },
+      })
+
+      await prisma.notification.updateMany({
+        where: {
+          userId,
+          type: 'message',
+          readAt: null,
+          data: {
+            path: ['connectionId'],
+            equals: connectionId,
+          },
+        },
+        data: { readAt },
+      })
+    }
+
+    return NextResponse.json({
+      readAt,
+      messageIds: validIds,
+    })
+  } catch (error) {
+    console.error('Mark Connection messages read error:', error)
+    return NextResponse.json({ error: 'Could not mark messages read.' }, { status: 500 })
+  }
+}
