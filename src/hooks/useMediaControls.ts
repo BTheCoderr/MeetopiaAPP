@@ -12,6 +12,7 @@ interface UseMediaControlsOptions {
   remoteVideoRef: React.RefObject<HTMLVideoElement | null>
   bandwidthQuality: BandwidthQuality
   isAdaptiveQuality: boolean
+  onError?: (message: string) => void
 }
 
 export function useMediaControls({
@@ -22,6 +23,7 @@ export function useMediaControls({
   remoteVideoRef,
   bandwidthQuality,
   isAdaptiveQuality,
+  onError,
 }: UseMediaControlsOptions) {
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
@@ -29,6 +31,14 @@ export function useMediaControls({
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+  const [canScreenShare, setCanScreenShare] = useState(false)
+
+  useEffect(() => {
+    setCanScreenShare(
+      typeof navigator !== 'undefined' &&
+      Boolean(navigator.mediaDevices?.getDisplayMedia)
+    )
+  }, [])
 
   const emitStreamState = useCallback((type: 'audio' | 'video', state: boolean) => {
     if (socket && currentPeer) {
@@ -85,6 +95,7 @@ export function useMediaControls({
       setFacingMode(nextFacingMode)
     } catch (error) {
       console.error('Error switching camera:', error)
+      onError?.('Meetopia could not switch cameras on this device.')
     }
   }, [stream, peerConnection, facingMode, isCameraOff])
 
@@ -121,8 +132,13 @@ export function useMediaControls({
       console.error('Error toggling screen share:', err)
       setIsScreenSharing(false)
       setScreenStream(null)
+      const message =
+        err instanceof DOMException && err.name === 'NotAllowedError'
+          ? 'Screen sharing was not allowed.'
+          : 'Screen sharing is not available right now.'
+      onError?.(message)
     }
-  }, [isScreenSharing, screenStream, peerConnection, stream, currentPeer])
+  }, [isScreenSharing, screenStream, peerConnection, stream, currentPeer, onError])
 
   useEffect(() => {
     if (!currentPeer && screenStream) {
@@ -183,6 +199,7 @@ export function useMediaControls({
     isCameraOff,
     isRemoteMuted,
     isScreenSharing,
+    canScreenShare,
     toggleLocalCamera,
     toggleLocalMute,
     switchCamera,

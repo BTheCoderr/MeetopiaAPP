@@ -31,13 +31,48 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: 'desc' },
   })
 
-  return NextResponse.json({
-    connections: connections.map(connection => ({
-      id: connection.id,
-      createdAt: connection.createdAt,
-      person: connection.userAId === userId ? connection.userB : connection.userA,
-    })),
+  const connectionSummaries = await Promise.all(
+    connections.map(async connection => {
+      const person = connection.userAId === userId ? connection.userB : connection.userA
+      const lastMessage = await prisma.message.findFirst({
+        where: {
+          OR: [
+            { senderId: userId, receiverId: person.id },
+            { senderId: person.id, receiverId: userId },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          senderId: true,
+        },
+      })
+
+      return {
+        id: connection.id,
+        createdAt: connection.createdAt,
+        person,
+        lastMessage: lastMessage
+          ? {
+              id: lastMessage.id,
+              content: lastMessage.content,
+              createdAt: lastMessage.createdAt,
+              mine: lastMessage.senderId === userId,
+            }
+          : null,
+      }
+    })
+  )
+
+  connectionSummaries.sort((a, b) => {
+    const aTime = new Date(a.lastMessage?.createdAt || a.createdAt).getTime()
+    const bTime = new Date(b.lastMessage?.createdAt || b.createdAt).getTime()
+    return bTime - aTime
   })
+
+  return NextResponse.json({ connections: connectionSummaries })
 }
 
 export async function POST(request: NextRequest) {

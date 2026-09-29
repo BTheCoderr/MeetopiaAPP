@@ -19,6 +19,7 @@ import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 export default function VideoChatPage() {
   const state = useVideoChatState()
   const [directConnectionId, setDirectConnectionId] = useState<string | null>(null)
+  const [incomingCallId, setIncomingCallId] = useState<string | null>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localPipVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -27,7 +28,9 @@ export default function VideoChatPage() {
   const { peerConnection, restartConnection } = usePeerConnection(stream)
 
   useEffect(() => {
-    setDirectConnectionId(new URLSearchParams(window.location.search).get('connection'))
+    const params = new URLSearchParams(window.location.search)
+    setDirectConnectionId(params.get('connection'))
+    setIncomingCallId(params.get('incomingCall'))
   }, [])
 
   const chat = useVideoChatSocket({
@@ -41,6 +44,7 @@ export default function VideoChatPage() {
     setBandwidthQuality: state.setBandwidthQuality,
     isAdaptiveQuality: state.isAdaptiveQuality,
     directConnectionId,
+    incomingCallId,
   })
 
   const media = useMediaControls({
@@ -51,6 +55,7 @@ export default function VideoChatPage() {
     remoteVideoRef,
     bandwidthQuality: state.bandwidthQuality,
     isAdaptiveQuality: state.isAdaptiveQuality,
+    onError: state.setError,
   })
 
   const messages = useVideoChatMessages({
@@ -200,6 +205,7 @@ export default function VideoChatPage() {
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
+        canScreenShare={media.canScreenShare}
         onStartChat={chat.handleStartChat}
         onCancelSearch={chat.handleCancelSearch}
         onNextPerson={handleNextPerson}
@@ -215,6 +221,14 @@ export default function VideoChatPage() {
         onOpenReport={() => openReportModal(chat.currentPeerUserId || '')}
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
+
+      {chat.callStatus && !state.error && (
+        <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4">
+          <div className="rounded-2xl bg-black/65 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-md">
+            {chat.callStatus}
+          </div>
+        </div>
+      )}
 
       {state.error && (
         <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-20 max-w-md w-full px-4">
@@ -296,12 +310,6 @@ export default function VideoChatPage() {
                     className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
                   >
                     Message later
-                  </Link>
-                  <Link
-                    href={`/chat/video?connection=${chat.mutualVibe.connectionId}`}
-                    className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white/90 hover:bg-white/10"
-                  >
-                    Call again later
                   </Link>
                 </>
               )}

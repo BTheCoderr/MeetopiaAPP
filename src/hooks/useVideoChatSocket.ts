@@ -25,6 +25,7 @@ interface UseVideoChatSocketOptions {
   setBandwidthQuality: (q: 'high' | 'medium' | 'low') => void
   isAdaptiveQuality: boolean
   directConnectionId?: string | null
+  incomingCallId?: string | null
 }
 
 function serializeCandidate(candidate: RTCIceCandidate): RTCIceCandidateInit {
@@ -46,6 +47,7 @@ export function useVideoChatSocket({
   setBandwidthQuality,
   isAdaptiveQuality,
   directConnectionId = null,
+  incomingCallId = null,
 }: UseVideoChatSocketOptions) {
   const router = useRouter()
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -58,6 +60,7 @@ export function useVideoChatSocket({
   const [currentPeerUserId, setCurrentPeerUserId] = useState<string | null>(null)
   const [hasVibed, setHasVibed] = useState(false)
   const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
+  const [callStatus, setCallStatus] = useState<string | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -65,6 +68,7 @@ export function useVideoChatSocket({
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([])
   const isCallerRef = useRef(false)
   const directCallAttemptedRef = useRef<string | null>(null)
+  const incomingCallAcceptedRef = useRef<string | null>(null)
 
   useEffect(() => {
     socketRef.current = socket
@@ -176,9 +180,34 @@ export function useVideoChatSocket({
         'direct-call-unavailable',
         ({ message }: { message?: string }) => {
           setIsSearching(false)
+          setCallStatus(null)
           setError(message || 'Your Connection is not available for a video call right now.')
         }
       )
+
+      newSocket.on('connection-call-ringing', () => {
+        setIsSearching(true)
+        setError(null)
+        setCallStatus('Calling your Connection…')
+      })
+
+      newSocket.on('connection-call-accepted', () => {
+        setIsSearching(false)
+        setCallStatus('Connecting…')
+        setError(null)
+      })
+
+      newSocket.on('connection-call-declined', () => {
+        setIsSearching(false)
+        setCallStatus(null)
+        setError('Your Connection declined the call.')
+      })
+
+      newSocket.on('connection-call-expired', () => {
+        setIsSearching(false)
+        setCallStatus(null)
+        setError('No answer. You can try again later.')
+      })
 
       newSocket.on(
         'mutual-vibe',
@@ -339,6 +368,7 @@ export function useVideoChatSocket({
       currentPeerRef.current = partnerId
       setCurrentPeer(partnerId)
       setIsSearching(false)
+      setCallStatus(null)
       pendingIceCandidatesRef.current = []
 
       setCurrentPeerUserId(typeof partnerUserId === 'string' ? partnerUserId : null)
@@ -489,6 +519,7 @@ export function useVideoChatSocket({
   useEffect(() => {
     if (
       !directConnectionId ||
+      incomingCallId ||
       !socket?.connected ||
       !peerConnection ||
       directCallAttemptedRef.current === directConnectionId
@@ -531,6 +562,30 @@ export function useVideoChatSocket({
     void startDirectCall()
   }, [
     directConnectionId,
+    incomingCallId,
+    socket,
+    peerConnection,
+    setIsSearching,
+    setError,
+  ])
+
+  useEffect(() => {
+    if (
+      !incomingCallId ||
+      !socket?.connected ||
+      !peerConnection ||
+      incomingCallAcceptedRef.current === incomingCallId
+    ) {
+      return
+    }
+
+    incomingCallAcceptedRef.current = incomingCallId
+    setIsSearching(true)
+    setError(null)
+    setCallStatus('Connecting your call…')
+    socket.emit('accept-connection-call', { inviteId: incomingCallId })
+  }, [
+    incomingCallId,
     socket,
     peerConnection,
     setIsSearching,
@@ -685,6 +740,7 @@ export function useVideoChatSocket({
     isRemoteAudioOff,
     hasVibed,
     mutualVibe,
+    callStatus,
     dismissMutualVibe: () => setMutualVibe(null),
     handleStartChat,
     handleCancelSearch,

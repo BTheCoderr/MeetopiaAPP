@@ -11,10 +11,30 @@ type ConnectionPerson = {
   displayName: string | null
 }
 
+type LastMessage = {
+  id: string
+  content: string
+  createdAt: string
+  mine: boolean
+}
+
 type Connection = {
   id: string
   createdAt: string
   person: ConnectionPerson
+  lastMessage: LastMessage | null
+}
+
+function formatActivity(date: string) {
+  const value = new Date(date)
+  const now = new Date()
+  const sameDay = value.toDateString() === now.toDateString()
+
+  if (sameDay) {
+    return value.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  }
+
+  return value.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 export default function ConnectionsPage() {
@@ -22,11 +42,24 @@ export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
 
   useEffect(() => {
-    const loadConnections = async () => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadConnections = async (quiet = false) => {
       try {
-        const response = await fetch('/api/connections', { cache: 'no-store' })
+        const response = await fetch('/api/connections', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        })
+
         if (response.status === 401) {
           router.replace('/auth/signin?next=/connections')
           return
@@ -34,15 +67,29 @@ export default function ConnectionsPage() {
 
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Could not load Connections.')
-        setConnections(data.connections || [])
+
+        if (!cancelled) {
+          setConnections(data.connections || [])
+          if (!quiet) setError(null)
+        }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Could not load Connections.')
+        if (!cancelled && !quiet) {
+          setError(loadError instanceof Error ? loadError.message : 'Could not load Connections.')
+        }
       } finally {
-        setIsLoading(false)
+        if (!cancelled && !quiet) setIsLoading(false)
       }
     }
 
     void loadConnections()
+    const interval = window.setInterval(() => {
+      void loadConnections(true)
+    }, 8000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
   }, [router])
 
   const blockPerson = async (person: ConnectionPerson) => {
@@ -51,6 +98,7 @@ export default function ConnectionsPage() {
 
     const response = await fetch('/api/blocks', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockedUserId: person.id }),
     })
@@ -69,24 +117,42 @@ export default function ConnectionsPage() {
       <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-600 sm:text-sm">Both of you chose it</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-600 sm:text-sm">
+              Both of you chose it
+            </p>
             <h1 className="mt-1 text-3xl font-black text-gray-950 sm:text-4xl">Connections</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
-              Nobody appears here because an algorithm guessed. A Connection is saved only after you talked live and both tapped Vibe.
+              Your post-Chemistry Check inbox. Message someone you both chose, or invite them to talk again.
             </p>
           </div>
-          <Link
-            href="/start"
-            className="w-full rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800 md:w-auto"
-          >
-            Start another Chemistry Check
-          </Link>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            {notificationPermission === 'default' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const permission = await Notification.requestPermission()
+                  setNotificationPermission(permission)
+                }}
+                className="rounded-2xl border border-gray-300 bg-white px-5 py-3.5 text-center text-sm font-bold text-gray-800 hover:bg-gray-50"
+              >
+                Enable call alerts
+              </button>
+            )}
+            <Link
+              href="/start"
+              className="rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800"
+            >
+              New Chemistry Check
+            </Link>
+          </div>
         </div>
 
         {error && <div className="mb-6 rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
 
         {isLoading ? (
-          <div className="rounded-2xl bg-white p-8 text-gray-500 shadow-sm">Loading Connections…</div>
+          <div className="rounded-3xl bg-white p-8 text-gray-500 shadow-sm ring-1 ring-gray-200">
+            Loading Connections…
+          </div>
         ) : connections.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">
             <div className="text-4xl">♥</div>
@@ -102,50 +168,75 @@ export default function ConnectionsPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {connections.map(connection => {
+          <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-200">
+            {connections.map((connection, index) => {
               const person = connection.person
               const name = person.displayName || person.username
+              const activityDate = connection.lastMessage?.createdAt || connection.createdAt
 
               return (
-                <article key={connection.id} className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-200 sm:p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-950 text-lg font-black text-white sm:h-14 sm:w-14 sm:text-xl">
-                      {name.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="truncate text-lg font-bold text-gray-950 sm:text-xl">{name}</h2>
-                      <p className="text-xs text-gray-400">
-                        Connected {new Date(connection.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="mt-5 text-sm text-gray-600">
-                    You met live first and both chose to keep the connection.
-                  </p>
-
-                  <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                <article
+                  key={connection.id}
+                  className={`group p-4 sm:p-5 ${index > 0 ? 'border-t border-gray-100' : ''}`}
+                >
+                  <div className="flex gap-3 sm:gap-4">
                     <Link
                       href={`/connections/${connection.id}`}
-                      className="flex-1 rounded-xl bg-gray-950 px-4 py-3 text-center text-sm font-bold text-white hover:bg-gray-800"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-950 text-lg font-black text-white sm:h-14 sm:w-14 sm:text-xl"
+                      aria-label={`Open ${name}`}
                     >
-                      Message
+                      {name.slice(0, 1).toUpperCase()}
                     </Link>
-                    <Link
-                      href={`/chat/video?connection=${connection.id}`}
-                      className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-center text-sm font-bold text-gray-800 hover:bg-gray-50"
-                    >
-                      Call again
-                    </Link>
-                  </div>
 
-                  <button
-                    onClick={() => void blockPerson(person)}
-                    className="mt-4 text-xs font-semibold text-red-600 hover:text-red-700"
-                  >
-                    Block & remove
-                  </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <Link href={`/connections/${connection.id}`} className="min-w-0 flex-1">
+                          <h2 className="truncate text-base font-black text-gray-950 sm:text-lg">{name}</h2>
+                          <p className="truncate text-xs text-gray-400">@{person.username}</p>
+                        </Link>
+                        <span className="shrink-0 text-xs font-medium text-gray-400">
+                          {formatActivity(activityDate)}
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/connections/${connection.id}`}
+                        className="mt-2 block min-h-[2.5rem] text-sm leading-5 text-gray-600"
+                      >
+                        {connection.lastMessage ? (
+                          <span className="line-clamp-2">
+                            {connection.lastMessage.mine ? 'You: ' : ''}
+                            {connection.lastMessage.content}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">
+                            You both Vibed. Send the first message or talk again.
+                          </span>
+                        )}
+                      </Link>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          href={`/connections/${connection.id}`}
+                          className="rounded-xl bg-gray-950 px-4 py-2 text-xs font-black text-white hover:bg-gray-800"
+                        >
+                          Message
+                        </Link>
+                        <Link
+                          href={`/chat/video?connection=${connection.id}`}
+                          className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
+                        >
+                          Call again
+                        </Link>
+                        <button
+                          onClick={() => void blockPerson(person)}
+                          className="rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Block
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </article>
               )
             })}

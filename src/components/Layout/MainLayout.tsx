@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import IncomingConnectionCall from '@/components/IncomingConnectionCall'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -12,6 +13,7 @@ const navItems = [
   { href: '/', label: 'Home' },
   { href: '/start', label: 'Start' },
   { href: '/connections', label: 'Connections' },
+  { href: '/profile', label: 'Profile' },
 ]
 
 export default function MainLayout({ children }: MainLayoutProps) {
@@ -20,6 +22,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
+      <IncomingConnectionCall />
       <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/" className="shrink-0" onClick={() => setMenuOpen(false)}>
@@ -31,7 +34,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           <nav className="hidden items-center gap-1 sm:flex" aria-label="Primary navigation">
             {navItems.map(item => {
-              const active = pathname === item.href
+              const active =
+                pathname === item.href ||
+                (item.href !== '/' && pathname.startsWith(`${item.href}/`))
               return (
                 <Link
                   key={item.href}
@@ -71,7 +76,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <nav className="border-t border-gray-100 bg-white px-4 pb-4 pt-2 sm:hidden" aria-label="Mobile navigation">
             <div className="mx-auto grid max-w-6xl gap-1">
               {navItems.map(item => {
-                const active = pathname === item.href
+                const active =
+                pathname === item.href ||
+                (item.href !== '/' && pathname.startsWith(`${item.href}/`))
                 return (
                   <Link
                     key={item.href}
