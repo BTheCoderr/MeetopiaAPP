@@ -65,3 +65,8 @@ Separate Expo app under `apps/mobile/` — does not replace this deploy. Uses sa
 - The Render reporting service uses the Supabase service-role key only on the server.
 - Deprecated production traffic from `meeetopia.netlify.app` is redirected to `meetopia-live.netlify.app`.
 - CI fails on high-severity production dependency advisories for both the web app and signaling service.
+
+
+### Supabase access boundary
+
+Prisma-managed public tables are locked to server-only access: RLS is enabled and `anon` / `authenticated` table privileges are revoked. The web app uses server-side Prisma/Postgres access, and the Render reporting service uses its server-side service role for `mobile_reports`. Do not add browser-side Supabase data access without an explicit RLS policy review.
