@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { currentUserId, getConnectionForUser } from '@/lib/connectionAccess'
+import { createConnectionRealtimeProof } from '@/lib/socketToken'
 
 type RouteContext = {
   params: Promise<{ connectionId: string }>
@@ -25,6 +26,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id: record.connection.id,
         createdAt: record.connection.createdAt,
         person: record.person,
+        realtimeProof: createConnectionRealtimeProof(
+          userId,
+          record.person.id,
+          record.connection.id,
+        ),
       },
     })
   } catch (error) {
