@@ -487,6 +487,11 @@ io.on('connection', (socket) => {
       inviteId,
       connectionId: invite.connectionId,
     });
+    emitToUser(invite.calleeUserId, 'connection-call-resolved', {
+      inviteId,
+      connectionId: invite.connectionId,
+      result: 'accepted',
+    });
 
     callerSocket.emit('user-found', {
       partnerId: socket.id,
@@ -507,6 +512,11 @@ io.on('connection', (socket) => {
     const invite = pendingConnectionCalls.get(inviteId);
     if (!invite || invite.calleeUserId !== socket.data.userId) return;
     clearPendingConnectionCall(inviteId, 'connection-call-declined', null);
+    emitToUser(invite.calleeUserId, 'connection-call-resolved', {
+      inviteId,
+      connectionId: invite.connectionId,
+      result: 'declined',
+    });
     socket.emit('connection-call-declined', { inviteId });
   });
 
