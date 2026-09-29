@@ -13,7 +13,7 @@
 | Control | Behavior |
 |---------|----------|
 | Report | Opens modal with categories; emits `report-user` to signaling server |
-| Block | Confirms, saves profile fingerprint + socket ID locally, leaves chat, skips on rematch |
+| Block | Confirms, persists an account-level block, removes the saved Connection, and prevents future matching |
 | Leave | Confirms before disconnecting |
 
 ### Report categories
@@ -29,16 +29,18 @@ User sees: *“Meetopia logs reports for review. Leave the chat if you feel unsa
 
 ### Block
 
-- Immediate disconnect from current chat.
-- Blocked profile fingerprints and socket IDs stored in AsyncStorage on device.
-- Checked on `user-found` / `call-made` before accepting a match.
-- Server-side global bans require authenticated accounts (planned).
+- Immediate disconnect from the current chat.
+- Blocks are stored against authenticated accounts in Postgres.
+- A block removes the saved Connection and its private messages.
+- Blocked accounts are excluded from future Chemistry Check matching.
+- Users can review and reverse their own blocks from Profile → Blocked users.
 
 ## Server handling (MVP)
 
-- `report-user` events are **appended to `server/data/reports.jsonl`** on Render.
-- Team receives **email notification** via Resend when `RESEND_API_KEY` and `REPORT_NOTIFY_EMAIL` are configured.
-- Optional: `GET /admin/reports?token=...` for manual review.
+- `report-user` events are stored durably in Supabase `mobile_reports` when the Render service is configured correctly.
+- JSONL is an emergency fallback only and is not treated as durable production storage.
+- Team can receive email notification via Resend when `RESEND_API_KEY` and `REPORT_NOTIFY_EMAIL` are configured.
+- Optional manual review endpoint: `GET /admin/reports` with `Authorization: Bearer <REPORT_ADMIN_TOKEN>`.
 - No automated ban from reports in MVP.
 
 See [REPORT_HANDLING.md](./REPORT_HANDLING.md).
@@ -60,14 +62,14 @@ See [REPORT_HANDLING.md](./REPORT_HANDLING.md).
 
 ## Age gate
 
-- Required 18+ confirmation before onboarding.
-- Stored locally; re-shown after local profile deletion.
-- Underage reports prioritized when triaged.
+- Required 18+ confirmation before Chemistry Check access.
+- Confirmation is tied to the authenticated account.
+- Underage reports are prioritized when triaged.
 
 ## Account deletion
 
-- Settings → **Delete local profile & data** clears local profile, blocks, vibe matches, age flag.
-- Server-side deletion when auth ships; document in Privacy Policy.
+- Meetopia now uses authenticated accounts for Connections, blocks, sessions, and age confirmation.
+- Account-deletion UX and server-side cascading deletion must stay aligned with the Privacy Policy before public launch.
 
 ## Community standards
 
