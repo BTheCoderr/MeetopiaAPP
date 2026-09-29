@@ -19,6 +19,7 @@ import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 export default function VideoChatPage() {
   const state = useVideoChatState()
   const [directConnectionId, setDirectConnectionId] = useState<string | null>(null)
+  const [incomingCallId, setIncomingCallId] = useState<string | null>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localPipVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -27,7 +28,9 @@ export default function VideoChatPage() {
   const { peerConnection, restartConnection } = usePeerConnection(stream)
 
   useEffect(() => {
-    setDirectConnectionId(new URLSearchParams(window.location.search).get('connection'))
+    const params = new URLSearchParams(window.location.search)
+    setDirectConnectionId(params.get('connection'))
+    setIncomingCallId(params.get('incomingCall'))
   }, [])
 
   const chat = useVideoChatSocket({
@@ -41,6 +44,7 @@ export default function VideoChatPage() {
     setBandwidthQuality: state.setBandwidthQuality,
     isAdaptiveQuality: state.isAdaptiveQuality,
     directConnectionId,
+    incomingCallId,
   })
 
   const media = useMediaControls({
