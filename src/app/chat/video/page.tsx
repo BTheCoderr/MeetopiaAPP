@@ -220,6 +220,14 @@ export default function VideoChatPage() {
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
+      {chat.callStatus && !state.error && (
+        <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4">
+          <div className="rounded-2xl bg-black/65 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-md">
+            {chat.callStatus}
+          </div>
+        </div>
+      )}
+
       {state.error && (
         <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-20 max-w-md w-full px-4">
           <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-red-900/80 backdrop-blur-sm text-white text-sm">
@@ -300,12 +308,6 @@ export default function VideoChatPage() {
                     className="rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:bg-white/90"
                   >
                     Message later
-                  </Link>
-                  <Link
-                    href={`/chat/video?connection=${chat.mutualVibe.connectionId}`}
-                    className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white/90 hover:bg-white/10"
-                  >
-                    Call again later
                   </Link>
                 </>
               )}
