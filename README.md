@@ -86,6 +86,7 @@ Environment variables are documented in `.env.example` and `server/.env.example`
 - Netlify production site: `meetopia-live`
 - Render signaling service: `meetopia-signaling-v2`
 - Supabase project: the dedicated Meetopia project configured in production environment variables
+- Vercel is not part of the production stack and should not publish deployment checks for this repository
 
 Legacy explicit-room WebRTC, old component showcase pages, public camera test pages, and abandoned Feed/Explore prototypes have been removed from the production code path.
 
