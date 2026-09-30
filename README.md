@@ -11,6 +11,14 @@
 **Web:** https://meetopia-live.netlify.app  
 **Signaling:** https://meetopia-signaling-v2.onrender.com
 
+<!-- portfolio-visuals:start -->
+<p align="center">
+  <img src="./apps/mobile/assets/icon.png" alt="Meetopia mobile app icon" width="150" />
+</p>
+
+<p align="center"><strong>Conversation first. Mutual Vibe second. Web + native mobile clients share the same real-time product model.</strong></p>
+<!-- portfolio-visuals:end -->
+
 Meetopia removes the long-profile/swipe-first loop from online dating. Two adults enter a live **Chemistry Check**, meet face-to-face, and decide for themselves whether the conversation is worth continuing.
 
 A saved **Connection** is created only when both people Vibe.
