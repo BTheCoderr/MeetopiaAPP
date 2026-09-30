@@ -1,5 +1,11 @@
 # Meetopia
 
+<!-- repo-intro:start -->
+**Project snapshot:** Meetopia is a conversation-first adult social/dating product where people meet through live WebRTC Chemistry Checks and save a connection only when both choose to Vibe.
+
+**What it demonstrates:** Next.js · WebRTC · Socket.IO · Prisma/Postgres · Supabase · production security.
+<!-- repo-intro:end -->
+
 Meetopia is a conversation-first social dating app for adults. Instead of swiping through profiles or relying on a compatibility score, two people meet live in a **Chemistry Check**, talk, and decide for themselves whether there is a vibe.
 
 **Production frontend:** https://meetopia-live.netlify.app  
