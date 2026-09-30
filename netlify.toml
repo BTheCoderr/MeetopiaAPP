@@ -11,3 +11,5 @@
 # Database migrations are applied separately. Keeping production deploys to the
 # application build prevents a database configuration issue from blocking a
 # frontend fix from reaching Netlify.
+
+# Netlify rebuild marker: 2026-09-30 portfolio refresh
