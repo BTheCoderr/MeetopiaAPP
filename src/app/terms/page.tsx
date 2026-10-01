@@ -92,8 +92,8 @@ export default function TermsPage() {
             <p>
               Meetopia may restrict or remove beta access for violations of these Terms, safety
               concerns, abuse, security risks, or legal requirements. You may stop using Meetopia at
-              any time and sign out. In-app account deletion is not yet available; deletion requests
-              can be sent to <ContactEmail />.
+              any time, sign out, or delete your account from Profile Settings. Safety records may
+              be retained in anonymized form where needed for abuse review, security, or legal reasons.
             </p>
           ),
         },
