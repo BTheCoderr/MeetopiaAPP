@@ -22,13 +22,6 @@ interface VideoChatModalsProps {
   showTroubleshooting: boolean
   setShowTroubleshooting: (v: boolean) => void
   isDarkTheme: boolean
-  showReportPanel: boolean
-  setShowReportPanel: (v: boolean) => void
-  reportReason: string
-  setReportReason: (v: string) => void
-  isReporting: boolean
-  reportSuccess: boolean
-  onSubmitLegacyReport: () => void
 }
 
 export default function VideoChatModals({
@@ -46,13 +39,6 @@ export default function VideoChatModals({
   showTroubleshooting,
   setShowTroubleshooting,
   isDarkTheme,
-  showReportPanel,
-  setShowReportPanel,
-  reportReason,
-  setReportReason,
-  isReporting,
-  reportSuccess,
-  onSubmitLegacyReport,
 }: VideoChatModalsProps) {
   return (
     <>
@@ -123,52 +109,6 @@ export default function VideoChatModals({
         onClose={() => setShowTroubleshooting(false)}
         isDarkTheme={isDarkTheme}
       />
-
-      {showReportPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white text-black rounded-lg w-full max-w-md p-6 mx-4">
-            {reportSuccess ? (
-              <div className="text-center">
-                <div className="text-green-600 text-5xl mb-4">✓</div>
-                <h3 className="text-xl font-bold mb-2">Report Submitted</h3>
-                <p className="text-gray-600 mb-4">Thank you for helping keep Meetopia safe.</p>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-xl font-bold mb-4">Report Inappropriate Behavior</h3>
-                <p className="text-gray-600 mb-4">Please let us know why you&apos;re reporting this user.</p>
-                <select
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-                >
-                  <option value="">Select a reason</option>
-                  <option value="inappropriate_content">Inappropriate content</option>
-                  <option value="harassment">Harassment or bullying</option>
-                  <option value="underage">Appears underage</option>
-                  <option value="violence">Violent behavior</option>
-                  <option value="other">Other</option>
-                </select>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowReportPanel(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={onSubmitLegacyReport}
-                    disabled={!reportReason || isReporting}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:bg-gray-400"
-                  >
-                    {isReporting ? 'Submitting...' : 'Submit Report'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </>
   )
 }
