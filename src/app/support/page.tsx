@@ -57,9 +57,10 @@ export default function SupportPage() {
           title: 'Delete your account',
           body: (
             <p>
-              In-app deletion is not yet available in the closed beta. To request deletion, email
-              <ContactEmail /> from the email address on your Meetopia account and ask us to delete
-              the account. Safety, security, or legal records may need to be retained where required.
+              Open Profile Settings and use <strong>Delete account</strong>. You must enter your
+              password and type DELETE to confirm. Active account data is removed and the account is
+              anonymized; safety records may be retained when needed for abuse review, security, or
+              legal reasons. You can also contact <ContactEmail /> for help.
             </p>
           ),
         },
