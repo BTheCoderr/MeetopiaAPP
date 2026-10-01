@@ -90,32 +90,33 @@ export function useVideoChatSocket({
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
       console.log(LOG, 'socket URL', socketUrl)
 
-      let token: string | undefined
-      try {
-        const tokenResponse = await fetch('/api/auth/socket-token', {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        })
-        const data = await tokenResponse.json().catch(() => null)
+      const requestSocketToken = async (): Promise<string | null> => {
+        try {
+          const tokenResponse = await fetch('/api/auth/socket-token', {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          })
+          const data = await tokenResponse.json().catch(() => null)
 
-        if (tokenResponse.status === 401) {
-          setError('Your Meetopia session has expired. Please sign in again.')
-          router.replace('/auth/signin?next=/chat/video')
-          return
+          if (tokenResponse.status === 401) {
+            setError('Your Meetopia session has expired. Please sign in again.')
+            router.replace('/auth/signin?next=/chat/video')
+            return null
+          }
+
+          if (!tokenResponse.ok || !data?.token) {
+            console.error(LOG, 'socket token unavailable', tokenResponse.status, data?.error)
+            setError(data?.error || 'Meetopia video authentication is unavailable right now.')
+            return null
+          }
+
+          return data.token as string
+        } catch (error) {
+          console.error(LOG, 'socket token request failed', error)
+          setError('Meetopia video authentication is unavailable right now.')
+          return null
         }
-
-        if (!tokenResponse.ok || !data?.token) {
-          console.error(LOG, 'socket token unavailable', tokenResponse.status, data?.error)
-          setError(data?.error || 'Meetopia video authentication is unavailable right now.')
-          return
-        }
-
-        token = data.token
-      } catch (error) {
-        console.error(LOG, 'socket token request failed', error)
-        setError('Meetopia video authentication is unavailable right now.')
-        return
       }
 
       if (disposed) return
@@ -125,7 +126,11 @@ export function useVideoChatSocket({
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        auth: token ? { token } : {},
+        auth: (callback) => {
+          void requestSocketToken().then((token) => {
+            callback(token ? { token } : {})
+          })
+        },
       })
       setSocket(newSocket)
       socketRef.current = newSocket
