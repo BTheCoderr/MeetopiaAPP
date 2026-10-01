@@ -21,11 +21,17 @@ export async function getSession(sessionId: string) {
     where: {
       id: sessionId,
       expiresAt: {
-        gt: new Date()
-      }
-    }
+        gt: new Date(),
+      },
+      user: {
+        is: {
+          suspendedAt: null,
+          deletedAt: null,
+        },
+      },
+    },
   })
-  
+
   return session
 }
 
