@@ -4,18 +4,19 @@ import ContactEmail from '@/components/ContactEmail'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Meetopia',
-  description: 'How Meetopia collects and uses data for video dating and Chemistry Checks.',
+  description: 'How Meetopia collects, uses, stores, and shares data for its closed web beta.',
 }
 
 export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      lastUpdated="June 2026"
+      lastUpdated="September 30, 2026"
       intro={
         <p>
-          Meetopia is a video-first dating and meeting app. This policy describes what we collect,
-          why we need camera and microphone access, and how you can control your data.
+          Meetopia is an 18+ conversation-first video dating service. This policy describes the
+          current server-backed web beta: what information we use, how live video works, which
+          service providers help operate Meetopia, and how to request deletion.
         </p>
       }
       sections={[
@@ -23,90 +24,117 @@ export default function PrivacyPage() {
           title: 'Information you provide',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>
-                <strong>Profile:</strong> First name, age, city, gender, who you are interested in,
-                intent, and a short prompt — used for matching and profile cards during Chemistry
-                Checks.
-              </li>
-              <li>
-                <strong>Age confirmation:</strong> You must confirm you are 18 or older.
-              </li>
-              <li>
-                <strong>Safety actions:</strong> Report categories and blocked users.
-              </li>
-              <li>
-                <strong>Messages:</strong> Text sent after mutual Vibe in a Chemistry Check.
-              </li>
+              <li><strong>Account:</strong> email address, username, password credential, and optional display name.</li>
+              <li><strong>Profile:</strong> optional bio and interests.</li>
+              <li><strong>Age confirmation:</strong> the time you confirm that you are 18 or older.</li>
+              <li><strong>Connections and communication:</strong> mutual Vibes, saved Connections, messages, read state, and related notifications.</li>
+              <li><strong>Safety and support:</strong> blocks, reports, report details, and feedback you choose to submit.</li>
             </ul>
           ),
         },
         {
-          title: 'Automatically collected',
-          body: (
-            <ul className="list-disc pl-5 space-y-2">
-              <li>Session identifiers for WebRTC signaling and matching.</li>
-              <li>Connection diagnostics if we enable crash or reliability logging.</li>
-            </ul>
-          ),
-        },
-        {
-          title: 'Camera and microphone',
+          title: 'Account and security data',
           body: (
             <p>
-              Meetopia requires camera and microphone access for live video Chemistry Checks. Video
-              and audio streams are peer-to-peer via WebRTC where possible; signaling runs through
-              our backend. We do not record or store your live video or audio on our servers in the
-              current MVP.
+              Meetopia stores a bcrypt password hash rather than your plain-text password. Session
+              records are stored server-side and the browser receives an HTTP-only session cookie.
+              Password-reset tokens are stored only as hashes and expire after a limited period.
             </p>
           ),
         },
         {
-          title: 'What we do not do (MVP)',
+          title: 'Camera, microphone, and live video',
+          body: (
+            <p>
+              Camera and microphone access is used for live Chemistry Checks and calls with saved
+              Connections. WebRTC sends live audio and video directly between participants where
+              network conditions allow. Meetopia&apos;s signaling service coordinates the call. We do
+              not intentionally record or store the live audio or video stream on Meetopia servers.
+            </p>
+          ),
+        },
+        {
+          title: 'Operational data',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>We do not sell your personal data.</li>
-              <li>We do not use AI to analyze video content in the current MVP.</li>
-              <li>We do not record live calls on our servers.</li>
+              <li>Session and socket identifiers used for authenticated matching and signaling.</li>
+              <li>Last-seen and presence information used to support Connections and calls.</li>
+              <li>Basic server logs and error information needed to operate, secure, and troubleshoot the service.</li>
+              <li>Network information necessarily visible to hosting, signaling, STUN, and peer-to-peer networking services.</li>
             </ul>
           ),
         },
         {
-          title: 'Where data is stored',
+          title: 'Service providers',
+          body: (
+            <p>
+              Meetopia currently uses Netlify to host the web app, Render for realtime signaling,
+              Supabase-hosted PostgreSQL for application data, Resend for transactional and safety
+              notification email, and Google STUN infrastructure to help WebRTC establish network
+              connections. These providers process data only as needed to provide their respective
+              services and are subject to their own terms and privacy practices.
+            </p>
+          ),
+        },
+        {
+          title: 'Safety reports',
+          body: (
+            <p>
+              In-app reports are stored in Meetopia&apos;s database with the reporting account, reported
+              account, reason, details, status, and timestamp. Meetopia also attempts to send a
+              moderator notification email when a report is submitted. A failed notification email
+              does not delete the saved report.
+            </p>
+          ),
+        },
+        {
+          title: 'What we do not do',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>Profile, intent, blocks, and vibe matches: on your device (mobile app).</li>
-              <li>Signaling sessions: our hosting provider (ephemeral).</li>
-              <li>Reports: stored on our server for review (category, timestamps, session info).</li>
+              <li>We do not sell personal information.</li>
+              <li>We do not use automatic AI video moderation or automatic nudity detection in the current beta.</li>
+              <li>We do not promise identity verification or background checks.</li>
+              <li>We do not intentionally record live Chemistry Checks or Connection calls.</li>
             </ul>
+          ),
+        },
+        {
+          title: 'Retention and deletion',
+          body: (
+            <p>
+              Account and product data is kept while it is needed to provide and secure the service.
+              Safety records may need to be kept longer for abuse review, legal, or security reasons.
+              You can delete your account from Profile Settings. Deletion removes active profile,
+              session, message, Connection, Vibe, block, notification, and feedback data and
+              anonymizes the underlying account record. Safety reports may be retained against that
+              anonymized record when needed for abuse review, legal, or security purposes.
+            </p>
           ),
         },
         {
           title: 'Your choices',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>Deny camera or microphone (limits video features).</li>
-              <li>Report or block other users.</li>
-              <li>Delete local profile and data from Settings in the mobile app.</li>
-              <li>Leave any Chemistry Check at any time.</li>
+              <li>You can deny camera or microphone permission, though live video features will not work.</li>
+              <li>You can leave a Chemistry Check or Connection call at any time.</li>
+              <li>You can report and block other accounts.</li>
+              <li>You can sign out from the Meetopia navigation.</li>
+              <li>You can delete your account from Profile Settings or contact <ContactEmail /> with a privacy question.</li>
             </ul>
           ),
         },
         {
-          title: 'Children',
+          title: 'Adults only',
           body: (
             <p>
-              Meetopia is 18+ only. We do not knowingly collect data from anyone under 18. Report
-              underage users via the in-app Report flow.
+              Meetopia is only for people age 18 or older. If you believe an account belongs to
+              someone under 18, use the in-app report flow and leave the interaction.
             </p>
           ),
         },
         {
           title: 'Contact',
-          body: (
-            <p>
-              Support &amp; privacy requests: <ContactEmail />
-            </p>
-          ),
+          body: <p>Privacy and data requests: <ContactEmail /></p>,
         },
       ]}
     />
