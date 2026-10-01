@@ -5,90 +5,85 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Safety & Reporting — Meetopia',
-  description: 'How Meetopia handles reports, blocking, and moderation.',
+  description: 'How reporting, blocking, and safety review work in the Meetopia closed beta.',
 }
 
 export default function SafetyPage() {
   return (
     <LegalPage
       title="Safety & Reporting"
-      lastUpdated="June 2026"
+      lastUpdated="September 30, 2026"
       intro={
         <p>
-          Meetopia is for adults 18+. We provide tools to report, block, and leave any Chemistry
-          Check. Reports are logged and reviewed by our team.
+          Meetopia is for adults 18+. The closed beta includes leave, report, and block controls.
+          Reports are saved for manual review; Meetopia does not claim to automatically detect
+          inappropriate live video.
         </p>
       }
       sections={[
         {
-          title: 'In-app safety controls',
+          title: 'In-call safety controls',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>
-                <strong>Report</strong> — choose a category and submit during a live Chemistry Check.
-              </li>
-              <li>
-                <strong>Block</strong> — immediately end the relationship, remove the saved Connection
-                and private messages, and prevent future Chemistry Check matching.
-              </li>
-              <li>
-                <strong>Leave</strong> — exit any call at any time.
-              </li>
+              <li><strong>Leave / Next</strong> — end the current interaction immediately.</li>
+              <li><strong>Report</strong> — choose a reason and add details. The app shows an error if the report cannot be saved.</li>
+              <li><strong>Block</strong> — prevents future Chemistry Check matching with that account and removes the saved Connection.</li>
             </ul>
           ),
         },
         {
           title: 'Report categories',
           body: (
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Nudity or sexual content</li>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Inappropriate behavior</li>
               <li>Harassment</li>
+              <li>Nudity or sexual content</li>
               <li>Hate or threats</li>
               <li>Spam or scam</li>
-              <li>Underage user</li>
+              <li>Appears underage</li>
               <li>Other</li>
-            </ol>
-          ),
-        },
-        {
-          title: 'What happens after you report',
-          body: (
-            <ul className="list-disc pl-5 space-y-2">
-              <li>Your report is stored in our database (Supabase) with category, timestamp, and session info.</li>
-              <li>Our team is notified by email for review.</li>
-              <li>Underage reports are prioritized when triaged.</li>
-              <li>Leave the chat if you feel unsafe — you are not required to stay.</li>
             </ul>
           ),
         },
         {
-          title: 'Blocking',
+          title: 'What happens after a report',
+          body: (
+            <ul className="list-disc pl-5 space-y-2">
+              <li>The report is stored in Meetopia&apos;s application database with the reporter, reported account, reason, details, status, and timestamp.</li>
+              <li>Meetopia attempts to send a moderator notification email for each newly saved report.</li>
+              <li>Reports are reviewed manually during the beta.</li>
+              <li>If there is immediate danger, contact local emergency services. Meetopia is not an emergency service.</li>
+            </ul>
+          ),
+        },
+        {
+          title: 'Blocking and evidence',
           body: (
             <p>
-              Blocks are tied to your authenticated Meetopia account. Blocking removes the saved
-              Connection and conversation between the two accounts and keeps that person out of your
-              future Chemistry Check matching. You can review and unblock people later from Profile
-              → Blocked users.
+              Blocking is tied to your Meetopia account and keeps the blocked account out of future
+              Chemistry Check matching. The current beta may remove the saved Connection and its
+              visible conversation when you block. A separately submitted safety report remains a
+              distinct database record for review.
             </p>
           ),
         },
         {
-          title: 'What we do not provide (MVP)',
+          title: 'No automatic detection',
           body: (
-            <ul className="list-disc pl-5 space-y-2">
-              <li>AI video moderation or automatic nudity detection</li>
-              <li>Automatic video blur</li>
-              <li>24/7 human monitoring of every live call</li>
-              <li>Background checks or verified-user badges</li>
-            </ul>
+            <p>
+              Meetopia does not currently provide automatic nudity detection, AI video moderation,
+              24/7 human monitoring of every live call, identity verification, or background checks.
+              A report button means you are choosing to flag an interaction; it does not mean the
+              system detected a violation.
+            </p>
           ),
         },
         {
-          title: 'Age requirement',
+          title: 'Adults only',
           body: (
             <p>
-              Meetopia requires 18+ confirmation before use. Report suspected underage users
-              immediately via Report → Underage user.
+              You must be 18 or older. If someone appears to be underage, leave the interaction and
+              report the account using <strong>Appears underage</strong>.
             </p>
           ),
         },
@@ -96,21 +91,17 @@ export default function SafetyPage() {
           title: 'Community standards',
           body: (
             <p>
-              See our{' '}
+              See the{' '}
               <Link href="/community-guidelines" className="text-blue-600 hover:underline">
                 Community Guidelines
               </Link>{' '}
-              for full rules.
+              for behavioral rules.
             </p>
           ),
         },
         {
           title: 'Contact',
-          body: (
-            <p>
-              Safety concerns: <ContactEmail />
-            </p>
-          ),
+          body: <p>Safety concerns outside the in-app flow: <ContactEmail /></p>,
         },
       ]}
     />
