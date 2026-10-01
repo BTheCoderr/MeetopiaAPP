@@ -10,7 +10,7 @@ import type { KeyboardShortcut } from '@/types/videoChat'
 interface VideoChatModalsProps {
   isReportModalOpen: boolean
   closeReportModal: () => void
-  onSubmitReport: (type: 'report' | 'improvement', reason: string, details: string) => void
+  onSubmitReport: (type: 'report' | 'improvement', reason: string, details: string) => Promise<void>
   reportedUserId?: string
   showKeyboardHelp: boolean
   setShowKeyboardHelp: (v: boolean) => void
