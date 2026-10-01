@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
+import { SUPPORT_EMAIL } from '@/lib/site'
 
 async function sendReportNotification(report: {
   id: string
@@ -13,7 +14,7 @@ async function sendReportNotification(report: {
   const apiKey = process.env.RESEND_API_KEY
   const to =
     process.env.REPORT_NOTIFICATION_EMAIL ||
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL
+    SUPPORT_EMAIL
 
   if (!apiKey || !to) {
     console.warn('Report notification email is not configured')
@@ -113,9 +114,11 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    void sendReportNotification(report).catch((error) => {
+    try {
+      await sendReportNotification(report)
+    } catch (error) {
       console.error('Report notification email failed:', error)
-    })
+    }
 
     return NextResponse.json({ success: true, reportId: report.id }, { status: 201 })
   } catch (error) {
