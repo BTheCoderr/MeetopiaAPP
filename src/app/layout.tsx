@@ -28,20 +28,11 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     siteName: 'Meetopia',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Meetopia — Video-first dating app',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Meetopia — Talk First. Vibe After.',
     description: 'Live video Chemistry Checks for adults. Talk first, then Vibe or move on. 18+ only.',
-    images: ['/og-image.png'],
   },
 }
 
