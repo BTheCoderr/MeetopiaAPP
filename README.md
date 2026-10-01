@@ -1,9 +1,9 @@
 # Meetopia
 
 <!-- repo-intro:start -->
-**Project snapshot:** Meetopia is a conversation-first adult social/dating product built around live video Chemistry Checks. People talk first, then save a connection only when both choose to Vibe.
+**Project snapshot:** Meetopia is a conversation-first adult dating product built around live video Chemistry Checks. People talk first, then save a Connection only when both choose to Vibe. The web product is the active beta; the native mobile client is paused.
 
-**What it demonstrates:** Next.js · React Native / Expo · WebRTC · Socket.IO · Prisma/Postgres · Supabase-backed production data · mobile release tooling · real-time product security.
+**What it demonstrates:** Next.js · WebRTC · Socket.IO · Prisma/Postgres · Supabase-backed production data · real-time authorization · safety/reporting flows. The archived mobile work remains in-repo for reference.
 <!-- repo-intro:end -->
 
 > **Talk first. Vibe after.**
@@ -16,7 +16,7 @@
   <img src="./apps/mobile/assets/icon.png" alt="Meetopia mobile app icon" width="150" />
 </p>
 
-<p align="center"><strong>Conversation first. Mutual Vibe second. Web + native mobile clients share the same real-time product model.</strong></p>
+<p align="center"><strong>Conversation first. Mutual Vibe second. The web beta is the current product source of truth.</strong></p>
 <!-- portfolio-visuals:end -->
 
 Meetopia removes the long-profile/swipe-first loop from online dating. Two adults enter a live **Chemistry Check**, meet face-to-face, and decide for themselves whether the conversation is worth continuing.
@@ -36,11 +36,11 @@ A saved **Connection** is created only when both people Vibe.
 
 ## Why this project is technically interesting
 
-Meetopia is not a static social UI. It coordinates identity, matchmaking, real-time signaling, peer-to-peer media, moderation, connection state, and cross-platform clients.
+Meetopia is not a static social UI. It coordinates identity, matchmaking, real-time signaling, peer-to-peer media, safety reporting, and Connection state.
 
 ```mermaid
 flowchart LR
-    A[Web / mobile client] --> B[Meetopia web API]
+    A[Web client] --> B[Meetopia web API]
     A --> C[Socket.IO signaling]
     C --> D[WebRTC peer connection]
     B --> E[Prisma + Postgres]
@@ -69,7 +69,7 @@ The product deliberately separates **media transport** from **product authority*
 - front/rear camera switching
 - fullscreen presentation
 - leave / next-person flow
-- STUN/TURN fallback configuration
+- STUN-based ICE discovery; managed TURN is still required before public launch
 
 ### Connection model
 
@@ -88,21 +88,18 @@ The product deliberately separates **media transport** from **product authority*
 - privacy, terms, community-guideline, and support surfaces
 - App Store privacy/review documentation tracked in-repo
 
-### Cross-platform delivery
+### Mobile status
 
-This repository contains both:
+The **Next.js web product** is the active beta and current source of truth.
 
-- the **Next.js web product**
-- an **Expo / React Native mobile client** under `apps/mobile`
-
-The mobile client uses Expo Router, React Native WebRTC, Socket.IO, EAS configuration, native iOS project files, and App Store/TestFlight QA documentation.
+An older **Expo / React Native client** remains under `apps/mobile`, but it is paused and is not compatible with the current authenticated signaling server. Do not treat the native client or its old App Store documents as production-ready until the web beta proves the core loop.
 
 ## Tech stack
 
 | Layer | Technology |
 | --- | --- |
 | Web | Next.js 16, React 19, Tailwind CSS |
-| Mobile | Expo, React Native, Expo Router |
+| Paused mobile reference | Expo, React Native, Expo Router |
 | Video | WebRTC / react-native-webrtc |
 | Signaling | Socket.IO + Express |
 | Data access | Prisma |
@@ -110,7 +107,7 @@ The mobile client uses Expo Router, React Native WebRTC, Socket.IO, EAS configur
 | Auth/product state | production web API + database-backed identity |
 | Web hosting | Netlify |
 | Signaling hosting | Render |
-| Mobile delivery | EAS / iOS build pipeline |
+| Mobile delivery | Paused; not part of the current release path |
 
 ## Repository structure
 
@@ -118,7 +115,7 @@ The mobile client uses Expo Router, React Native WebRTC, Socket.IO, EAS configur
 src/              Next.js web product
 server/           Socket.IO signaling service
 prisma/           schema + data layer
-apps/mobile/      Expo / React Native mobile client
+apps/mobile/      Paused Expo / React Native client kept for reference
 docs/             deployment, App Store, QA, privacy, security notes
 public/           web assets
 ```
@@ -150,20 +147,14 @@ Environment variables are documented in `.env.example` and `server/.env.example`
 
 ### Mobile
 
-```bash
-cd apps/mobile
-npm install
-npm run ios
-```
-
-The native client requires a development build for WebRTC functionality.
+The native client is paused. Do not use it for current production QA; it still needs the authenticated signaling flow before it can rejoin the release path.
 
 ## Production source of truth
 
 - branch: `main`
 - web: `meetopia-live` on Netlify
 - signaling: `meetopia-signaling-v2` on Render
-- mobile: `apps/mobile`
+- mobile: paused; `apps/mobile` is reference code only
 - database: dedicated Meetopia production project
 - Vercel is not part of the production deployment path
 
