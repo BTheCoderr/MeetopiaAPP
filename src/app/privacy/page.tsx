@@ -104,9 +104,10 @@ export default function PrivacyPage() {
             <p>
               Account and product data is kept while it is needed to provide and secure the service.
               Safety records may need to be kept longer for abuse review, legal, or security reasons.
-              In-app account deletion is not yet available in this closed beta. To request deletion
-              of your Meetopia account and associated data, contact <ContactEmail /> from the email
-              address on the account.
+              You can delete your account from Profile Settings. Deletion removes active profile,
+              session, message, Connection, Vibe, block, notification, and feedback data and
+              anonymizes the underlying account record. Safety reports may be retained against that
+              anonymized record when needed for abuse review, legal, or security purposes.
             </p>
           ),
         },
@@ -118,7 +119,7 @@ export default function PrivacyPage() {
               <li>You can leave a Chemistry Check or Connection call at any time.</li>
               <li>You can report and block other accounts.</li>
               <li>You can sign out from the Meetopia navigation.</li>
-              <li>You can request account deletion or ask privacy questions by contacting <ContactEmail />.</li>
+              <li>You can delete your account from Profile Settings or contact <ContactEmail /> with a privacy question.</li>
             </ul>
           ),
         },
