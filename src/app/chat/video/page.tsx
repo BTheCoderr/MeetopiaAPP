@@ -147,33 +147,17 @@ export default function VideoChatPage() {
     chat.handleNextPerson()
   }, [chat])
 
-  const handleSubmitLegacyReport = useCallback(() => {
-    if (!state.reportReason || !chat.socket) return
-    state.setIsReporting(true)
-    chat.socket.emit('report-user', {
-      reason: state.reportReason,
-      timestamp: new Date().toISOString(),
-    })
-    setTimeout(() => {
-      state.setIsReporting(false)
-      state.setReportSuccess(true)
-      setTimeout(() => {
-        state.setShowReportPanel(false)
-        state.setReportSuccess(false)
-        state.setReportReason('')
-        handleNextPerson()
-      }, 2000)
-    }, 1000)
-  }, [state, chat.socket, handleNextPerson])
-
   const handleReportExplicit = useCallback(() => {
+    const reportedUserId = chat.currentPeerUserId
+    if (!reportedUserId) {
+      state.setError('No active person is available to report.')
+      return
+    }
+
     state.setHasExplicitContent(true)
-    chat.reportExplicitContent()
-    alert(
-      'Potentially inappropriate content detected. The video has been blurred for your safety. You can unblur it or find a new chat partner.'
-    )
-    state.toggleBlurRemoteVideo()
-  }, [state, chat])
+    if (!state.blurRemoteVideo) state.toggleBlurRemoteVideo()
+    openReportModal(reportedUserId)
+  }, [chat.currentPeerUserId, openReportModal, state])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -371,13 +355,6 @@ export default function VideoChatPage() {
         showTroubleshooting={state.showTroubleshooting}
         setShowTroubleshooting={state.setShowTroubleshooting}
         isDarkTheme={state.isDarkTheme}
-        showReportPanel={state.showReportPanel}
-        setShowReportPanel={state.setShowReportPanel}
-        reportReason={state.reportReason}
-        setReportReason={state.setReportReason}
-        isReporting={state.isReporting}
-        reportSuccess={state.reportSuccess}
-        onSubmitLegacyReport={handleSubmitLegacyReport}
       />
     </div>
   )
