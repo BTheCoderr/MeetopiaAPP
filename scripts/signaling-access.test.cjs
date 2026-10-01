@@ -110,6 +110,38 @@ test('authorized calls and persisted read receipts still work', async () => {
   } finally { h.close(); }
 });
 
+test('random-match relays are restricted to the active pair and server-authoritative sender', async () => {
+  const h = harness();
+  try {
+    const a = h.socket('a', 'alice');
+    const b = h.socket('b', 'bob');
+    const outsider = h.socket('c', 'charlie');
+
+    await a.run('find-user');
+    await b.run('find-user');
+    a.events.length = 0;
+    b.events.length = 0;
+    outsider.events.length = 0;
+
+    await outsider.run('call-user', { offer: { type: 'offer' }, to: 'a' });
+    await a.run('typing-start', { to: 'c' });
+    assert.equal(a.events.length, 0);
+    assert.equal(outsider.events.length, 0);
+
+    await a.run('chat-message', {
+      id: 'match-message',
+      text: 'hello',
+      to: 'b',
+      from: 'forged-sender',
+      timestamp: 123,
+    });
+    const relayed = b.events.find(e => e.name === 'chat-message');
+    assert.ok(relayed);
+    assert.equal(relayed.payload.from, 'a');
+    assert.equal(relayed.payload.text, 'hello');
+  } finally { h.close(); }
+});
+
 test('Prisma gateway requires server authentication, a valid proof, and a current unblocked Connection', async () => {
   const ts = require('typescript');
   const { NextRequest } = require('next/server');
