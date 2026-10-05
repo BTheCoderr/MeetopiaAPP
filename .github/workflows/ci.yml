@@ -28,7 +28,7 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
-      - name: Audit production dependencies
+      - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
 
       - name: Build web app
@@ -61,3 +61,34 @@ jobs:
 
       - name: Validate signaling server syntax
         run: node --check index.js
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Audit mobile runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck mobile
+        run: npm run typecheck
+
+      - name: Lint mobile
+        run: npm run lint
+
+      - name: Validate Expo configuration
+        run: npx expo config --type public >/dev/null
