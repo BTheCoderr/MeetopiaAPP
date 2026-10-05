@@ -28,14 +28,14 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Build web app
         run: npm run build
 
       - name: Verify Connection revocation and realtime authorization
         run: node --test scripts/signaling-access.test.cjs
+
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   signaling:
     runs-on: ubuntu-latest
@@ -56,11 +56,11 @@ jobs:
       - name: Install signaling dependencies
         run: npm ci
 
-      - name: Audit signaling production dependencies
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Validate signaling server syntax
         run: node --check index.js
+
+      - name: Audit signaling production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   mobile:
     runs-on: ubuntu-latest
@@ -81,9 +81,6 @@ jobs:
       - name: Install mobile dependencies
         run: npm ci
 
-      - name: Audit mobile runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Typecheck mobile
         run: npm run typecheck
 
@@ -92,3 +89,6 @@ jobs:
 
       - name: Validate Expo configuration
         run: npx expo config --type public >/dev/null
+
+      - name: Audit mobile runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
