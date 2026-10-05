@@ -18,7 +18,7 @@ export const currentProduct = {
         body: JSON.stringify({ content }),
       }),
     callProof: (connectionId: string) =>
-      api<{ callProof: string }>(`/api/connections/${encodeURIComponent(connectionId)}/call-proof`, { method: 'POST' }),
+      api<{ proof: string; person: { id: string; username: string | null; displayName: string | null } }>(`/api/connections/${encodeURIComponent(connectionId)}/call-proof`, { method: 'POST' }),
   },
   notifications: {
     list: () => api<{ notifications: NotificationItem[] }>('/api/notifications'),
@@ -28,8 +28,8 @@ export const currentProduct = {
   },
   blocks: {
     list: () => api('/api/blocks'),
-    block: (userId: string) => api('/api/blocks', { method: 'POST', body: JSON.stringify({ userId }) }),
-    unblock: (userId: string) => api(`/api/blocks?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+    block: (blockedUserId: string) => api('/api/blocks', { method: 'POST', body: JSON.stringify({ blockedUserId }) }),
+    unblock: (blockedUserId: string) => api(`/api/blocks?blockedUserId=${encodeURIComponent(blockedUserId)}`, { method: 'DELETE' }),
   },
   reports: {
     create: (reportedUserId: string, reason: string, details?: string) =>
