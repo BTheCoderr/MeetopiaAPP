@@ -22,9 +22,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          cache: npm
-      - name: Install web dependencies
-        run: npm ci
+      - name: Refresh and install web dependencies
+        run: npm install --no-fund
+      - name: Verify web manifest is resolved
+        run: npm ls --depth=0
       - name: Build web app
         run: npm run build
       - name: Verify Connection revocation and realtime authorization
@@ -44,10 +45,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - name: Install signaling dependencies
-        run: npm ci
+      - name: Refresh and install signaling dependencies
+        run: npm install --no-fund
+      - name: Verify signaling manifest is resolved
+        run: npm ls --depth=0
       - name: Validate signaling server syntax
         run: node --check index.js
       - name: Audit signaling production dependencies
