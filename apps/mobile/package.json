@@ -9,7 +9,7 @@
     "start:lan": "expo start --dev-client --scheme exp+meetopia-app --lan",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
