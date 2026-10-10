@@ -18,24 +18,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          cache: npm
-
-      - name: Install web dependencies
-        run: npm ci
-
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
-
+      - name: Refresh and install web dependencies
+        run: npm install --no-fund
+      - name: Verify web manifest is resolved
+        run: npm ls --depth=0
       - name: Build web app
         run: npm run build
-
       - name: Verify Connection revocation and realtime authorization
         run: node --test scripts/signaling-access.test.cjs
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   signaling:
     runs-on: ubuntu-latest
@@ -45,19 +41,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-
-      - name: Install signaling dependencies
-        run: npm ci
-
+      - name: Refresh and install signaling dependencies
+        run: npm install --no-fund
+      - name: Verify signaling manifest is resolved
+        run: npm ls --depth=0
+      - name: Validate signaling server syntax
+        run: node --check index.js
       - name: Audit signaling production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Validate signaling server syntax
-        run: node --check index.js
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Refresh and install mobile dependencies
+        run: npm install --no-fund
+      - name: Verify mobile manifest is resolved
+        run: npm ls --depth=0
+      - name: Typecheck mobile
+        run: npm run typecheck
+      - name: Lint mobile
+        run: npm run lint
+      - name: Validate Expo configuration
+        run: npx expo config --type public >/dev/null
+      - name: Audit mobile runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
