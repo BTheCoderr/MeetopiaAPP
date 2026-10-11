@@ -67,7 +67,9 @@ jobs:
         with:
           node-version: 20.19.0
       - name: Refresh and install mobile dependencies
-        run: npm install --no-fund
+        run: |
+          rm -f package-lock.json
+          npm install --no-fund
       - name: Verify mobile manifest is resolved
         run: npm ls --depth=0
       - name: Typecheck mobile
