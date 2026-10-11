@@ -10,7 +10,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'meetopia',
   platforms: ['ios', 'android'],
   userInterfaceStyle: 'dark',
-  newArchEnabled: false,
   icon: './assets/icon.png',
   splash: {
     image: './assets/splash.png',
