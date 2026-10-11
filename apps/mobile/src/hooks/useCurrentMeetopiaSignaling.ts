@@ -4,6 +4,11 @@ import type { Socket } from 'socket.io-client'
 import { getAuthenticatedSocket } from '../lib/socket'
 import { currentProduct } from '../lib/currentProduct'
 
+type PeerEvents = {
+  addEventListener: (name: string, listener: (...args: any[]) => void) => void
+  removeEventListener: (name: string, listener: (...args: any[]) => void) => void
+}
+
 type Description = { type: string; sdp: string }
 type Candidate = ConstructorParameters<typeof RTCIceCandidate>[0]
 type MutualVibe = { partnerUserId: string | null; partnerDisplayName: string | null; connectionId: string | null; saved: boolean; error: string | null }
@@ -46,8 +51,8 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
     const callMade = async ({ offer, from }: { offer: Description; from: string }) => { const active = pcRef.current; if (!active || !usable(active)) return; peerRef.current = from; setPeerId(from); try { await active.setRemoteDescription(new RTCSessionDescription(offer)); drain(); const answer = await active.createAnswer(); await active.setLocalDescription(answer); socket.emit('make-answer', { answer, to: from }) } catch { setError('Failed to establish video connection.') } }
     const answerMade = async ({ answer }: { answer: Description }) => { const active = pcRef.current; if (!active || !usable(active)) return; try { if (!(active.signalingState === 'stable' && active.remoteDescription)) { await active.setRemoteDescription(new RTCSessionDescription(answer)); drain() } } catch { setError('Failed to establish video connection.') } }
     const ice = ({ candidate }: { candidate: Candidate }) => { if (pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error); else pendingIce.current.push(candidate) }, left = () => { clearPeer(); restartConnection() }
-    pc.ontrack = onTrack; pc.onicecandidate = onIce; pc.onconnectionstatechange = onState; socket.on('user-found', userFound); socket.on('call-made', callMade); socket.on('answer-made', answerMade); socket.on('ice-candidate', ice); socket.on('peer-left', left)
-    return () => { pc.ontrack = null; pc.onicecandidate = null; pc.onconnectionstatechange = null; socket.off('user-found', userFound); socket.off('call-made', callMade); socket.off('answer-made', answerMade); socket.off('ice-candidate', ice); socket.off('peer-left', left) }
+    (pc as unknown as PeerEvents).addEventListener('track', onTrack); (pc as unknown as PeerEvents).addEventListener('icecandidate', onIce); (pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState); socket.on('user-found', userFound); socket.on('call-made', callMade); socket.on('answer-made', answerMade); socket.on('ice-candidate', ice); socket.on('peer-left', left)
+    return () => { (pc as unknown as PeerEvents).removeEventListener('track', onTrack); (pc as unknown as PeerEvents).removeEventListener('icecandidate', onIce); (pc as unknown as PeerEvents).removeEventListener('connectionstatechange', onState); socket.off('user-found', userFound); socket.off('call-made', callMade); socket.off('answer-made', answerMade); socket.off('ice-candidate', ice); socket.off('peer-left', left) }
   }, [socket, peerConnection, clearPeer, restartConnection])
 
   useEffect(() => { if (!directConnectionId || incomingCallId || !socket?.connected || !peerConnection || directAttempt.current === directConnectionId) return; directAttempt.current = directConnectionId; setSearching(true); setError(null); void currentProduct.connections.callProof(directConnectionId).then(({ proof }) => socket.emit('call-connection', { proof })).catch((e) => { setSearching(false); setError(e instanceof Error ? e.message : 'Could not start this Connection call.') }) }, [directConnectionId, incomingCallId, socket, peerConnection])
