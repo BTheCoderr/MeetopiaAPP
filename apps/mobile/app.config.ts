@@ -11,11 +11,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   platforms: ['ios', 'android'],
   userInterfaceStyle: 'dark',
   icon: './assets/icon.png',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#000000',
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.meetopia.app',
