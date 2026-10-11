@@ -183,9 +183,9 @@ export function useMobileVideoChatSocket({
       }
     }
 
-    (pc as unknown as PeerEvents).addEventListener('track', onTrack)
-    (pc as unknown as PeerEvents).addEventListener('icecandidate', onIce)
-    (pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState)
+    ;(pc as unknown as PeerEvents).addEventListener('track', onTrack)
+    ;(pc as unknown as PeerEvents).addEventListener('icecandidate', onIce)
+    ;(pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState)
 
     const skipBlockedPeer = (partnerId: string, profile?: PeerProfilePayload) => {
       if (!isBlockedEntry(blockedRef.current, partnerId, profile ?? null)) return false
@@ -289,9 +289,9 @@ export function useMobileVideoChatSocket({
     socket.on('peer-left', handlePeerLeft)
 
     return () => {
-      (pc as unknown as PeerEvents).removeEventListener('track', onTrack)
-      (pc as unknown as PeerEvents).removeEventListener('icecandidate', onIce)
-      (pc as unknown as PeerEvents).removeEventListener('connectionstatechange', onState)
+      ;(pc as unknown as PeerEvents).removeEventListener('track', onTrack)
+      ;(pc as unknown as PeerEvents).removeEventListener('icecandidate', onIce)
+      ;(pc as unknown as PeerEvents).removeEventListener('connectionstatechange', onState)
       socket.off('user-found', handleUserFound)
       socket.off('call-made', handleCallMade)
       socket.off('answer-made', handleAnswerMade)
