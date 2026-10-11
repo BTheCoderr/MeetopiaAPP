@@ -58,7 +58,7 @@ export default function VideoStage({
 const styles = StyleSheet.create({
   hidden: { opacity: 0 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',

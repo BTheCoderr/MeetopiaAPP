@@ -18,6 +18,11 @@ import type { ReportCategory } from '@/components/safety/ReportModal'
 
 const LOG = '[Mobile:Signaling]'
 
+type PeerEvents = {
+  addEventListener: (name: string, listener: (...args: any[]) => void) => void
+  removeEventListener: (name: string, listener: (...args: any[]) => void) => void
+}
+
 type SignalingSessionDescription = { type: string; sdp: string }
 type IceCandidateInit = ConstructorParameters<typeof RTCIceCandidate>[0]
 
@@ -178,9 +183,9 @@ export function useMobileVideoChatSocket({
       }
     }
 
-    pc.addEventListener('track', onTrack)
-    pc.addEventListener('icecandidate', onIce)
-    pc.addEventListener('connectionstatechange', onState)
+    ;(pc as unknown as PeerEvents).addEventListener('track', onTrack)
+    ;(pc as unknown as PeerEvents).addEventListener('icecandidate', onIce)
+    ;(pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState)
 
     const skipBlockedPeer = (partnerId: string, profile?: PeerProfilePayload) => {
       if (!isBlockedEntry(blockedRef.current, partnerId, profile ?? null)) return false
@@ -284,9 +289,9 @@ export function useMobileVideoChatSocket({
     socket.on('peer-left', handlePeerLeft)
 
     return () => {
-      pc.removeEventListener('track', onTrack)
-      pc.removeEventListener('icecandidate', onIce)
-      pc.removeEventListener('connectionstatechange', onState)
+      ;(pc as unknown as PeerEvents).removeEventListener('track', onTrack)
+      ;(pc as unknown as PeerEvents).removeEventListener('icecandidate', onIce)
+      ;(pc as unknown as PeerEvents).removeEventListener('connectionstatechange', onState)
       socket.off('user-found', handleUserFound)
       socket.off('call-made', handleCallMade)
       socket.off('answer-made', handleAnswerMade)
