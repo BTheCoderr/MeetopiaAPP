@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Meetopia',
   owner: 'bferrell514',
   slug: 'meetopia-app',
-  version: '1.0',
+  version: '1.0.0',
   orientation: 'portrait',
   scheme: 'meetopia',
   platforms: ['ios', 'android'],
@@ -30,6 +30,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
       NSMicrophoneUsageDescription:
         'Meetopia uses your microphone so you can talk during video dates and meetings.',
+      ITSAppUsesNonExemptEncryption: false,
+    },
+    privacyManifests: {
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+          NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+        },
+      ],
     },
   },
   android: {
@@ -46,6 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-asset',
     'expo-font',
+    'expo-secure-store',
     [
       '@config-plugins/react-native-webrtc',
       {
@@ -61,6 +71,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     eas: {
       projectId: '37e69074-d079-4c60-a3c4-5d468645bcf1',
     },
-    socketUrl: process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:3003',
+    socketUrl:
+      process.env.EXPO_PUBLIC_SOCKET_URL ?? 'https://meetopia-signaling-v2.onrender.com',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://meetopia-live.netlify.app',
   },
 })

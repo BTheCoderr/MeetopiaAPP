@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth/session'
+import { getRequestSession } from '@/lib/auth/session'
 
 export async function currentUserId(request: NextRequest) {
-  const sessionId = request.cookies.get('meetopia_session')?.value
-  if (!sessionId) return null
-  const session = await getSession(sessionId)
+  const session = await getRequestSession(request)
   return session?.userId || null
 }
 

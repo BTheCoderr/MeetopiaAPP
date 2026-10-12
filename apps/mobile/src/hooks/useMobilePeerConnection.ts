@@ -14,7 +14,9 @@ export function useMobilePeerConnection(stream: MediaStream | null) {
   const streamRef = useRef<MediaStream | null>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
 
-  streamRef.current = stream
+  useEffect(() => {
+    streamRef.current = stream
+  }, [stream])
 
   const attachLocalTracks = useCallback((pc: RTCPeerConnection, mediaStream: MediaStream | null) => {
     if (!mediaStream || !isUsable(pc)) return
@@ -54,8 +56,9 @@ export function useMobilePeerConnection(stream: MediaStream | null) {
 
   useEffect(() => {
     const pc = createPeerConnection(configurationIndex)
-    setPeerConnection(pc)
+    const timer = setTimeout(() => setPeerConnection(pc), 0)
     return () => {
+      clearTimeout(timer)
       pc.close()
       pcRef.current = null
     }

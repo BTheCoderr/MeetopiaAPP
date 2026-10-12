@@ -18,7 +18,12 @@ export default function ConnectionScreen() {
     const [detail, thread] = await Promise.all([currentProduct.connections.get(id), currentProduct.connections.messages(id)])
     setConnection(detail.connection); setMessages(thread.messages)
   }, [id])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void load()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [load])
 
   async function send() {
     const content = draft.trim(); if (!content || sending) return

@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth/session'
+import { getRequestSession } from '@/lib/auth/session'
 import { createSocketToken } from '@/lib/socketToken'
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = request.cookies.get('meetopia_session')?.value
-    if (!sessionId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-
-    const session = await getSession(sessionId)
+    const session = await getRequestSession(request)
     if (!session) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({

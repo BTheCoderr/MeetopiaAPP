@@ -9,28 +9,33 @@ interface Props {
 }
 
 export default function ChemistryTimer({ active, onExpire }: Props) {
-  const [remaining, setRemaining] = useState(CHEMISTRY_SECONDS)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (!active) {
-      setRemaining(CHEMISTRY_SECONDS)
-      return
+      const reset = setTimeout(() => setStartedAt(null), 0)
+      return () => clearTimeout(reset)
     }
+    const start = Date.now()
+    const ready = setTimeout(() => setStartedAt(start), 0)
     const id = setInterval(() => {
-      setRemaining(r => {
-        if (r <= 1) {
-          clearInterval(id)
-          onExpire?.()
-          return 0
-        }
-        return r - 1
-      })
+      const elapsed = Math.floor((Date.now() - start) / 1000)
+      setNow(Date.now())
+      if (elapsed >= CHEMISTRY_SECONDS) {
+        clearInterval(id)
+        onExpire?.()
+      }
     }, 1000)
-    return () => clearInterval(id)
+    return () => {
+      clearTimeout(ready)
+      clearInterval(id)
+    }
   }, [active, onExpire])
 
   if (!active) return null
 
+  const remaining = startedAt ? Math.max(0, CHEMISTRY_SECONDS - Math.floor((now - startedAt) / 1000)) : CHEMISTRY_SECONDS
   const m = Math.floor(remaining / 60)
   const s = remaining % 60
   const label = `${m}:${s.toString().padStart(2, '0')}`

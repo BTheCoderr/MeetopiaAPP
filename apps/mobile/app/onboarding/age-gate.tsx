@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, StyleSheet, Switch, Pressable, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { setAgeVerified } from '@/lib/onboardingStorage'
+import { confirmAdult } from '@/lib/authApi'
 import { PUBLIC_LINKS } from '@/config/links'
 import Screen from '@/components/ui/Screen'
 import Brandmark from '@/components/ui/Brandmark'
@@ -14,6 +15,11 @@ export default function AgeGateScreen() {
 
   const onContinue = async () => {
     if (!confirmed) return
+    try {
+      await confirmAdult()
+    } catch {
+      // Local age gate still applies; server confirmation may 401 if cookies are blocked.
+    }
     await setAgeVerified()
     router.replace('/onboarding/profile')
   }

@@ -71,7 +71,13 @@ export function useDemoVideoChat({ enabled, stream, matchProfile, autoStart }: O
   }, [])
 
   useEffect(() => {
-    if (!enabled) resetDemo()
+    if (!enabled) {
+      const timer = setTimeout(() => resetDemo(), 0)
+      return () => {
+        clearTimeout(timer)
+        clearTimers()
+      }
+    }
     return () => clearTimers()
   }, [enabled, resetDemo])
 
@@ -137,7 +143,7 @@ export function useDemoVideoChat({ enabled, stream, matchProfile, autoStart }: O
         },
       ])
     }, 800)
-  }, [currentPeer, myVibeSent])
+  }, [currentPeer, myVibeSent, activeProfile.name])
 
   const reportUser = useCallback((_category: ReportCategory | string) => {
     Alert.alert(

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { createSession } from '@/lib/auth/session'
+import { createSession, isNativeClient } from '@/lib/auth/session'
 
 export async function POST(req: Request) {
   try {
@@ -30,14 +30,16 @@ export async function POST(req: Request) {
     }
 
     const session = await createSession(user.id)
+    const userPayload = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+    }
     const response = NextResponse.json({
       message: 'Login successful',
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        displayName: user.displayName,
-      },
+      user: userPayload,
+      ...(isNativeClient(req) ? { nativeSessionToken: session.token } : {}),
     })
 
     response.cookies.set('meetopia_session', session.id, {

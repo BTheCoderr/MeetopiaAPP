@@ -1,12 +1,16 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SOCKET_URL": "https://meetopia-signaling-v2.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://meetopia-live.netlify.app"
+      },
       "ios": {
         "simulator": false,
         "image": "macos-sequoia-15.6-xcode-26.2"
@@ -14,11 +18,21 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SOCKET_URL": "https://meetopia-signaling-v2.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://meetopia-live.netlify.app"
+      },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2"
       }
     },
     "production": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_SOCKET_URL": "https://meetopia-signaling-v2.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://meetopia-live.netlify.app"
+      },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2"
       }

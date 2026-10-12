@@ -23,29 +23,31 @@
     "expo-font": "~56.0.0",
     "expo-linear-gradient": "~56.0.0",
     "expo-linking": "~56.0.0",
-    "expo-router": "~56.0.0",
+    "expo-router": "~56.2.21",
+    "expo-secure-store": "~56.0.4",
     "expo-status-bar": "~56.0.0",
     "react": "19.2.3",
-    "react-native": "0.85.0",
-    "react-native-safe-area-context": "^5.4.0",
-    "react-native-screens": "^4.16.0",
-    "react-native-webrtc": "124.0.7",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-webrtc": "124.0.8",
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.2.0",
     "eslint": "8.57.1",
-    "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.3"
+    "eslint-config-expo": "~56.0.4",
+    "typescript": "~6.0.3"
   },
   "overrides": {
-    "@xmldom/xmldom": "0.9.12",
     "tar": "7.5.22",
     "uuid": "11.1.1",
     "postcss": "8.5.23",
     "proxy-addr": "2.0.8",
     "source-map-js": "1.2.2",
-    "ajv": "8.18.0"
+    "eslint": {
+      "ajv": "6.12.6"
+    }
   }
 }

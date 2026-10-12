@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { createSession } from '@/lib/auth/session'
+import { createSession, isNativeClient } from '@/lib/auth/session'
 
 export async function POST(req: Request) {
   try {
@@ -39,8 +39,13 @@ export async function POST(req: Request) {
     })
 
     const session = await createSession(user.id)
+    const userPayload = { id: user.id, username: user.username, email: user.email }
     const response = NextResponse.json(
-      { message: 'Account created successfully', user: { id: user.id, username: user.username, email: user.email } },
+      {
+        message: 'Account created successfully',
+        user: userPayload,
+        ...(isNativeClient(req) ? { nativeSessionToken: session.token } : {}),
+      },
       { status: 201 }
     )
 

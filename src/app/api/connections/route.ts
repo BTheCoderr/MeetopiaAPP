@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth/session'
+import { currentUserId } from '@/lib/connectionAccess'
 import { createConnectionRealtimeProof, verifyConnectionProof } from '@/lib/socketToken'
-
-async function currentUserId(request: NextRequest) {
-  const sessionId = request.cookies.get('meetopia_session')?.value
-  if (!sessionId) return null
-  const session = await getSession(sessionId)
-  return session?.userId || null
-}
 
 const personSelect = {
   id: true,

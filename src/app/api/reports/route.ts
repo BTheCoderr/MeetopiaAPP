@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth/session'
+import { currentUserId } from '@/lib/connectionAccess'
 
 export async function POST(request: NextRequest) {
   try {
     const { reportedUserId, reason, details } = await request.json()
 
-    const sessionId = request.cookies.get('meetopia_session')?.value
-    if (!sessionId) {
+    const userId = await currentUserId(request)
+    if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-
-    const session = await getSession(sessionId)
-    if (!session) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
     const report = await prisma.report.create({
       data: {
-        reporterId: session.userId,
+        reporterId: userId,
         reportedUserId,
         reason,
         details,

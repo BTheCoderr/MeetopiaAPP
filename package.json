@@ -11,7 +11,8 @@
     "signal": "cd server && npm start",
     "signal:dev": "cd server && npm run dev",
     "seed": "node prisma/seed.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "node --test scripts/signaling-access.test.cjs scripts/account-auth.test.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",

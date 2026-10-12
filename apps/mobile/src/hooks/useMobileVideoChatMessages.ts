@@ -10,6 +10,7 @@ interface Options {
 
 export function useMobileVideoChatMessages({ socket, currentPeer, enabled = true }: Options) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [threadPeer, setThreadPeer] = useState<string | null>(currentPeer)
   const [newMessage, setNewMessage] = useState('')
   const [isPeerTyping, setIsPeerTyping] = useState(false)
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -18,7 +19,8 @@ export function useMobileVideoChatMessages({ socket, currentPeer, enabled = true
     if (!enabled || !socket) return
     const onMessage = (data: { id: string; text: string; from: string; timestamp: number }) => {
       if (data.from === socket.id) return
-      setMessages(prev => [...prev, { id: data.id, text: data.text, sender: 'peer', timestamp: data.timestamp ?? Date.now() }])
+      setMessages(prev => [...prev, { id: data.id, text: data.text, sender: 'peer', timestamp: data.timestamp ?? Date.now(), read: true, readAt: Date.now() }])
+      if (currentPeer) socket.emit('mark-messages-read', { messageIds: [data.id], to: currentPeer })
     }
     const onTypingStart = ({ from }: { from: string }) => { if (from === currentPeer) setIsPeerTyping(true) }
     const onTypingStop = ({ from }: { from: string }) => { if (from === currentPeer) setIsPeerTyping(false) }
@@ -26,15 +28,11 @@ export function useMobileVideoChatMessages({ socket, currentPeer, enabled = true
     return () => { socket.off('chat-message', onMessage); socket.off('typing-start', onTypingStart); socket.off('typing-stop', onTypingStop) }
   }, [socket, currentPeer, enabled])
 
-  useEffect(() => { if (!enabled) return; setMessages([]); setIsPeerTyping(false) }, [currentPeer, enabled])
-
-  useEffect(() => {
-    if (!enabled || !socket || !currentPeer || messages.length === 0) return
-    const unreadIds = messages.filter(m => m.sender === 'peer' && !m.read).map(m => m.id)
-    if (unreadIds.length === 0) return
-    socket.emit('mark-messages-read', { messageIds: unreadIds, to: currentPeer })
-    setMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, read: true, readAt: Date.now() } : m))
-  }, [messages, currentPeer, socket, enabled])
+  if (threadPeer !== currentPeer) {
+    setThreadPeer(currentPeer)
+    setMessages([])
+    setIsPeerTyping(false)
+  }
 
   useEffect(() => {
     if (!enabled || !socket) return

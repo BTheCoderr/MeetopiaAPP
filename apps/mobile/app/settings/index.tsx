@@ -1,13 +1,20 @@
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { PUBLIC_LINKS } from '@/config/links'
-import { clearLocalAccountData } from '@/lib/onboardingStorage'
+import { deleteAccount, signOut } from '@/lib/authApi'
+import { getSessionUser, type SessionUser } from '@/lib/session'
 import Screen from '@/components/ui/Screen'
 import BackLink from '@/components/ui/BackLink'
 import { colors, radius, spacing } from '@/theme/theme'
 
 export default function SettingsScreen() {
   const router = useRouter()
+  const [user, setUser] = useState<SessionUser | null>(null)
+
+  useEffect(() => {
+    void getSessionUser().then(setUser)
+  }, [])
 
   const open = (url: string) => {
     Linking.openURL(url).catch(() => {
@@ -15,19 +22,58 @@ export default function SettingsScreen() {
     })
   }
 
-  const onDeleteLocalProfile = () => {
+  const onSignOut = () => {
+    Alert.alert('Sign out?', 'You will need to sign in again to use Chemistry Check and Connections.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        onPress: async () => {
+          await signOut()
+          router.replace('/auth/signin')
+        },
+      },
+    ])
+  }
+
+  const runAccountDeletion = async (password: string) => {
+    if (!password) {
+      Alert.alert('Password required', 'Enter your account password to delete your Meetopia account.')
+      return
+    }
+    try {
+      await deleteAccount(password)
+      Alert.alert('Account deleted', 'Your Meetopia account and associated server data were deleted.')
+      router.replace('/auth/signin')
+    } catch (error) {
+      Alert.alert('Could not delete account', error instanceof Error ? error.message : 'Try again.')
+    }
+  }
+
+  const onDeleteAccount = () => {
     Alert.alert(
-      'Delete local profile & data',
-      'This removes your Meetopia profile, matches, and blocked list on this device only. There is no server account yet.',
+      'Delete your Meetopia account?',
+      'This permanently deletes your account, messages, connections, and related Meetopia data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Continue',
           style: 'destructive',
-          onPress: async () => {
-            await clearLocalAccountData()
-            Alert.alert('Deleted', 'Local profile and data cleared on this device.')
-            router.replace('/onboarding/age-gate')
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              Alert.prompt(
+                'Confirm password',
+                'Enter your account password to delete your account and associated data.',
+                (password?: string) => {
+                  void runAccountDeletion(password ?? '')
+                },
+                'secure-text',
+              )
+              return
+            }
+            Alert.alert(
+              'Password required',
+              'Sign in on this iPhone and use Delete account from Settings. Password confirmation is required.',
+            )
           },
         },
       ],
@@ -40,8 +86,12 @@ export default function SettingsScreen() {
       <Text style={styles.title}>Settings</Text>
 
       <Text style={styles.sectionLabel}>Account</Text>
+      {user?.email || user?.username ? (
+        <Text style={styles.accountHint}>{user.displayName || user.username || user.email}</Text>
+      ) : null}
       <View style={styles.group}>
         <Row label="Edit Profile" onPress={() => router.push('/onboarding/profile')} first />
+        <Row label="Sign out" onPress={onSignOut} />
       </View>
 
       <Text style={styles.sectionLabel}>Legal & safety</Text>
@@ -54,13 +104,13 @@ export default function SettingsScreen() {
         <Row label="Meetopia Website" onPress={() => open(PUBLIC_LINKS.home)} />
       </View>
 
-      <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteLocalProfile}>
-        <Text style={styles.dangerText}>Delete local profile & data</Text>
+      <TouchableOpacity style={styles.dangerBtn} onPress={onDeleteAccount}>
+        <Text style={styles.dangerText}>Delete account</Text>
       </TouchableOpacity>
 
       <Text style={styles.note}>
-        Deleting clears onboarding, profile, blocks, and matches on this device. Server-side account
-        deletion will be available when authenticated accounts launch.
+        Account deletion requires your password and removes your Meetopia account and associated
+        server data. Local data on this device is cleared at the same time.
       </Text>
     </Screen>
   )
@@ -86,6 +136,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
+  accountHint: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.sm },
   group: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
