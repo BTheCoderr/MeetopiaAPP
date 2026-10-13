@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Meetopia',
   owner: 'bferrell514',
   slug: 'meetopia-app',
-  version: '1.0.0',
+  version: '1.0',
   orientation: 'portrait',
   scheme: 'meetopia',
   platforms: ['ios', 'android'],
