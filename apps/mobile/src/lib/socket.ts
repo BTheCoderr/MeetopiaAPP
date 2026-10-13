@@ -12,8 +12,11 @@ export function getSocket(): Socket {
 
     socket = io(url, {
       transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
+      // Mobile users switch networks or background the phone frequently.
+      // Five attempts were not enough to recover after an outage.
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
       timeout: 10000,
     })
 

@@ -14,34 +14,63 @@ export default function HomeScreen() {
   const [profileName, setProfileName] = useState<string | null>(null)
   const [intent, setIntent] = useState<string | null>(null)
   const [onboarded, setOnboarded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
-    isAgeVerified().then(ageOk => {
-      if (!ageOk) {
-        router.replace('/onboarding/age-gate')
-        return
-      }
-      isOnboardingComplete().then(complete => {
-        setOnboarded(complete)
-        if (complete) {
-          getStoredProfile().then(p => {
-            if (p) {
-              setProfileName(p.name)
-              setIntent(intentLabel(p.intent))
-            }
-            setLoading(false)
-          })
-        } else {
-          setLoading(false)
+    let active = true
+    const initialize = async () => {
+      try {
+        // Check the age gate first. A storage failure must never bypass it.
+        const ageOk = await isAgeVerified()
+        if (!active) return
+        if (!ageOk) {
+          router.replace('/onboarding/age-gate')
+          return
         }
-      })
-    })
-  }, [router])
+
+        const complete = await isOnboardingComplete()
+        const profile = complete ? await getStoredProfile() : null
+        if (!active) return
+        setOnboarded(complete)
+        setProfileName(profile?.name ?? null)
+        setIntent(profile?.intent ? intentLabel(profile.intent) : null)
+        setLoadError(null)
+        setLoading(false)
+      } catch {
+        if (!active) return
+        setLoadError('Could not open your saved profile. Please retry; your data has not been deleted.')
+        setLoading(false)
+      }
+    }
+    void initialize()
+    return () => { active = false }
+  }, [router, retryCount])
 
   if (loading) {
     return (
       <Screen center>
         <ActivityIndicator color={colors.brandPurple} />
+      </Screen>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <Screen center>
+        <Text accessibilityRole="alert" style={styles.loadError}>{loadError}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading Meetopia"
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true)
+            setLoadError(null)
+            setRetryCount(n => n + 1)
+          }}
+        >
+          <Text style={styles.retryText}>Try again</Text>
+        </Pressable>
       </Screen>
     )
   }
@@ -101,6 +130,25 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadError: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  retryButton: {
+    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: colors.brandPurple,
+  },
+  retryText: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   headline: {
     fontSize: 28,

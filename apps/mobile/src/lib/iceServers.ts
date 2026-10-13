@@ -21,10 +21,15 @@ export const fallbackConfigurations: RTCConfiguration[] = [
   { iceServers: getIceServers().slice(0, 2), iceCandidatePoolSize: 5 },
 ]
 
+/**
+ * A packaged iPhone is not the developer's laptop: localhost would silently
+ * target the phone itself. Use the documented deployed signaling endpoint
+ * unless the developer explicitly configures a LAN URL.
+ */
 export function getSocketUrl(): string {
-  return (
-    process.env.EXPO_PUBLIC_SOCKET_URL ??
-    (Constants.expoConfig?.extra?.socketUrl as string | undefined) ??
-    'http://localhost:3003'
-  )
+  const configured = process.env.EXPO_PUBLIC_SOCKET_URL ??
+    (Constants.expoConfig?.extra?.socketUrl as string | undefined)
+  const candidate = typeof configured === 'string' ? configured.trim().replace(/\/$/, '') : ''
+  if (candidate && /^https?:\/\//i.test(candidate)) return candidate
+  return 'https://meetopia-signaling-v2.onrender.com'
 }
