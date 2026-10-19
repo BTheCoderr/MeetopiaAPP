@@ -51,7 +51,8 @@ export function useReadReceipts({
   useEffect(() => {
     if (!socket) return;
     
-    const handleReadReceipt = (data: { messageIds: string[] }) => {
+    const handleReadReceipt = (data: { messageIds: string[]; from?: string }) => {
+      if (!currentPeer || data.from !== currentPeer) return;
       const now = Date.now();
       setUpdatedMessages(prevMessages => 
         prevMessages.map(message => 
@@ -67,7 +68,7 @@ export function useReadReceipts({
     return () => {
       socket.off('message-read', handleReadReceipt);
     };
-  }, [socket]);
+  }, [socket, currentPeer]);
   
   const markAllAsRead = useCallback(() => {
     if (!socket || !currentPeer || !chatOpen) return;

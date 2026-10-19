@@ -1,5 +1,4 @@
 'use client'
-import { useState, useEffect } from 'react'
 
 interface CommunityGuidelinesProps {
   isOpen: boolean
@@ -7,90 +6,71 @@ interface CommunityGuidelinesProps {
   onClose: () => void
 }
 
-const CommunityGuidelines: React.FC<CommunityGuidelinesProps> = ({
+export default function CommunityGuidelines({
   isOpen,
   onAccept,
-  onClose
-}) => {
-  const [hasAccepted, setHasAccepted] = useState(false)
-  
-  // Check if user has previously accepted guidelines
-  useEffect(() => {
-    const accepted = localStorage.getItem('meetopia_guidelines_accepted')
-    if (accepted) {
-      setHasAccepted(true)
-      // Auto-close if already accepted
-      onAccept()
-    }
-  }, [onAccept])
-  
+  onClose,
+}: CommunityGuidelinesProps) {
+  if (!isOpen) return null
+
   const handleAccept = () => {
     localStorage.setItem('meetopia_guidelines_accepted', 'true')
-    setHasAccepted(true)
     onAccept()
   }
-  
-  if (!isOpen) return null
-  
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-lg">
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Community Guidelines</h2>
-          
-          <div className="prose prose-sm max-w-none">
-            <p className="font-medium text-gray-700">
-              Welcome to Meetopia! To ensure a safe and enjoyable experience for everyone,
-              please follow these guidelines when using our platform:
-            </p>
-            
-            <h3 className="font-bold text-lg mt-4 mb-2">Prohibited Content</h3>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Nudity or sexually explicit content</li>
-              <li>Harassment, hate speech, or bullying</li>
-              <li>Violence or threats of violence</li>
-              <li>Illegal activities or promotion of illegal content</li>
-              <li>Sharing of personal information without consent</li>
-              <li>Users under the age of 18</li>
-            </ul>
-            
-            <h3 className="font-bold text-lg mt-4 mb-2">Moderation and Safety</h3>
-            <p>
-              Meetopia uses automated and user-based moderation to detect inappropriate content.
-              Reported users may be temporarily or permanently banned based on the severity and 
-              frequency of violations.
-            </p>
-            
-            <h3 className="font-bold text-lg mt-4 mb-2">Your Data and Privacy</h3>
-            <p>
-              We do not store video or audio from your chats. However, reports may include 
-              screenshots for moderation purposes. 
-            </p>
-            
-            <h3 className="font-bold text-lg mt-4 mb-2">Be Respectful</h3>
-            <p>
-              Treat others with respect. If someone asks you to stop a behavior, please respect 
-              their wishes. Use the "Next" button to move on if you're not interested in continuing
-              a conversation.
-            </p>
-            
-            <h3 className="font-bold text-lg mt-4 mb-2">Reporting</h3>
-            <p>
-              If you encounter inappropriate content or behavior, please use the "Report" button.
-              Your reports help us keep Meetopia safe for everyone.
-            </p>
+          <h2 className="text-2xl font-bold">Community Guidelines</h2>
+          <p className="mt-3 font-medium text-gray-700">
+            Meetopia is for adults 18+. Talk to people the way you would want to be treated in a
+            real face-to-face conversation.
+          </p>
+
+          <div className="mt-5 space-y-5 text-sm leading-6 text-gray-700 sm:text-base">
+            <section>
+              <h3 className="font-bold text-gray-950">Respect boundaries</h3>
+              <p>No harassment, threats, hate speech, stalking, bullying, or attempts to bypass a block.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-950">Adults only</h3>
+              <p>Do not use Meetopia if you are under 18. Leave and report if someone appears underage.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-950">No illegal or exploitative content</h3>
+              <p>No scams, fraud, doxxing, sexual content involving minors, or other illegal conduct.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-950">Safety tools are user-triggered</h3>
+              <p>
+                Use Leave, Next, Report, or Block whenever you need them. Meetopia does not claim to
+                automatically detect inappropriate live video in the current beta.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-950">Reports</h3>
+              <p>
+                Reports are saved for manual review. Meetopia does not intentionally record live
+                video or audio, and the report flow does not capture screenshots automatically.
+              </p>
+            </section>
           </div>
-          
-          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-end">
+
+          <div className="mt-6 flex flex-col justify-end gap-3 sm:flex-row">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              className="min-h-11 rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               onClick={handleAccept}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="min-h-11 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               I Accept
             </button>
@@ -100,5 +80,3 @@ const CommunityGuidelines: React.FC<CommunityGuidelinesProps> = ({
     </div>
   )
 }
-
-export default CommunityGuidelines 

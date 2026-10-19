@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 
 export function useReporting() {
@@ -5,6 +7,7 @@ export function useReporting() {
   const [reportedUserId, setReportedUserId] = useState<string | null>(null)
 
   const openReportModal = (userId: string) => {
+    if (!userId) return
     setReportedUserId(userId)
     setIsReportModalOpen(true)
   }
@@ -14,27 +17,29 @@ export function useReporting() {
     setReportedUserId(null)
   }
 
-  const handleReport = async (type: 'report' | 'improvement', reason: string, details: string) => {
-    try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          reportedUserId,
-          reason,
-          details
-        })
-      })
+  const handleReport = async (
+    type: 'report' | 'improvement',
+    reason: string,
+    details: string
+  ) => {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        type,
+        reportedUserId,
+        reason,
+        details,
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-      if (!res.ok) {
-        throw new Error('Failed to submit report')
-      }
-
-      closeReportModal()
-    } catch (err) {
-      console.error('Error submitting report:', err)
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to submit report')
     }
+
+    closeReportModal()
   }
 
   return {
@@ -42,6 +47,6 @@ export function useReporting() {
     reportedUserId,
     openReportModal,
     closeReportModal,
-    handleReport
+    handleReport,
   }
-} 
+}

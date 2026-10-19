@@ -35,7 +35,7 @@ export function useVideoChatMessages({ socket, currentPeer, chatOpen }: UseVideo
       if (from === currentPeer) setIsPeerTyping(false)
     }
     const handleChatMessage = (data: { id: string; text: string; from: string; timestamp: number }) => {
-      if (data.from === socket.id) return
+      if (!currentPeer || data.from !== currentPeer) return
       setMessages(prev => {
         if (prev.some(msg => msg.id === data.id)) return prev
         return [...prev, {

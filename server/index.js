@@ -307,6 +307,27 @@ function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   removeFromMatchQueues(socket.id);
 }
 
+function isActivePair(socketId, peerSocketId) {
+  return (
+    typeof peerSocketId === 'string' &&
+    activePairs.get(socketId) === peerSocketId &&
+    activePairs.get(peerSocketId) === socketId
+  );
+}
+
+function relayToActivePeer(socket, peerSocketId, event, payload = {}) {
+  if (!isActivePair(socket.id, peerSocketId)) {
+    console.warn(`[Signaling] blocked ${event} relay outside active pair: ${socket.id} -> ${peerSocketId || '(missing)'}`);
+    return false;
+  }
+
+  socket.to(peerSocketId).emit(event, {
+    ...payload,
+    from: socket.id,
+  });
+  return true;
+}
+
 function runFindUser(socket) {
   if (activePairs.has(socket.id)) {
     console.log(`User ${socket.id} already paired, skipping match queue`);
@@ -636,42 +657,34 @@ io.on('connection', (socket) => {
     removeActiveSocket(socket.data.userId, socket.id);
   });
 
-  socket.on('call-user', ({ offer, to }) => {
-    console.log(`[Signaling] call-user ${socket.id} -> ${to}`);
-    socket.to(to).emit('call-made', {
-      offer,
-      from: socket.id,
-    });
+  socket.on('call-user', ({ offer, to } = {}) => {
+    if (relayToActivePeer(socket, to, 'call-made', { offer })) {
+      console.log(`[Signaling] call-user ${socket.id} -> ${to}`);
+    }
   });
 
-  socket.on('make-answer', ({ answer, to }) => {
-    console.log(`[Signaling] make-answer ${socket.id} -> ${to}`);
-    socket.to(to).emit('answer-made', {
-      answer,
-      from: socket.id
-    });
+  socket.on('make-answer', ({ answer, to } = {}) => {
+    if (relayToActivePeer(socket, to, 'answer-made', { answer })) {
+      console.log(`[Signaling] make-answer ${socket.id} -> ${to}`);
+    }
   });
 
-  socket.on('ice-candidate', ({ candidate, to }) => {
-    socket.to(to).emit('ice-candidate', {
-      candidate,
-      from: socket.id
-    });
+  socket.on('ice-candidate', ({ candidate, to } = {}) => {
+    relayToActivePeer(socket, to, 'ice-candidate', { candidate });
   });
 
-  socket.on('chat-message', ({ id, text, to, from, timestamp }) => {
-    socket.to(to).emit('chat-message', {
+  socket.on('chat-message', ({ id, text, to, timestamp } = {}) => {
+    relayToActivePeer(socket, to, 'chat-message', {
       id,
       text,
-      from,
-      timestamp
+      timestamp,
     });
   });
 
-  socket.on('stream-state-change', ({ type, state, to }) => {
-    socket.to(to).emit('stream-state-change', {
+  socket.on('stream-state-change', ({ type, state, to } = {}) => {
+    relayToActivePeer(socket, to, 'stream-state-change', {
       type,
-      state
+      state,
     });
   });
 
@@ -688,24 +701,24 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('typing-start', ({ to }) => {
-    socket.to(to).emit('typing-start', { from: socket.id });
-    console.log(`User ${socket.id} started typing (to ${to})`);
+  socket.on('typing-start', ({ to } = {}) => {
+    if (relayToActivePeer(socket, to, 'typing-start')) {
+      console.log(`User ${socket.id} started typing (to ${to})`);
+    }
   });
 
-  socket.on('typing-stop', ({ to }) => {
-    socket.to(to).emit('typing-stop', { from: socket.id });
-    console.log(`User ${socket.id} stopped typing (to ${to})`);
+  socket.on('typing-stop', ({ to } = {}) => {
+    if (relayToActivePeer(socket, to, 'typing-stop')) {
+      console.log(`User ${socket.id} stopped typing (to ${to})`);
+    }
   });
 
-  socket.on('mark-messages-read', ({ messageIds, to }) => {
+  socket.on('mark-messages-read', ({ messageIds, to } = {}) => {
     if (!Array.isArray(messageIds) || messageIds.length === 0) return;
 
-    socket.to(to).emit('message-read', {
-      messageIds,
-      from: socket.id
-    });
-    console.log(`User ${socket.id} marked messages as read: ${messageIds.length} messages`);
+    if (relayToActivePeer(socket, to, 'message-read', { messageIds })) {
+      console.log(`User ${socket.id} marked messages as read: ${messageIds.length} messages`);
+    }
   });
 
   socket.on('vibe-tap', ({ to }) => {
@@ -766,14 +779,16 @@ io.on('connection', (socket) => {
       .catch((err) => console.error('[Reports] save failed', err));
   });
 
-  socket.on('reconnect-attempt', ({ to }) => {
-    socket.to(to).emit('peer-reconnecting', { from: socket.id });
-    console.log(`User ${socket.id} is attempting to reconnect with ${to}`);
+  socket.on('reconnect-attempt', ({ to } = {}) => {
+    if (relayToActivePeer(socket, to, 'peer-reconnecting')) {
+      console.log(`User ${socket.id} is attempting to reconnect with ${to}`);
+    }
   });
 
-  socket.on('reconnect-success', ({ to }) => {
-    socket.to(to).emit('peer-reconnected', { from: socket.id });
-    console.log(`User ${socket.id} has successfully reconnected with ${to}`);
+  socket.on('reconnect-success', ({ to } = {}) => {
+    if (relayToActivePeer(socket, to, 'peer-reconnected')) {
+      console.log(`User ${socket.id} has successfully reconnected with ${to}`);
+    }
   });
 });
 

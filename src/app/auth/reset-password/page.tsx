@@ -12,9 +12,11 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [tokenChecked, setTokenChecked] = useState(false)
 
   useEffect(() => {
     setToken(new URLSearchParams(window.location.search).get('token') || '')
+    setTokenChecked(true)
   }, [])
 
   const submit = async (event: FormEvent) => {
@@ -62,53 +64,64 @@ export default function ResetPasswordPage() {
         {message && <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{message}</div>}
         {error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-        <form onSubmit={submit} className="mt-6 space-y-5">
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">New password</label>
-            <div className="relative mt-1">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                minLength={8}
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-16 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              />
-              <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 px-3 text-sm font-medium text-blue-600">
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
-            </div>
+        {!tokenChecked ? (
+          <div className="mt-6 text-center text-sm text-gray-500">Checking reset link…</div>
+        ) : !token ? (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            This password-reset link is missing or invalid. Request a new link from the{' '}
+            <Link href="/auth/forgot-password" className="font-semibold underline">
+              forgot-password page
+            </Link>.
           </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm new password</label>
-            <div className="relative mt-1">
-              <input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                minLength={8}
-                required
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-16 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              />
-              <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="absolute inset-y-0 right-0 px-3 text-sm font-medium text-blue-600">
-                {showConfirmPassword ? 'Hide' : 'Show'}
-              </button>
+        ) : (
+          <form onSubmit={submit} className="mt-6 space-y-5">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">New password</label>
+              <div className="relative mt-1">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-16 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                />
+                <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 px-3 text-sm font-medium text-blue-600">
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-md bg-blue-500 px-4 py-3 font-medium text-white hover:bg-blue-600 disabled:opacity-60"
-          >
-            {isLoading ? 'Updating…' : 'Update password'}
-          </button>
-        </form>
+  
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm new password</label>
+              <div className="relative mt-1">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-16 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                />
+                <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="absolute inset-y-0 right-0 px-3 text-sm font-medium text-blue-600">
+                  {showConfirmPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+  
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-md bg-blue-500 px-4 py-3 font-medium text-white hover:bg-blue-600 disabled:opacity-60"
+            >
+              {isLoading ? 'Updating…' : 'Update password'}
+            </button>
+          </form>
+        )}
 
         <div className="mt-6 text-center">
           <Link href="/auth/signin" className="text-sm font-medium text-blue-600 hover:text-blue-700">

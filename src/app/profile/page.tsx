@@ -19,6 +19,9 @@ export default function ProfilePage() {
   const [bio, setBio] = useState('')
   const [interests, setInterests] = useState<string[]>([])
   const [newInterest, setNewInterest] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -80,6 +83,36 @@ export default function ProfilePage() {
 
   const removeInterest = (interest: string) => {
     setInterests(interests.filter(i => i !== interest))
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      setError('Type DELETE to confirm account deletion.')
+      return
+    }
+    if (!deletePassword) {
+      setError('Enter your password to confirm account deletion.')
+      return
+    }
+
+    setError(null)
+    setIsDeleting(true)
+    try {
+      const response = await fetch('/api/auth/account', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.error || 'Could not delete your account.')
+      }
+      window.location.assign('/')
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete your account.')
+      setIsDeleting(false)
+    }
   }
 
   if (isLoading) {
@@ -199,6 +232,50 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+
+            <section className="mt-10 border-t border-red-100 pt-8">
+              <h2 className="text-lg font-bold text-red-700">Delete account</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                This permanently removes your active Meetopia account, messages, Connections, Vibes,
+                blocks, notifications, and profile data. Safety reports are retained only against an
+                anonymized account record so abuse evidence is not destroyed.
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:max-w-md">
+                <label className="text-sm font-medium text-gray-700" htmlFor="deletePassword">
+                  Password
+                </label>
+                <input
+                  id="deletePassword"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+
+                <label className="text-sm font-medium text-gray-700" htmlFor="deleteConfirmation">
+                  Type DELETE to confirm
+                </label>
+                <input
+                  id="deleteConfirmation"
+                  type="text"
+                  autoComplete="off"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || deleteConfirmation !== 'DELETE' || !deletePassword}
+                  className="mt-2 min-h-11 rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDeleting ? 'Deleting account…' : 'Delete my account'}
+                </button>
+              </div>
+            </section>
           </div>
         </div>
       </div>

@@ -1,30 +1,27 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = [
-  '/',
-  '/auth/signin',
-  '/auth/signup',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/privacy',
-  '/terms',
-  '/community-guidelines',
-  '/support',
-  '/safety',
+const PROTECTED_PATHS = [
+  '/start',
+  '/chat',
+  '/connections',
+  '/notifications',
+  '/profile',
+  '/settings',
 ]
 
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some(path => {
-    if (path === '/') return pathname === '/'
-    return pathname === path || pathname.startsWith(`${path}/`)
-  })
+function isProtectedPath(pathname: string) {
+  return PROTECTED_PATHS.some(
+    path => pathname === path || pathname.startsWith(`${path}/`)
+  )
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const forwardedHost = request.headers.get('x-forwarded-host')
-  const host = (forwardedHost || request.headers.get('host') || '').split(':')[0].toLowerCase()
+  const host = (forwardedHost || request.headers.get('host') || '')
+    .split(':')[0]
+    .toLowerCase()
 
   if (host === 'meeetopia.netlify.app') {
     const canonical = request.nextUrl.clone()
@@ -34,8 +31,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(canonical, 308)
   }
 
-  // API handlers return their own 401/403 responses and should never be redirected to HTML.
-  if (pathname.startsWith('/api/') || isPublicPath(pathname)) {
+  // API routes return JSON auth errors. Public files and unknown routes should
+  // reach Next.js normally instead of being redirected to sign-in.
+  if (
+    pathname.startsWith('/api/') ||
+    pathname.includes('.') ||
+    !isProtectedPath(pathname)
+  ) {
     return NextResponse.next()
   }
 
@@ -50,5 +52,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|public/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

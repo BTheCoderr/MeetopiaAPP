@@ -29,6 +29,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid email/username or password' }, { status: 401 })
     }
 
+    if (user.deletedAt || user.suspendedAt) {
+      return NextResponse.json(
+        { error: 'This account is not available. Contact Meetopia support if you believe this is an error.' },
+        { status: 403 }
+      )
+    }
+
     const session = await createSession(user.id)
     const response = NextResponse.json({
       message: 'Login successful',

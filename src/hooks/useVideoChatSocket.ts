@@ -90,32 +90,33 @@ export function useVideoChatSocket({
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
       console.log(LOG, 'socket URL', socketUrl)
 
-      let token: string | undefined
-      try {
-        const tokenResponse = await fetch('/api/auth/socket-token', {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        })
-        const data = await tokenResponse.json().catch(() => null)
+      const requestSocketToken = async (): Promise<string | null> => {
+        try {
+          const tokenResponse = await fetch('/api/auth/socket-token', {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          })
+          const data = await tokenResponse.json().catch(() => null)
 
-        if (tokenResponse.status === 401) {
-          setError('Your Meetopia session has expired. Please sign in again.')
-          router.replace('/auth/signin?next=/chat/video')
-          return
+          if (tokenResponse.status === 401) {
+            setError('Your Meetopia session has expired. Please sign in again.')
+            router.replace('/auth/signin?next=/chat/video')
+            return null
+          }
+
+          if (!tokenResponse.ok || !data?.token) {
+            console.error(LOG, 'socket token unavailable', tokenResponse.status, data?.error)
+            setError(data?.error || 'Meetopia video authentication is unavailable right now.')
+            return null
+          }
+
+          return data.token as string
+        } catch (error) {
+          console.error(LOG, 'socket token request failed', error)
+          setError('Meetopia video authentication is unavailable right now.')
+          return null
         }
-
-        if (!tokenResponse.ok || !data?.token) {
-          console.error(LOG, 'socket token unavailable', tokenResponse.status, data?.error)
-          setError(data?.error || 'Meetopia video authentication is unavailable right now.')
-          return
-        }
-
-        token = data.token
-      } catch (error) {
-        console.error(LOG, 'socket token request failed', error)
-        setError('Meetopia video authentication is unavailable right now.')
-        return
       }
 
       if (disposed) return
@@ -125,7 +126,11 @@ export function useVideoChatSocket({
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        auth: token ? { token } : {},
+        auth: (callback) => {
+          void requestSocketToken().then((token) => {
+            callback(token ? { token } : {})
+          })
+        },
       })
       setSocket(newSocket)
       socketRef.current = newSocket
@@ -414,6 +419,11 @@ export function useVideoChatSocket({
     }
 
     const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit; from: string }) => {
+      if (!from || currentPeerRef.current !== from) {
+        console.warn(LOG, 'ignored call-made from non-active peer', from)
+        return
+      }
+
       const sock = socketRef.current
       const activePc = peerConnectionRef.current
       if (!sock || !activePc || !isPeerConnectionUsable(activePc)) {
@@ -444,6 +454,11 @@ export function useVideoChatSocket({
     }
 
     const handleAnswerMade = async ({ answer, from }: { answer: RTCSessionDescriptionInit; from: string }) => {
+      if (!from || currentPeerRef.current !== from) {
+        console.warn(LOG, 'ignored answer-made from non-active peer', from)
+        return
+      }
+
       const activePc = peerConnectionRef.current
       if (!activePc || !isPeerConnectionUsable(activePc)) {
         console.error(LOG, 'answer-made but peer connection not ready')
@@ -469,6 +484,10 @@ export function useVideoChatSocket({
     }
 
     const handleIceCandidate = ({ candidate, from }: { candidate: RTCIceCandidateInit; from: string }) => {
+      if (!from || currentPeerRef.current !== from) {
+        console.warn(LOG, 'ignored ICE candidate from non-active peer', from)
+        return
+      }
       console.log(LOG, 'ICE candidate received ←', from)
       queueOrAddIceCandidate(candidate)
     }
@@ -594,7 +613,16 @@ export function useVideoChatSocket({
 
   useEffect(() => {
     if (!socket) return
-    const handleRemoteStreamState = ({ type, state }: { type: 'audio' | 'video'; state: boolean }) => {
+    const handleRemoteStreamState = ({
+      type,
+      state,
+      from,
+    }: {
+      type: 'audio' | 'video'
+      state: boolean
+      from: string
+    }) => {
+      if (!from || currentPeerRef.current !== from) return
       if (type === 'audio') setIsRemoteAudioOff(!state)
       else if (type === 'video') setIsRemoteCameraOff(!state)
     }
@@ -724,10 +752,6 @@ export function useVideoChatSocket({
     return true
   }, [socket, router])
 
-  const reportExplicitContent = useCallback(() => {
-    socket?.emit('report-explicit-content', { timestamp: new Date().toISOString() })
-  }, [socket])
-
   return {
     socket,
     isSocketConnected,
@@ -748,6 +772,5 @@ export function useVideoChatSocket({
     handleVibe,
     handleBlock,
     handleLeaveChat,
-    reportExplicitContent,
   }
 }

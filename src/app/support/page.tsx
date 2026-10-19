@@ -5,68 +5,72 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Support — Meetopia',
-  description: 'Get help with Meetopia video dating, Chemistry Checks, and safety.',
+  description: 'Support for Meetopia accounts, live video, safety, and data requests.',
 }
 
 export default function SupportPage() {
   return (
     <LegalPage
       title="Support & Contact"
+      lastUpdated="September 30, 2026"
       intro={
         <p>
-          Need help with Meetopia? We&apos;re here for technical issues, safety concerns, and App
-          Store review questions.
+          Get help with your Meetopia account, Chemistry Checks, Connections, safety reports, or
+          data requests during the closed web beta.
         </p>
       }
       sections={[
         {
-          title: 'Contact us',
+          title: 'Contact',
           body: (
             <p>
-              Email: <ContactEmail />
-              <br />
-              We aim to respond within <strong>2 business days</strong>.
+              Email <ContactEmail /> with enough detail for us to understand the issue. Do not send
+              passwords or other people&apos;s private information.
             </p>
           ),
         },
         {
-          title: 'Safety & reporting',
+          title: 'Safety and reporting',
           body: (
             <p>
-              For in-app harassment or inappropriate behavior, use <strong>Report</strong> during a
-              Chemistry Check. For urgent danger, contact local emergency services first. Learn
-              more on our{' '}
+              Use the in-app <strong>Report</strong> control when reporting another account. If the
+              report form fails, it will show an error rather than claiming success. For follow-up,
+              contact <ContactEmail /> and include the approximate date and time of the interaction.
+              See{' '}
               <Link href="/safety" className="text-blue-600 hover:underline">
                 Safety &amp; Reporting
-              </Link>{' '}
-              page.
+              </Link>.
             </p>
           ),
         },
         {
-          title: 'Common questions',
+          title: 'Account and password help',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>
-                <strong>Why does Meetopia need camera and microphone?</strong> For live video
-                Chemistry Checks with other members. See our{' '}
-                <Link href="/privacy" className="text-blue-600 hover:underline">
-                  Privacy Policy
-                </Link>
-                .
-              </li>
-              <li>
-                <strong>How do I delete my data?</strong> Mobile app → Settings → Delete local
-                profile &amp; data.
-              </li>
-              <li>
-                <strong>Demo Mode for reviewers:</strong> Open the app → Try Demo Mode to experience
-                video, Vibe, and chat without a second user online.
-              </li>
-              <li>
-                <strong>Live test with two devices:</strong> Email us to schedule a live test window
-                if needed for review.
-              </li>
+              <li>Use <Link href="/auth/forgot-password" className="text-blue-600 hover:underline">Forgot password</Link> to request a reset link.</li>
+              <li>You can sign out from the Meetopia navigation on signed-in pages.</li>
+              <li>If a reset link is expired or invalid, request a new one from the forgot-password page.</li>
+            </ul>
+          ),
+        },
+        {
+          title: 'Delete your account',
+          body: (
+            <p>
+              Open Profile Settings and use <strong>Delete account</strong>. You must enter your
+              password and type DELETE to confirm. Active account data is removed and the account is
+              anonymized; safety records may be retained when needed for abuse review, security, or
+              legal reasons. You can also contact <ContactEmail /> for help.
+            </p>
+          ),
+        },
+        {
+          title: 'Video connection help',
+          body: (
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Allow camera and microphone access in your browser.</li>
+              <li>Try a stable Wi-Fi or cellular connection and reload after a network interruption.</li>
+              <li>Some strict networks may not connect reliably until Meetopia adds a managed TURN service.</li>
             </ul>
           ),
         },
@@ -74,21 +78,10 @@ export default function SupportPage() {
           title: 'Policies',
           body: (
             <ul className="list-disc pl-5 space-y-2">
-              <li>
-                <Link href="/privacy" className="text-blue-600 hover:underline">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-blue-600 hover:underline">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/community-guidelines" className="text-blue-600 hover:underline">
-                  Community Guidelines
-                </Link>
-              </li>
+              <li><Link href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-blue-600 hover:underline">Terms of Service</Link></li>
+              <li><Link href="/community-guidelines" className="text-blue-600 hover:underline">Community Guidelines</Link></li>
+              <li><Link href="/safety" className="text-blue-600 hover:underline">Safety &amp; Reporting</Link></li>
             </ul>
           ),
         },

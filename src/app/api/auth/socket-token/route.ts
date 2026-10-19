@@ -22,12 +22,18 @@ export async function GET(request: NextRequest) {
         displayName: true,
         username: true,
         adultConfirmedAt: true,
+        suspendedAt: true,
+        deletedAt: true,
         blocksMade: { select: { blockedId: true } },
       },
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (user.deletedAt || user.suspendedAt) {
+      return NextResponse.json({ error: 'Account unavailable' }, { status: 403 })
     }
 
     if (!process.env.SOCKET_AUTH_SECRET) {
