@@ -12,7 +12,7 @@ import { colors } from '@/theme/theme'
 import { useMobileMedia } from '@/hooks/useMobileMedia'
 import { useMobilePeerConnection } from '@/hooks/useMobilePeerConnection'
 import { useCurrentMeetopiaSignaling } from '@/hooks/useCurrentMeetopiaSignaling'
-import { useMobileVideoChatMessages } from '@/hooks/useMobileVideoChatMessages'
+import { usePersistentInCallMessages } from '@/hooks/usePersistentInCallMessages'
 import { currentProduct } from '@/lib/currentProduct'
 import { accountStatus, isAuthFailure } from '@/lib/auth'
 
@@ -56,7 +56,8 @@ function LiveVideoScreen() {
   const { stream, error: mediaError } = useMobileMedia()
   const { peerConnection, restartConnection } = useMobilePeerConnection(stream)
   const chat = useCurrentMeetopiaSignaling({ stream, peerConnection, restartConnection, directConnectionId: connectionId || null, incomingCallId: incomingCallId || null })
-  const liveMessages = useMobileVideoChatMessages({ socket: chat.socket, currentPeer: chat.mutualVibe?.saved ? chat.peerId : null, enabled: true })
+  const activeConnectionId = chat.mutualVibe?.saved ? chat.mutualVibe.connectionId : connectionId || null
+  const liveMessages = usePersistentInCallMessages({ socket: chat.socket, connectionId: activeConnectionId })
 
   useEffect(() => { if (!chat.mutualVibe) setVibeDismissed(false) }, [chat.mutualVibe])
   const connecting = Boolean(chat.peerId) && !chat.peerConnected
@@ -98,9 +99,9 @@ function LiveVideoScreen() {
     <VideoStage localStream={stream} remoteStream={chat.remoteStream} isPeerConnected={chat.peerConnected} isSearching={chat.searching} hasPeer={Boolean(chat.peerId)} isCameraOff={isCameraOff} hideConnectingOverlay />
     <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none"><View style={styles.headerRow}><Pressable onPress={leave} hitSlop={10} style={styles.backBtn}><Text style={styles.back}>‹</Text></Pressable><View style={styles.headerCenter}><Text style={styles.title}>Chemistry Check</Text><ChemistryTimer active={Boolean(chat.peerId) && chat.peerConnected} />{chat.callStatus ? <Text style={styles.callStatus}>{chat.callStatus}</Text> : null}</View><View style={styles.statusWrap}><Text style={[styles.status, chat.connected ? styles.online : styles.offline]}>●</Text></View></View></SafeAreaView>
     {showPreparing && <View style={styles.preparing} pointerEvents="none"><Text style={styles.preparingText}>{chat.callStatus || 'Preparing your Chemistry Check…'}</Text></View>}
-    {(mediaError || chat.error) && <View style={styles.errorBanner}><Text style={styles.errorText}>{mediaError ?? chat.error}</Text></View>}
+    {(mediaError || chat.error || liveMessages.error) && <View style={styles.errorBanner}><Text style={styles.errorText}>{mediaError ?? chat.error ?? liveMessages.error}</Text></View>}
     {showVibeSuccess && <View style={styles.vibeOverlay}><View style={styles.vibeCard}><Text style={styles.vibeEmoji}>✨</Text><Text style={styles.vibeTitle}>It&apos;s a Vibe</Text><Text style={styles.vibeSub}>You both chose Vibe. This is now a Connection.</Text><Pressable style={styles.vibePrimary} onPress={() => setVibeDismissed(true)}><Text style={styles.vibePrimaryText}>Keep Talking</Text></Pressable><Pressable style={styles.vibeSecondary} onPress={() => router.replace(`/connections/${chat.mutualVibe!.connectionId}`)}><Text style={styles.vibeSecondaryText}>Open Connection</Text></Pressable></View></View>}
-    <MessageBar messages={liveMessages.messages} value={liveMessages.newMessage} onChange={liveMessages.handleMessageChange} onSend={liveMessages.handleSendMessage} disabled={!chat.mutualVibe?.saved} isPeerTyping={liveMessages.isPeerTyping} />
+    <MessageBar messages={liveMessages.messages} value={liveMessages.newMessage} onChange={liveMessages.handleMessageChange} onSend={liveMessages.handleSendMessage} disabled={!activeConnectionId || !chat.peerConnected || liveMessages.sending} isPeerTyping={liveMessages.isPeerTyping} />
     <ControlBar hasPeer={Boolean(chat.peerId)} isSearching={chat.searching} isSocketConnected={chat.connected} canStart={Boolean(stream)} onStart={chat.start} onNext={chat.next} onLeave={leave} onToggleMute={toggleMute} onToggleCamera={toggleCamera} onFlipCamera={flipCamera} onVibe={chat.vibe} onReport={() => setReportOpen(true)} onBlock={handleBlock} isMuted={isMuted} isCameraOff={isCameraOff} myVibeSent={chat.hasVibed} mutualVibe={Boolean(chat.mutualVibe?.saved)} />
     <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} onSubmit={(category) => void onReportSubmit(category)} />
   </View>
