@@ -11,6 +11,7 @@ interface Props {
   onLeave: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
+  onFlipCamera: () => void
   onVibe: () => void
   onReport: () => void
   onBlock: () => void
@@ -30,6 +31,7 @@ export default function ControlBar({
   onLeave,
   onToggleMute,
   onToggleCamera,
+  onFlipCamera,
   onVibe,
   onReport,
   onBlock,
@@ -44,15 +46,19 @@ export default function ControlBar({
         <Text style={styles.vibeBanner}>Chat unlocked — say hi 👋</Text>
       )}
       <View style={layout.controlRow}>
-        <TouchableOpacity style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'} style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>
           <Text style={styles.icon}>{isMuted ? '🔇' : '🎤'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[layout.controlBtn, isCameraOff && styles.active]} onPress={onToggleCamera}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isCameraOff ? 'Turn on camera' : 'Turn off camera'} style={[layout.controlBtn, isCameraOff && styles.active]} onPress={onToggleCamera}>
           <Text style={styles.icon}>{isCameraOff ? '🚫' : '📹'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Flip camera" style={layout.controlBtn} onPress={onFlipCamera} disabled={isCameraOff}>
+          <Text style={styles.icon}>↻</Text>
         </TouchableOpacity>
         {!hasPeer ? (
           <TouchableOpacity
             style={[layout.controlBtn, layout.controlBtnPrimary, !canStart && styles.disabled]}
+            accessibilityRole="button" accessibilityLabel="Start live Chemistry Check"
             onPress={onStart}
             disabled={!isSocketConnected || isSearching || !canStart}
           >
@@ -62,21 +68,22 @@ export default function ControlBar({
           <>
             <TouchableOpacity
               style={[layout.controlBtn, myVibeSent && styles.vibeActive]}
+              accessibilityRole="button" accessibilityLabel="Choose Vibe"
               onPress={onVibe}
               disabled={myVibeSent}
             >
               <Text style={styles.icon}>{myVibeSent ? '💚' : '✨'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onNext}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next person" style={layout.controlBtn} onPress={onNext}>
               <Text style={styles.icon}>⏭</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onReport}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report person" style={layout.controlBtn} onPress={onReport}>
               <Text style={styles.icon}>🚩</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onBlock}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Block person" style={layout.controlBtn} onPress={onBlock}>
               <Text style={styles.icon}>⛔</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Leave Chemistry Check" style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
               <Text style={styles.icon}>✕</Text>
             </TouchableOpacity>
           </>
