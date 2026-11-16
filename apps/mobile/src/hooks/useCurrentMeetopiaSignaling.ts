@@ -46,7 +46,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         setSearching(false); setCallStatus(null)
         setError(message || 'Your Connection is not available for a call.')
       }
-      const listeners: Array<[string, (...args: any[]) => void]> = [
+      const listeners: [string, (...args: any[]) => void][] = [
         ['connect', onConnect], ['disconnect', onDisconnect],
         ['match-error', onMatchError], ['search-cancelled', onSearchCancelled],
         ['mutual-vibe', onMutual], ['connection-call-ringing', onCallRinging],
