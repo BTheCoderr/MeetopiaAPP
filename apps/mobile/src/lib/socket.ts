@@ -13,7 +13,9 @@ async function fetchSocketToken(): Promise<string> {
 }
 
 export async function getAuthenticatedSocket(): Promise<Socket> {
-  if (socket?.connected) return socket
+  // Reuse a socket that is still connecting; recreating it would drop
+  // incoming-call listeners and invalidate server-side call invitations.
+  if (socket?.connected || socket?.active) return socket
   if (connecting) return connecting
   connecting = (async () => {
     const token = await fetchSocketToken(), url = getSocketUrl()
