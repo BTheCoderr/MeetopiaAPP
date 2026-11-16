@@ -1,0 +1,51 @@
+name: Meetopia Native Mobile Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install locked mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Validate native types
+        working-directory: apps/mobile
+        run: npm run typecheck
+
+      - name: Validate iOS JavaScript export
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SOCKET_URL: https://meetopia-signaling-v2.onrender.com
+        run: npx expo export --platform ios --output-dir dist-ios
+
+      - name: Validate Android JavaScript export
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SOCKET_URL: https://meetopia-signaling-v2.onrender.com
+        run: npx expo export --platform android --output-dir dist-android

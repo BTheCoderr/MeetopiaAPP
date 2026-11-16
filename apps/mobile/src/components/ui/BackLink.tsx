@@ -11,7 +11,12 @@ export default function BackLink({ label = 'Back', onPress }: Props) {
   const router = useRouter()
   return (
     <Pressable
-      onPress={onPress ?? (() => router.back())}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress ?? (() => {
+        if (router.canGoBack()) router.back()
+        else router.replace('/')
+      })}
       hitSlop={10}
       style={styles.wrap}
     >
