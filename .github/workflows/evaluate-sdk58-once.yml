@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/evaluate-sdk58-once.yml'
       - 'apps/mobile/app.config.ts'
+      - 'apps/mobile/tsconfig.json'
 
 permissions:
   contents: write
