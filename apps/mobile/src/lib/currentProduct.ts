@@ -11,7 +11,7 @@ export const currentProduct = {
         body: JSON.stringify({ connectionProof }),
       }),
     messages: (connectionId: string) =>
-      api<{ messages: ConnectionMessage[] }>(`/api/connections/${encodeURIComponent(connectionId)}/messages`),
+      api<{ messages: ConnectionMessage[]; newlyReadIds?: string[] }>(`/api/connections/${encodeURIComponent(connectionId)}/messages`),
     sendMessage: (connectionId: string, content: string) =>
       api<{ message: ConnectionMessage }>(`/api/connections/${encodeURIComponent(connectionId)}/messages`, {
         method: 'POST',
