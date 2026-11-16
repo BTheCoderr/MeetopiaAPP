@@ -1,0 +1,37 @@
+name: One-time native lockfile alignment
+
+on:
+  push:
+    branches: [meetopia-mobile-current-parity]
+    paths:
+      - '.github/workflows/refresh-mobile-lock-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/meetopia-mobile-current-parity'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: meetopia-mobile-current-parity
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Create aligned native lockfile
+        working-directory: apps/mobile
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile on draft branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Align native Expo lockfile with React dependencies"
+            git push origin HEAD:meetopia-mobile-current-parity
+          fi
