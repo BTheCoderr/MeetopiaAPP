@@ -1,0 +1,34 @@
+name: Temporary Expo compatibility lock refresh
+on:
+  push:
+    branches: [meetopia-mobile-current-parity]
+    paths:
+      - '.github/workflows/native-peer-lock-refresh.yml'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: meetopia-mobile-current-parity
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Refresh Expo lockfile with pinned native animation peers
+        working-directory: apps/mobile
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Commit regenerated native lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate Expo lockfile with compatible animation peers"
+            git push origin HEAD:meetopia-mobile-current-parity
+          fi
