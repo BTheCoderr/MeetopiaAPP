@@ -47,6 +47,11 @@ jobs:
         run: |
           npx expo export --platform ios --output-dir dist-ios
           npx expo export --platform android --output-dir dist-android
+      - name: Generate clean SDK 58 iOS native project without signing or upload
+        working-directory: apps/mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform ios --clean --no-install
       - name: Audit SDK 58 mobile runtime dependencies
         working-directory: apps/mobile
         run: npm audit --omit=dev --audit-level=high
@@ -54,7 +59,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/package.json apps/mobile/package-lock.json
+          git add apps/mobile/package.json apps/mobile/package-lock.json apps/mobile/ios
           if ! git diff --cached --quiet; then
             git commit -m "Evaluate Expo SDK 58 compatible native dependencies"
             git push origin HEAD:meetopia-sdk58-compatibility-20261116
