@@ -24,7 +24,11 @@ export default function ConnectionsScreen() {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    let mounted = true
+    void Promise.resolve().then(() => { if (mounted) return load() })
+    return () => { mounted = false }
+  }, [load])
 
   return (
     <SafeAreaView style={styles.safe}>
