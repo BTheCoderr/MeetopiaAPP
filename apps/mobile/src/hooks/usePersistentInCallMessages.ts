@@ -46,14 +46,17 @@ export function usePersistentInCallMessages({ socket, connectionId }: Options) {
   }, [connectionId, socket])
 
   useEffect(() => {
-    setMessages([])
-    setNewMessage('')
-    setIsPeerTyping(false)
-    setError(null)
-    proofRef.current = null
-    if (!connectionId) return
     let live = true
-    void load().catch(cause => {
+    void Promise.resolve().then(() => {
+      if (!live) return
+      setMessages([])
+      setNewMessage('')
+      setIsPeerTyping(false)
+      setError(null)
+      proofRef.current = null
+      if (!connectionId) return
+      return load()
+    }).catch(cause => {
       if (live) setError(cause instanceof Error ? cause.message : 'Unable to load Connection messages.')
     })
     return () => { live = false }
