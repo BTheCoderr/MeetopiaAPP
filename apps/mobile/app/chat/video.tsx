@@ -74,6 +74,15 @@ function LiveVideoScreen() {
     stream.getVideoTracks().forEach((t) => { t.enabled = !next })
     setIsCameraOff(next); chat.streamState('video', !next)
   }
+  const flipCamera = () => {
+    const track = stream?.getVideoTracks()[0] as { _switchCamera?: () => void } | undefined
+    if (isCameraOff || !track?._switchCamera) {
+      Alert.alert('Camera unavailable', 'Turn on your camera before switching views.')
+      return
+    }
+    try { track._switchCamera() }
+    catch { Alert.alert('Could not switch camera', 'Please try again.') }
+  }
   const handleBlock = () => {
     if (!chat.peerUserId) return
     Alert.alert('Block this person?', "You won't be matched with them again.", [{ text: 'Cancel', style: 'cancel' }, { text: 'Block', style: 'destructive', onPress: async () => { try { await currentProduct.blocks.block(chat.peerUserId!); chat.socket?.emit('block-user', { to: chat.peerId }); chat.next() } catch (e) { Alert.alert('Could not block', e instanceof Error ? e.message : 'Please try again.') } } }])
@@ -92,7 +101,7 @@ function LiveVideoScreen() {
     {(mediaError || chat.error) && <View style={styles.errorBanner}><Text style={styles.errorText}>{mediaError ?? chat.error}</Text></View>}
     {showVibeSuccess && <View style={styles.vibeOverlay}><View style={styles.vibeCard}><Text style={styles.vibeEmoji}>✨</Text><Text style={styles.vibeTitle}>It&apos;s a Vibe</Text><Text style={styles.vibeSub}>You both chose Vibe. This is now a Connection.</Text><Pressable style={styles.vibePrimary} onPress={() => setVibeDismissed(true)}><Text style={styles.vibePrimaryText}>Keep Talking</Text></Pressable><Pressable style={styles.vibeSecondary} onPress={() => router.replace(`/connections/${chat.mutualVibe!.connectionId}`)}><Text style={styles.vibeSecondaryText}>Open Connection</Text></Pressable></View></View>}
     <MessageBar messages={liveMessages.messages} value={liveMessages.newMessage} onChange={liveMessages.handleMessageChange} onSend={liveMessages.handleSendMessage} disabled={!chat.mutualVibe?.saved} isPeerTyping={liveMessages.isPeerTyping} />
-    <ControlBar hasPeer={Boolean(chat.peerId)} isSearching={chat.searching} isSocketConnected={chat.connected} canStart={Boolean(stream)} onStart={chat.start} onNext={chat.next} onLeave={leave} onToggleMute={toggleMute} onToggleCamera={toggleCamera} onVibe={chat.vibe} onReport={() => setReportOpen(true)} onBlock={handleBlock} isMuted={isMuted} isCameraOff={isCameraOff} myVibeSent={chat.hasVibed} mutualVibe={Boolean(chat.mutualVibe?.saved)} />
+    <ControlBar hasPeer={Boolean(chat.peerId)} isSearching={chat.searching} isSocketConnected={chat.connected} canStart={Boolean(stream)} onStart={chat.start} onNext={chat.next} onLeave={leave} onToggleMute={toggleMute} onToggleCamera={toggleCamera} onFlipCamera={flipCamera} onVibe={chat.vibe} onReport={() => setReportOpen(true)} onBlock={handleBlock} isMuted={isMuted} isCameraOff={isCameraOff} myVibeSent={chat.hasVibed} mutualVibe={Boolean(chat.mutualVibe?.saved)} />
     <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} onSubmit={(category) => void onReportSubmit(category)} />
   </View>
 }
