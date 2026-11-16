@@ -51,6 +51,8 @@ jobs:
         run: npm ls --depth=0
       - name: Validate signaling server syntax
         run: node --check index.js
+      - name: Test authorized in-call peer relays
+        run: node --test activePeerRelay.test.cjs
       - name: Audit signaling production dependencies
         run: npm audit --omit=dev --audit-level=high
 
@@ -66,10 +68,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Refresh and install mobile dependencies
-        run: |
-          rm -f package-lock.json
-          npm install --no-fund
+      - name: Install locked mobile dependencies
+        run: npm ci --no-fund
       - name: Verify mobile manifest is resolved
         run: npm ls --depth=0
       - name: Typecheck mobile
