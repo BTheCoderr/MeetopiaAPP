@@ -8,6 +8,7 @@ on:
       - 'apps/mobile/app.config.ts'
       - 'apps/mobile/tsconfig.json'
       - 'apps/mobile/eas.json'
+      - 'apps/mobile/package.json'
 
 permissions:
   contents: write
