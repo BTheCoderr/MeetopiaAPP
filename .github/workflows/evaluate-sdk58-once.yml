@@ -7,6 +7,7 @@ on:
       - '.github/workflows/evaluate-sdk58-once.yml'
       - 'apps/mobile/app.config.ts'
       - 'apps/mobile/tsconfig.json'
+      - 'apps/mobile/eas.json'
 
 permissions:
   contents: write
@@ -59,7 +60,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/package.json apps/mobile/package-lock.json apps/mobile/ios
+          git add apps/mobile/package.json apps/mobile/package-lock.json apps/mobile/eas.json apps/mobile/ios
           if ! git diff --cached --quiet; then
             git commit -m "Evaluate Expo SDK 58 compatible native dependencies"
             git push origin HEAD:meetopia-sdk58-compatibility-20261116
