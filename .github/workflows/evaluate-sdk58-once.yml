@@ -5,6 +5,7 @@ on:
     branches: [meetopia-sdk58-compatibility-20261116]
     paths:
       - '.github/workflows/evaluate-sdk58-once.yml'
+      - 'apps/mobile/app.config.ts'
 
 permissions:
   contents: write
