@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'https://meetopia.netlify.app'
+const DEFAULT_API_URL = 'https://meetopia-live.netlify.app'
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
 
@@ -14,6 +14,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path.startsWith('/') ? path : `/${path}`}`, {
     ...init,
     credentials: 'include',
+    cache: 'no-store',
     headers: {
       Accept: 'application/json',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
