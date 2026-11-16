@@ -21,7 +21,7 @@ jobs:
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: '22.16.0'
       - name: Refresh and install web dependencies
         run: npm install --no-fund
       - name: Verify web manifest is resolved
@@ -44,7 +44,7 @@ jobs:
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: '22.16.0'
       - name: Refresh and install signaling dependencies
         run: npm install --no-fund
       - name: Verify signaling manifest is resolved
@@ -65,7 +65,7 @@ jobs:
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: '22.16.0'
       - name: Refresh and install mobile dependencies
         run: |
           rm -f package-lock.json
