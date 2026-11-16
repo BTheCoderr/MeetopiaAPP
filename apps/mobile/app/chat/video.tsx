@@ -14,8 +14,39 @@ import { useMobilePeerConnection } from '@/hooks/useMobilePeerConnection'
 import { useCurrentMeetopiaSignaling } from '@/hooks/useCurrentMeetopiaSignaling'
 import { useMobileVideoChatMessages } from '@/hooks/useMobileVideoChatMessages'
 import { currentProduct } from '@/lib/currentProduct'
+import { accountStatus, isAuthFailure } from '@/lib/auth'
 
 export default function VideoChatScreen() {
+  const router = useRouter()
+  const [access, setAccess] = useState<'checking' | 'allowed' | 'error'>('checking')
+  const [accessError, setAccessError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    let active = true
+    void accountStatus().then(({ adultConfirmed }) => {
+      if (!active) return
+      if (!adultConfirmed) router.replace('/onboarding/age-gate')
+      else setAccess('allowed')
+    }).catch(cause => {
+      if (!active) return
+      if (isAuthFailure(cause)) router.replace('/auth/signin')
+      else {
+        setAccessError(cause instanceof Error ? cause.message : 'Could not verify your account.')
+        setAccess('error')
+      }
+    })
+    return () => { active = false }
+  }, [router, attempt])
+  if (access !== 'allowed') return <View style={layout.root}>
+    <View style={styles.accessGate}>
+      <Text style={styles.accessText}>{accessError || 'Checking Meetopia account…'}</Text>
+      {access === 'error' ? <Pressable onPress={() => { setAccess('checking'); setAccessError(null); setAttempt(n => n + 1) }}><Text style={styles.accessRetry}>Retry</Text></Pressable> : null}
+    </View>
+  </View>
+  return <LiveVideoScreen />
+}
+
+function LiveVideoScreen() {
   const router = useRouter()
   const { connectionId, incomingCallId } = useLocalSearchParams<{ connectionId?: string; incomingCallId?: string }>()
   const [isMuted, setIsMuted] = useState(false)
@@ -67,5 +98,8 @@ export default function VideoChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  accessGate: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  accessText: { color: '#fff', fontSize: 16, textAlign: 'center' },
+  accessRetry: { color: colors.brandBlueLight, fontSize: 16, fontWeight: '700', marginTop: 20 },
   header: { ...layout.header }, headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }, backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' }, back: { color: '#fff', fontSize: 34, fontWeight: '300', lineHeight: 34 }, headerCenter: { flex: 1, alignItems: 'center' }, title: { color: '#fff', fontSize: 17, fontWeight: '700' }, callStatus: { color: colors.brandBlueLight, fontSize: 12, marginTop: 3 }, statusWrap: { width: 40, alignItems: 'flex-end', paddingTop: 6 }, status: { fontSize: 12 }, online: { color: colors.success }, offline: { color: colors.danger }, preparing: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', zIndex: 20 }, preparingText: { color: 'rgba(255,255,255,0.85)', fontSize: 15 }, errorBanner: { position: 'absolute', top: 150, left: 16, right: 16, backgroundColor: 'rgba(127,29,29,0.92)', padding: 12, borderRadius: 10, zIndex: 50 }, errorText: { color: '#fff', fontSize: 13 }, vibeOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 24 }, vibeCard: { width: '100%', maxWidth: 360, backgroundColor: colors.bgElevated, borderRadius: 24, borderWidth: 1, borderColor: colors.borderStrong, padding: 28, alignItems: 'center' }, vibeEmoji: { fontSize: 44 }, vibeTitle: { color: '#fff', fontSize: 28, fontWeight: '800', marginTop: 8 }, vibeSub: { color: colors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 }, vibePrimary: { width: '100%', backgroundColor: colors.brandBlue, borderRadius: 16, padding: 14, alignItems: 'center', marginTop: 22 }, vibePrimaryText: { color: '#fff', fontWeight: '800' }, vibeSecondary: { width: '100%', padding: 14, alignItems: 'center', marginTop: 5 }, vibeSecondaryText: { color: colors.brandBlueLight, fontWeight: '700' },
 })
