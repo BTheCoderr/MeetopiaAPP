@@ -43,7 +43,7 @@
     "typescript": "~5.9.3"
   },
   "overrides": {
-    "@xmldom/xmldom": "0.9.12",
+    "@xmldom/xmldom": "0.8.15",
     "tar": "7.5.22",
     "uuid": "11.1.1",
     "postcss": "8.5.23",
