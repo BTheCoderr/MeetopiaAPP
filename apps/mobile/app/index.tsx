@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import Screen from '@/components/ui/Screen'
 import Brandmark from '@/components/ui/Brandmark'
 import GradientButton from '@/components/ui/GradientButton'
 import { accountStatus, isAuthFailure } from '@/lib/auth'
+import { getAuthenticatedSocket } from '@/lib/socket'
 import { colors, spacing } from '@/theme/theme'
 
 export default function HomeScreen() {
@@ -13,6 +14,7 @@ export default function HomeScreen() {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const promptedInviteId = useRef<string | null>(null)
 
   useFocusEffect(useCallback(() => {
     let active = true
@@ -36,6 +38,31 @@ export default function HomeScreen() {
     })
     return () => { active = false }
   }, [router, attempt]))
+
+  useEffect(() => {
+    if (!ready) return
+    let active = true
+    let unsubscribe: (() => void) | null = null
+    void getAuthenticatedSocket().then(socket => {
+      if (!active) return
+      const onIncoming = (invite: {
+        inviteId?: string; connectionId?: string; callerDisplayName?: string; expiresAt?: number
+      }) => {
+        if (!invite.inviteId || !invite.connectionId || !active) return
+        if (invite.inviteId === promptedInviteId.current) return
+        if (typeof invite.expiresAt === 'number' && Date.now() >= invite.expiresAt) return
+        promptedInviteId.current = invite.inviteId
+        Alert.alert('Incoming Chemistry Check',
+          `${invite.callerDisplayName || 'Your Connection'} is calling. Answer with your camera and microphone?`, [
+            { text: 'Decline', style: 'cancel', onPress: () => socket.emit('decline-connection-call', { inviteId: invite.inviteId }) },
+            { text: 'Answer', onPress: () => router.push({ pathname: '/chat/video', params: { connectionId: invite.connectionId!, incomingCallId: invite.inviteId! } }) },
+          ])
+      }
+      socket.on('incoming-connection-call', onIncoming)
+      unsubscribe = () => socket.off('incoming-connection-call', onIncoming)
+    }).catch(() => { /* Home remains usable when realtime server is unavailable. */ })
+    return () => { active = false; unsubscribe?.() }
+  }, [ready, router])
 
   if (!ready) return <Screen center>
     {error ? <>
