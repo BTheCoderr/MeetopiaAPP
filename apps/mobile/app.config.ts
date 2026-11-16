@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.meetopia.app',
-    buildNumber: '16',
+    buildNumber: '18',
     infoPlist: {
       CFBundleURLTypes: [
         {
@@ -61,6 +61,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     eas: {
       projectId: '37e69074-d079-4c60-a3c4-5d468645bcf1',
     },
-    socketUrl: process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:3003',
+    socketUrl: process.env.EXPO_PUBLIC_SOCKET_URL ?? 'https://meetopia-signaling-v2.onrender.com',
   },
 })
