@@ -25,9 +25,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
   const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null) }, [])
 
   useEffect(() => {
-    let disposed = false, active: Socket | null = null
+    let disposed = false
+    let cleanup: (() => void) | null = null
     void getAuthenticatedSocket().then((sock) => {
-      if (disposed) return; active = sock; setSocket(sock); setConnected(sock.connected)
+      if (disposed) return; setSocket(sock); setConnected(sock.connected)
       const onConnect = () => { setConnected(true); setError(null) }, onDisconnect = () => { setConnected(false); clearPeer(); setError('Connection lost. Attempting to reconnect…') }
       const onMatchError = ({ message }: { message?: string }) => { setSearching(false); setError(message || 'Unable to start a Chemistry Check.') }
       const onMutual = async ({ partnerUserId, partnerDisplayName, connectionProof }: { partnerUserId?: string; partnerDisplayName?: string; connectionProof?: string }) => {
@@ -36,11 +37,28 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         try { const result = await currentProduct.connections.saveMutualVibe(connectionProof); setMutualVibe({ partnerUserId: partnerUserId || null, partnerDisplayName: partnerDisplayName || result.connection.person.displayName, connectionId: result.connection.id, saved: true, error: null }) }
         catch (e) { setMutualVibe({ partnerUserId: partnerUserId || null, partnerDisplayName: partnerDisplayName || null, connectionId: null, saved: false, error: e instanceof Error ? e.message : 'Failed to save Connection' }) }
       }
-      sock.on('connect', onConnect); sock.on('disconnect', onDisconnect); sock.on('match-error', onMatchError); sock.on('search-cancelled', () => setSearching(false)); sock.on('mutual-vibe', onMutual)
-      sock.on('connection-call-ringing', () => { setSearching(true); setCallStatus('Calling your Connection…') }); sock.on('connection-call-accepted', () => { setSearching(false); setCallStatus('Connecting…') })
-      sock.on('connection-call-declined', () => { setSearching(false); setCallStatus(null); setError('Your Connection declined the call.') }); sock.on('connection-call-expired', () => { setSearching(false); setCallStatus(null); setError('No answer. You can try again later.') })
-    }).catch((e) => setError(e instanceof Error ? e.message : 'Meetopia video authentication is unavailable.'))
-    return () => { disposed = true; if (active) active.removeAllListeners() }
+      const onSearchCancelled = () => setSearching(false)
+      const onCallRinging = () => { setSearching(true); setCallStatus('Calling your Connection…') }
+      const onCallAccepted = () => { setSearching(false); setCallStatus('Connecting…') }
+      const onCallDeclined = () => { setSearching(false); setCallStatus(null); setError('Your Connection declined the call.') }
+      const onCallExpired = () => { setSearching(false); setCallStatus(null); setError('No answer. You can try again later.') }
+      const onDirectUnavailable = ({ message }: { message?: string }) => {
+        setSearching(false); setCallStatus(null)
+        setError(message || 'Your Connection is not available for a call.')
+      }
+      const listeners: Array<[string, (...args: any[]) => void]> = [
+        ['connect', onConnect], ['disconnect', onDisconnect],
+        ['match-error', onMatchError], ['search-cancelled', onSearchCancelled],
+        ['mutual-vibe', onMutual], ['connection-call-ringing', onCallRinging],
+        ['connection-call-accepted', onCallAccepted],
+        ['connection-call-declined', onCallDeclined],
+        ['connection-call-expired', onCallExpired],
+        ['direct-call-unavailable', onDirectUnavailable],
+      ]
+      listeners.forEach(([event, handler]) => sock.on(event, handler))
+      cleanup = () => listeners.forEach(([event, handler]) => sock.off(event, handler))
+    }).catch((e) => { if (!disposed) setError(e instanceof Error ? e.message : 'Meetopia video authentication is unavailable.') })
+    return () => { disposed = true; cleanup?.() }
   }, [clearPeer])
 
   useEffect(() => {
