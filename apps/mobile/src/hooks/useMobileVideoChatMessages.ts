@@ -26,14 +26,25 @@ export function useMobileVideoChatMessages({ socket, currentPeer, enabled = true
     return () => { socket.off('chat-message', onMessage); socket.off('typing-start', onTypingStart); socket.off('typing-stop', onTypingStop) }
   }, [socket, currentPeer, enabled])
 
-  useEffect(() => { if (!enabled) return; setMessages([]); setIsPeerTyping(false) }, [currentPeer, enabled])
+  useEffect(() => {
+    if (!enabled) return
+    let active = true
+    void Promise.resolve().then(() => {
+      if (!active) return
+      setMessages([])
+      setIsPeerTyping(false)
+    })
+    return () => { active = false }
+  }, [currentPeer, enabled])
 
   useEffect(() => {
     if (!enabled || !socket || !currentPeer || messages.length === 0) return
     const unreadIds = messages.filter(m => m.sender === 'peer' && !m.read).map(m => m.id)
     if (unreadIds.length === 0) return
     socket.emit('mark-messages-read', { messageIds: unreadIds, to: currentPeer })
-    setMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, read: true, readAt: Date.now() } : m))
+    void Promise.resolve().then(() => {
+      setMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, read: true, readAt: Date.now() } : m))
+    })
   }, [messages, currentPeer, socket, enabled])
 
   useEffect(() => {
