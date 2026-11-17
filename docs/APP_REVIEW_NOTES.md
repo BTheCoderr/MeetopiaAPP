@@ -1,3 +1,8 @@
+> ⚠️ **HISTORICAL PARITY REVIEW PLAN.** This file describes an earlier rebuilt branch, not the current Vibe Room/Encore draft.
+> For an up-to-date audit of the app's custom code, original development process and Guideline 4.2.6 questions, read [APP_REVIEW_426_CODE_PROVENANCE.md](./APP_REVIEW_426_CODE_PROVENANCE.md).
+> For accurate staging, two-iPhone testing, and remaining Guideline 4.3 evidence, read [MEETOPIA_STAGING_TWO_DEVICE_QA.md](./MEETOPIA_STAGING_TWO_DEVICE_QA.md).
+> Do not imply the current draft is available in TestFlight until a signed build is created and actually tested.
+
 # Meetopia iOS App Review notes — rebuild in progress
 
 **Status: DO NOT RESUBMIT YET.** These instructions describe the proposed native rebuild on branch `meetopia-mobile-current-parity`, not the already rejected build 17. Confirm a newly installed TestFlight build on physical iPhones before copying any claim to App Store Connect.
