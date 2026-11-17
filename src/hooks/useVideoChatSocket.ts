@@ -754,8 +754,20 @@ export function useVideoChatSocket({
     }
   }, [socket, room])
 
+  const contribute = useCallback((choice: string) => {
+    if (socket?.connected && room && room.index === 3 && !room.completed) {
+      socket.emit('vibe-room-contribute', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+
+  const approveCreation = useCallback(() => {
+    if (socket?.connected && room?.index === 3 && !room.completed && room.bridge?.proposal && !room.bridge.approved) {
+      socket.emit('vibe-room-approve', { sessionId: room.sessionId, revision: room.bridge.revision, share: true })
+    }
+  }, [socket, room])
+
   const nextRound = useCallback(() => {
-    if (socket?.connected && room && !room.completed && !room.ready) {
+    if (socket?.connected && room && !room.completed && !room.ready && room.index < 3) {
       socket.emit('vibe-room-next', { sessionId: room.sessionId })
     }
   }, [socket, room])
@@ -826,6 +838,8 @@ export function useVideoChatSocket({
     room,
     answerRound,
     nextRound,
+    contribute,
+    approveCreation,
     acceptIntroduction,
     declineIntroduction,
     currentPeer,
