@@ -23,8 +23,10 @@ spend an EAS cloud build or reply to Apple just because CI is green.**
 4. Deploy matching API/web and signaling commits to staging. The signaling
    protocol is **v2**. Old mobile/web matchmaking clients fail closed with
    `CLIENT_UPDATE_REQUIRED`; existing Connection calls remain separately
-   authorized. A current client confirms `vibe-room-hello` with the server
-   before emitting `find-user` or `find-next-user`.
+   authorized. A current client fetches a **fresh signed account token** and
+   confirms `vibe-room-hello` with the server before emitting `find-user` or
+   `find-next-user`. The server refreshes that socket's blocklist, adult
+   confirmation and Passport from the newly signed claims.
 5. Point a **development/preview EAS profile** to staging using the intended
    build environment. Confirm iOS bundle ID, permissions, WebRTC plugin, STUN/TURN
    credentials and EAS project ownership. Never commit TURN credentials.
@@ -98,8 +100,10 @@ identity verification**.
 - A signed EAS iPhone beta and two physical iPhones have not been verified.
 - Public signaling/web/mobile have not been changed to the v2 protocol.
 - STUN/TURN availability and cellular routes are not yet verified.
-- Existing connected socket credentials can become stale when another device
-  blocks a user; verify block propagation before release.
+- New introductions refresh signed Passport and block claims at search time,
+  but **mid-call blocks made from another device** still require a dedicated
+  cross-device revocation/notification test and potentially a stronger push
+  mechanism before release.
 - No real beta-user feedback or moderation-operation test record exists here.
 
 **Release status: NO GO for production or App Store resubmission until gates pass.**
