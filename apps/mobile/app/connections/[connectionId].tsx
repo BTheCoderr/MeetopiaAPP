@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { Socket } from 'socket.io-client'
 import ReportModal, { type ReportCategory } from '../../src/components/safety/ReportModal'
 import EncoreCard from '../../src/components/connections/EncoreCard'
+import CoCreationCard from '../../src/components/connections/CoCreationCard'
 import { currentProduct } from '../../src/lib/currentProduct'
 import { getAuthenticatedSocket } from '../../src/lib/socket'
 import type { ConnectionMessage, ConnectionSummary } from '../../src/types/currentProduct'
@@ -158,6 +159,7 @@ export default function ConnectionScreen() {
         <Pressable onPress={() => setReportOpen(true)} disabled={!connection} style={styles.safetyButton}><Text style={styles.safetyText}>Report</Text></Pressable>
         <Pressable onPress={blockPerson} disabled={!connection} style={styles.safetyButton}><Text style={styles.safetyText}>Block</Text></Pressable>
       </View>
+      {connection ? <CoCreationCard connectionId={id} /> : null}
       {connection ? <EncoreCard connectionId={id} /> : null}
       {error ? <Pressable onPress={() => void load()} style={styles.errorBanner} accessibilityRole="button">
         <Text style={styles.errorText}>{error} Tap to retry.</Text>
