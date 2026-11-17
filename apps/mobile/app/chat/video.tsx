@@ -111,6 +111,21 @@ function LiveVideoScreen() {
     <VideoStage localStream={stream} remoteStream={chat.remoteStream} isPeerConnected={chat.peerConnected} isSearching={chat.searching} hasPeer={Boolean(chat.peerId)} isCameraOff={isCameraOff} remoteCameraOff={chat.remoteCameraOff} remoteMicOff={chat.remoteMicOff} hideConnectingOverlay />
     <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none"><View style={styles.headerRow}><Pressable onPress={leave} hitSlop={10} style={styles.backBtn}><Text style={styles.back}>‹</Text></Pressable><View style={styles.headerCenter}><Text style={styles.title}>Chemistry Check</Text><ChemistryTimer active={Boolean(chat.peerId) && chat.peerConnected} />{chat.callStatus ? <Text style={styles.callStatus}>{chat.callStatus}</Text> : null}</View><View style={styles.statusWrap}><Text style={[styles.status, chat.connected ? styles.online : styles.offline]}>●</Text></View></View></SafeAreaView>
     {showPreparing && <View style={styles.preparing} pointerEvents="none"><Text style={styles.preparingText}>{chat.callStatus || 'Preparing your Chemistry Check…'}</Text></View>}
+    {chat.introduction && <View style={styles.introOverlay}>
+      <View style={styles.introCard}>
+        <Text style={styles.introEyebrow}>MEETOPIA / THE INTRODUCTION</Text>
+        <Text style={styles.introHeading}>Common ground. Real chemistry.</Text>
+        <Text style={styles.introName}>Meet {chat.introduction.person.displayName}</Text>
+        <Text style={styles.introDescription}>You both chose to explore these interests:</Text>
+        <View style={styles.sharedChips}>{chat.introduction.person.sharedInterests.map(interest => <View key={interest} style={styles.sharedChip}><Text style={styles.sharedText}>{interest}</Text></View>)}</View>
+        <Text style={styles.introDescription}>Their conversation style: {chat.introduction.person.conversationStyle}.</Text>
+        <Text style={styles.introNote}>Video only starts after you BOTH agree. Either person can decline without starting a call.</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Accept this introduction" disabled={chat.introduction.accepted} style={[styles.acceptButton, chat.introduction.accepted && styles.acceptWaiting]} onPress={chat.acceptIntroduction}>
+          <Text style={styles.acceptText}>{chat.introduction.accepted ? 'Accepted · waiting for them…' : 'Meet in the Vibe Room'}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={chat.declineIntroduction} style={styles.declineButton}><Text style={styles.declineText}>Not this introduction</Text></Pressable>
+      </View>
+    </View>}
     {(mediaError || chat.error || persistentMessages.error) && <View style={styles.errorBanner}><Text style={styles.errorText}>{mediaError ?? chat.error ?? persistentMessages.error}</Text></View>}
     {showVibeSuccess && <View style={styles.vibeOverlay}><View style={styles.vibeCard}><Text style={styles.vibeEmoji}>✨</Text><Text style={styles.vibeTitle}>It&apos;s a Vibe</Text><Text style={styles.vibeSub}>You both chose Vibe. This is now a Connection.</Text><Pressable style={styles.vibePrimary} onPress={() => setDismissedConnectionId(chat.mutualVibe?.connectionId || null)}><Text style={styles.vibePrimaryText}>Keep Talking</Text></Pressable><Pressable style={styles.vibeSecondary} onPress={() => router.replace(`/connections/${chat.mutualVibe!.connectionId}`)}><Text style={styles.vibeSecondaryText}>Open Connection</Text></Pressable></View></View>}
     <MessageBar messages={messages} value={draft} onChange={onDraftChange} onSend={sendMessage} disabled={!chat.peerId || persistentMessages.sending} isPeerTyping={isPeerTyping} />
@@ -120,6 +135,21 @@ function LiveVideoScreen() {
 }
 
 const styles = StyleSheet.create({
+  introOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 42, backgroundColor: 'rgba(3, 4, 16, 0.96)', justifyContent: 'center', padding: 22 },
+  introCard: { backgroundColor: '#111028', borderColor: '#6e50af', borderWidth: 1, borderRadius: 28, padding: 24 },
+  introEyebrow: { color: '#a995ef', fontSize: 11, fontWeight: '800', letterSpacing: 2 },
+  introHeading: { color: '#ffffff', fontSize: 29, fontWeight: '900', marginTop: 10, lineHeight: 34 },
+  introName: { color: '#ded5ff', fontSize: 18, fontWeight: '700', marginTop: 20 },
+  introDescription: { color: '#cbc9d7', fontSize: 14, marginTop: 13, lineHeight: 21 },
+  sharedChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  sharedChip: { borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#32245c', borderColor: '#7651c7', borderWidth: 1 },
+  sharedText: { color: '#f4eaff', fontWeight: '700', textTransform: 'capitalize' },
+  introNote: { color: '#9c99af', fontSize: 13, lineHeight: 18, marginTop: 22 },
+  acceptButton: { backgroundColor: '#7c5cff', padding: 17, borderRadius: 16, marginTop: 22, alignItems: 'center' },
+  acceptWaiting: { opacity: 0.65 },
+  acceptText: { color: 'white', fontWeight: '800', fontSize: 15 },
+  declineButton: { padding: 16, alignItems: 'center' },
+  declineText: { color: '#cec6df', fontWeight: '700' },
   accessGate: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   accessText: { color: '#fff', fontSize: 16, textAlign: 'center' },
   accessRetry: { color: colors.brandBlueLight, fontSize: 16, fontWeight: '700', marginTop: 20 },
