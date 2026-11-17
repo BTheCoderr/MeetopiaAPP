@@ -32,6 +32,7 @@ function harness() {
       if (name === './socketAuth') return require(path.join(root, 'socketAuth'));
       if (name === './activePeerRelay') return require(path.join(root, 'activePeerRelay'));
       if (name === './consentIntroductions') return require(path.join(root, 'consentIntroductions'));
+      if (name === './vibeRoomSessions') return require(path.join(root, 'vibeRoomSessions'));
       if (name === './connectionAccess') return { validateConnection: async (userId, _proof, details) => allowed ? {
         connectionId: 'connection', otherUserId: userId === 'alice' ? 'bob' : 'alice',
         message: details?.messageId === 'saved' ? { id: 'saved', content: 'Saved server content', senderId: 'alice', receiverId: 'bob' } : null,
