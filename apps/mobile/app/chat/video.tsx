@@ -135,7 +135,7 @@ function LiveVideoScreen() {
 }
 
 const styles = StyleSheet.create({
-  introOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 42, backgroundColor: 'rgba(3, 4, 16, 0.96)', justifyContent: 'center', padding: 22 },
+  introOverlay: { ...StyleSheet.absoluteFill, zIndex: 42, backgroundColor: 'rgba(3, 4, 16, 0.96)', justifyContent: 'center', padding: 22 },
   introCard: { backgroundColor: '#111028', borderColor: '#6e50af', borderWidth: 1, borderRadius: 28, padding: 24 },
   introEyebrow: { color: '#a995ef', fontSize: 11, fontWeight: '800', letterSpacing: 2 },
   introHeading: { color: '#ffffff', fontSize: 29, fontWeight: '900', marginTop: 10, lineHeight: 34 },
