@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import type { VibeRoomState } from '@/lib/vibeRoom'
 import { useRouter } from 'next/navigation'
 
 const LOG = '[WebRTC:Signaling]'
@@ -69,6 +70,7 @@ export function useVideoChatSocket({
   const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
   const [callStatus, setCallStatus] = useState<string | null>(null)
   const [introduction, setIntroduction] = useState<IntroductionState | null>(null)
+  const [room, setRoom] = useState<VibeRoomState | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -166,6 +168,7 @@ export function useVideoChatSocket({
         setHasVibed(false)
         setMutualVibe(null)
         setIntroduction(null)
+        setRoom(null)
         setError('Connection lost. Attempting to reconnect...')
       })
 
@@ -204,6 +207,11 @@ export function useVideoChatSocket({
       newSocket.on('introduction-expired', ended)
       newSocket.on('introduction-cancelled', ended)
       newSocket.on('introduction-approved', () => { setIntroduction(null); setError(null) })
+      newSocket.on('vibe-room-state', (next: VibeRoomState) => setRoom(next))
+      newSocket.on('vibe-room-ended', () => setRoom(null))
+      newSocket.on('vibe-room-error', ({ message }: { message?: string }) => {
+        setError(message || 'Unable to advance the Vibe Room.')
+      })
 
       newSocket.on(
         'direct-call-unavailable',
@@ -693,6 +701,7 @@ export function useVideoChatSocket({
     setCurrentPeerUserId(null)
     setHasVibed(false)
     setMutualVibe(null)
+    setRoom(null)
     setRemoteStream(null)
     setIsSearching(true)
     setError(null)
@@ -716,11 +725,23 @@ export function useVideoChatSocket({
     setIntroduction(null); setIsSearching(false)
   }, [socket, introduction, setIsSearching])
 
+  const answerRound = useCallback((choice: string) => {
+    if (socket?.connected && room && !room.completed && room.index === 1 && !room.myChoice) {
+      socket.emit('vibe-room-answer', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+
+  const nextRound = useCallback(() => {
+    if (socket?.connected && room && !room.completed && !room.ready) {
+      socket.emit('vibe-room-next', { sessionId: room.sessionId })
+    }
+  }, [socket, room])
+
   const handleVibe = useCallback(() => {
-    if (!socket?.connected || !currentPeer || hasVibed) return
+    if (!socket?.connected || !currentPeer || !room?.completed || hasVibed) return
     socket.emit('vibe-tap', { to: currentPeer })
     setHasVibed(true)
-  }, [socket, currentPeer, hasVibed])
+  }, [socket, currentPeer, room, hasVibed])
 
   const handleBlock = useCallback(async () => {
     if (!socket?.connected || !currentPeer) return false
@@ -763,6 +784,7 @@ export function useVideoChatSocket({
     setCurrentPeerUserId(null)
     setHasVibed(false)
     setMutualVibe(null)
+    setRoom(null)
     setRemoteStream(null)
     setIsSearching(false)
     router.push('/')
@@ -777,6 +799,9 @@ export function useVideoChatSocket({
     socket,
     isSocketConnected,
     introduction,
+    room,
+    answerRound,
+    nextRound,
     acceptIntroduction,
     declineIntroduction,
     currentPeer,
