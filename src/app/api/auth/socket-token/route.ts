@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { createSocketToken } from '@/lib/socketToken'
+import { parseChemistryPassport } from '@/lib/chemistryPassport'
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +23,9 @@ export async function GET(request: NextRequest) {
         displayName: true,
         username: true,
         adultConfirmedAt: true,
+        chemistryIntent: true,
+        chemistryStyle: true,
+        chemistryInterests: true,
         blocksMade: { select: { blockedId: true } },
       },
     })
@@ -44,6 +48,7 @@ export async function GET(request: NextRequest) {
         displayName: user.displayName || user.username,
         adultConfirmed: Boolean(user.adultConfirmedAt),
         blocked: user.blocksMade.map(block => block.blockedId),
+        passport: parseChemistryPassport({ intent: user.chemistryIntent, style: user.chemistryStyle, interests: user.chemistryInterests }),
       }),
     })
   } catch (error) {
