@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MediaStream, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc'
 import type { Socket } from 'socket.io-client'
 import { getAuthenticatedSocket } from '../lib/socket'
+import { confirmVibeRoomServer } from '../lib/vibeRoomProtocol'
 import { currentProduct } from '../lib/currentProduct'
 import type { ChemistryIntroduction } from '../types/chemistryPassport'
 import type { VibeRoomState } from '../types/vibeRoom'
@@ -26,6 +27,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
   const [introduction, setIntroduction] = useState<ChemistryIntroduction | null>(null)
   const [room, setRoom] = useState<VibeRoomState | null>(null)
   const peerRef = useRef<string | null>(null), pcRef = useRef(peerConnection), pendingIce = useRef<Candidate[]>([]), directAttempt = useRef<string | null>(null), incomingAttempt = useRef<string | null>(null)
+  const searchGeneration = useRef(0)
   useEffect(() => { pcRef.current = peerConnection }, [peerConnection])
   const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false); setIntroduction(null); setRoom(null) }, [])
 
@@ -145,6 +147,43 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
       socket.emit('vibe-room-next', { sessionId: room.sessionId })
     }
   }, [socket, room])
-  const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); setIntroduction(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false); setIntroduction(null) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && room?.completed && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, room, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
+  const start = useCallback(() => {
+    if (!socket?.connected || !stream) return
+    const requestId = ++searchGeneration.current
+    setSearching(true); setError(null); setIntroduction(null)
+    void confirmVibeRoomServer(socket).then(supported => {
+      if (requestId !== searchGeneration.current) return
+      if (!supported || !socket.connected) {
+        setSearching(false)
+        setError('The Vibe Room server needs to be updated before you can start a Chemistry Check.')
+        return
+      }
+      socket.emit('find-user')
+    })
+  }, [socket, stream])
+  const cancel = useCallback(() => {
+    searchGeneration.current += 1
+    socket?.emit('cancel-search'); setSearching(false); setIntroduction(null)
+  }, [socket])
+  const next = useCallback(() => {
+    const requestId = ++searchGeneration.current
+    pendingIce.current = []
+    if (peerRef.current) restartConnection()
+    clearPeer()
+    setSearching(true)
+    setTimeout(() => {
+      if (!socket?.connected || requestId !== searchGeneration.current) return
+      void confirmVibeRoomServer(socket).then(supported => {
+        if (requestId !== searchGeneration.current) return
+        if (!supported || !socket.connected) {
+          setSearching(false)
+          setError('The Vibe Room server needs an update before another introduction.')
+          return
+        }
+        socket.emit('find-next-user')
+      })
+    }, 350)
+  }, [socket, restartConnection, clearPeer])
+  const acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && room?.completed && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, room, hasVibed]), leave = useCallback(() => { searchGeneration.current += 1; socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
   return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, room, answerRound, nextRound, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
 }
