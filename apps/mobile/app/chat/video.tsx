@@ -25,10 +25,13 @@ export default function VideoChatScreen() {
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let active = true
-    void accountStatus().then(({ adultConfirmed }) => {
+    void accountStatus().then(async ({ adultConfirmed }) => {
       if (!active) return
-      if (!adultConfirmed) router.replace('/onboarding/age-gate')
-      else setAccess('allowed')
+      if (!adultConfirmed) { router.replace('/onboarding/age-gate'); return }
+      const passport = await currentProduct.passport.get()
+      if (!active) return
+      if (!passport.complete) { router.replace('/onboarding/passport'); return }
+      setAccess('allowed')
     }).catch(cause => {
       if (!active) return
       if (isAuthFailure(cause)) router.replace('/auth/signin')
