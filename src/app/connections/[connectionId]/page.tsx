@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/Layout/MainLayout'
 import { useConnectionThreadRealtime } from '@/hooks/useConnectionThreadRealtime'
+import EncoreCard from '@/components/connections/EncoreCard'
 
 type Person = {
   id: string
@@ -471,6 +472,7 @@ export default function ConnectionDetailPage() {
             )}
           </header>
 
+          <EncoreCard connectionId={connectionId} />
           <section className="flex min-h-[460px] flex-col">
             <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50/70 p-4 sm:p-6">
               {messages.length === 0 ? (
