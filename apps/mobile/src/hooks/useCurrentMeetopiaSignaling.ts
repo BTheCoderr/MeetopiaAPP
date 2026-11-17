@@ -4,6 +4,7 @@ import type { Socket } from 'socket.io-client'
 import { getAuthenticatedSocket } from '../lib/socket'
 import { currentProduct } from '../lib/currentProduct'
 import type { ChemistryIntroduction } from '../types/chemistryPassport'
+import type { VibeRoomState } from '../types/vibeRoom'
 
 type PeerEvents = {
   addEventListener: (name: string, listener: (...args: any[]) => void) => void
@@ -23,9 +24,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
   const [callStatus, setCallStatus] = useState<string | null>(null), [error, setError] = useState<string | null>(null)
   const [remoteCameraOff, setRemoteCameraOff] = useState(false), [remoteMicOff, setRemoteMicOff] = useState(false)
   const [introduction, setIntroduction] = useState<ChemistryIntroduction | null>(null)
+  const [room, setRoom] = useState<VibeRoomState | null>(null)
   const peerRef = useRef<string | null>(null), pcRef = useRef(peerConnection), pendingIce = useRef<Candidate[]>([]), directAttempt = useRef<string | null>(null), incomingAttempt = useRef<string | null>(null)
   useEffect(() => { pcRef.current = peerConnection }, [peerConnection])
-  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false); setIntroduction(null) }, [])
+  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false); setIntroduction(null); setRoom(null) }, [])
 
   useEffect(() => {
     let disposed = false
@@ -53,6 +55,9 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         if (reason) setError(reason)
       }
       const onIntroApproved = () => { setIntroduction(null); setError(null) }
+      const onRoomState = (next: VibeRoomState) => setRoom(next)
+      const onRoomEnded = () => setRoom(null)
+      const onRoomError = ({ message }: { message?: string }) => setError(message || 'Unable to advance the Vibe Room.')
       const onCallRinging = () => { setSearching(true); setCallStatus('Calling your Connection…') }
       const onCallAccepted = () => { setSearching(false); setCallStatus('Connecting…') }
       const onCallDeclined = () => { setSearching(false); setCallStatus(null); setError('Your Connection declined the call.') }
@@ -72,6 +77,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         ['introduction-response-recorded', onIntroAccepted],
         ['introduction-declined', onIntroEnded], ['introduction-cancelled', onIntroEnded],
         ['introduction-expired', onIntroEnded], ['introduction-approved', onIntroApproved],
+        ['vibe-room-state', onRoomState], ['vibe-room-ended', onRoomEnded], ['vibe-room-error', onRoomError],
         ['mutual-vibe', onMutual], ['connection-call-ringing', onCallRinging],
         ['connection-call-accepted', onCallAccepted],
         ['connection-call-declined', onCallDeclined],
@@ -129,6 +135,16 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
 
   useEffect(() => { if (!directConnectionId || incomingCallId || !socket?.connected || !peerConnection || directAttempt.current === directConnectionId) return; directAttempt.current = directConnectionId; setSearching(true); setError(null); void currentProduct.connections.callProof(directConnectionId).then(({ proof }) => socket.emit('call-connection', { proof })).catch((e) => { setSearching(false); setError(e instanceof Error ? e.message : 'Could not start this Connection call.') }) }, [directConnectionId, incomingCallId, socket, peerConnection])
   useEffect(() => { if (!incomingCallId || !socket?.connected || !peerConnection || incomingAttempt.current === incomingCallId) return; incomingAttempt.current = incomingCallId; setSearching(true); setCallStatus('Connecting your call…'); socket.emit('accept-connection-call', { inviteId: incomingCallId }) }, [incomingCallId, socket, peerConnection])
-  const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); setIntroduction(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false); setIntroduction(null) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
-  return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
+  const answerRound = useCallback((choice: string) => {
+    if (socket?.connected && room && !room.completed && room.index === 1 && !room.myChoice) {
+      socket.emit('vibe-room-answer', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+  const nextRound = useCallback(() => {
+    if (socket?.connected && room && !room.ready && !room.completed) {
+      socket.emit('vibe-room-next', { sessionId: room.sessionId })
+    }
+  }, [socket, room])
+  const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); setIntroduction(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false); setIntroduction(null) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && room?.completed && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, room, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
+  return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, room, answerRound, nextRound, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
 }

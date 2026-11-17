@@ -5,6 +5,7 @@ const cors = require('cors');
 const { validateConnection } = require('./connectionAccess');
 const { isActivePeerRelay } = require('./activePeerRelay');
 const { validatePassport, comparePassports, createConsentIntroductions } = require('./consentIntroductions');
+const { createVibeRoomSessions } = require('./vibeRoomSessions');
 const { randomUUID, timingSafeEqual } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const {
@@ -230,6 +231,7 @@ function pairUsers(userIdA, userIdB) {
 }
 
 function clearActivePair(socketId, notifyPeer = true) {
+  vibeRooms.cancel(socketId);
   const peerId = activePairs.get(socketId);
   if (!peerId) return null;
   activePairs.delete(socketId);
@@ -308,6 +310,15 @@ function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   removeFromMatchQueues(socket.id);
 }
 
+// Server-owned round state exists only for mutually approved introductions.
+// Direct calls between existing Connections do not instantiate a new Vibe Room.
+const vibeRooms = createVibeRoomSessions({
+  canContinue: (a, b) =>
+    isActivePeerRelay(activePairs, a.id, b.id) &&
+    Boolean(a.data.adultConfirmed && b.data.adultConfirmed) &&
+    !isBlockedBetween(a.id, b.id),
+});
+
 // Invitations do NOT create a media pair. The server grants WebRTC relay access
 // only after two independently authenticated, adult participants both accept.
 const introductions = createConsentIntroductions({
@@ -322,6 +333,8 @@ const introductions = createConsentIntroductions({
   onApproved: (a, b) => {
     // pairUsers is the ONLY granting operation for peer media and chat relays.
     pairUsers(a.id, b.id);
+    const comparison = comparePassports(a.data.passport, b.data.passport);
+    vibeRooms.start(a, b, comparison?.sharedInterests || []);
     for (const [me, other] of [[a, b], [b, a]]) {
       me.emit('introduction-approved', { partnerDisplayName: other.data.displayName || 'Meetopia member' });
       me.emit('user-found', { partnerId: other.id, partnerUserId: other.data.userId });
@@ -366,6 +379,18 @@ io.on('connection', (socket) => {
 
   socket.on('introduction-response', ({ invitationId, accept } = {}) => {
     introductions.respond(socket, invitationId, accept === true);
+  });
+
+  socket.on('vibe-room-answer', (payload = {}) => {
+    if (!vibeRooms.answer(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'This answer is no longer available.' });
+    }
+  });
+
+  socket.on('vibe-room-next', (payload = {}) => {
+    if (!vibeRooms.next(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Wait for both participants to complete this round.' });
+    }
   });
 
   socket.on('call-connection', async ({ proof } = {}) => {
@@ -702,8 +727,14 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} marked messages as read: ${messageIds.length} messages`);
   });
 
-  socket.on('vibe-tap', ({ to }) => {
-    if (!to || activePairs.get(socket.id) !== to) return;
+  socket.on('vibe-tap', ({ to } = {}) => {
+    if (!to || !isActivePeerRelay(activePairs, socket.id, to)) return;
+    // An existing Connection call does not need new Vibe confirmation.
+    // A new introduction must complete all three rounds on the server.
+    if (!vibeRooms.canVibe(socket.id, to)) {
+      socket.emit('vibe-room-error', { message: 'Complete the three Vibe Rounds together before choosing Vibe.' });
+      return;
+    }
 
     vibeTargets.set(socket.id, to);
     socket.to(to).emit('vibe-received', { from: socket.id });

@@ -9,6 +9,7 @@ interface ControlBarProps {
   buttonCooldown: boolean
   hasPeer: boolean
   hasVibed: boolean
+  canVibe: boolean
   isMuted: boolean
   isCameraOff: boolean
   isScreenSharing: boolean
@@ -78,6 +79,7 @@ export default function ControlBar({
   buttonCooldown,
   hasPeer,
   hasVibed,
+  canVibe,
   isMuted,
   isCameraOff,
   isScreenSharing,
@@ -182,9 +184,9 @@ export default function ControlBar({
             </IconButton>
             <IconButton
               onClick={onVibe}
-              disabled={hasVibed}
+              disabled={hasVibed || !canVibe}
               active={hasVibed}
-              label={hasVibed ? 'Vibe sent' : 'Send a Vibe'}
+              label={hasVibed ? 'Vibe sent' : canVibe ? 'Send a Vibe' : 'Complete the Vibe Room to choose Vibe'}
             >
               <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 21s-7-4.35-9.33-8.29C.72 9.42 2.07 5.5 5.72 4.53 8.08 3.9 10.14 5.1 12 7.17c1.86-2.07 3.92-3.27 6.28-2.64 3.65.97 5 4.89 3.05 8.18C19 16.65 12 21 12 21z" />

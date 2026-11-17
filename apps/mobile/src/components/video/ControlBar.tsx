@@ -13,6 +13,7 @@ interface Props {
   onToggleCamera: () => void
   onFlipCamera: () => void
   onVibe: () => void
+  canVibe: boolean
   onReport: () => void
   onBlock: () => void
   isMuted: boolean
@@ -33,6 +34,7 @@ export default function ControlBar({
   onToggleCamera,
   onFlipCamera,
   onVibe,
+  canVibe,
   onReport,
   onBlock,
   isMuted,
@@ -68,9 +70,9 @@ export default function ControlBar({
           <>
             <TouchableOpacity
               style={[layout.controlBtn, myVibeSent && styles.vibeActive]}
-              accessibilityRole="button" accessibilityLabel="Choose Vibe"
+              accessibilityRole="button" accessibilityLabel={canVibe ? "Choose Vibe" : "Complete the Vibe Room first"}
               onPress={onVibe}
-              disabled={myVibeSent}
+              disabled={myVibeSent || !canVibe}
             >
               <Text style={styles.icon}>{myVibeSent ? '💚' : '✨'}</Text>
             </TouchableOpacity>
