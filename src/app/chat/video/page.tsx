@@ -13,6 +13,7 @@ import VideoChatHeader from '@/components/video-chat/VideoChatHeader'
 import ControlBar from '@/components/video-chat/ControlBar'
 import VideoStage from '@/components/video-chat/VideoStage'
 import ChatPanel from '@/components/video-chat/ChatPanel'
+import VibeRounds from '@/components/video-chat/VibeRounds'
 import VideoChatModals from '@/components/video-chat/VideoChatModals'
 import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
 
@@ -234,6 +235,7 @@ export default function VideoChatPage() {
         buttonCooldown={state.buttonCooldown}
         hasPeer={Boolean(chat.currentPeer)}
         hasVibed={chat.hasVibed}
+        canVibe={chat.room?.completed === true}
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
@@ -254,6 +256,7 @@ export default function VideoChatPage() {
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
+      <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} />
       {chat.introduction && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#090718]/95 p-5 text-white">
           <div className="w-full max-w-md rounded-[32px] border border-violet-400/40 bg-[#191332] p-8 shadow-2xl">
