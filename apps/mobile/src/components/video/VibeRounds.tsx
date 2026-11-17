@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   kicker: { color: '#b9a1f7', fontSize: 10, letterSpacing: 2, fontWeight: '900' },
   title: { color: 'white', fontSize: 23, fontWeight: '900', marginTop: 8 },
   subtitle: { color: '#beb5d4', fontSize: 12, lineHeight: 18, marginTop: 6 },
-  prompt: { color: '#fff', fontSize: 17, lineHeight: 24, fontWeight: '650', marginTop: 14 },
+  prompt: { color: '#fff', fontSize: 17, lineHeight: 24, fontWeight: '600', marginTop: 14 },
   options: { gap: 8, marginTop: 12 },
   option: { borderRadius: 13, padding: 12, borderWidth: 1, borderColor: '#68539b', backgroundColor: '#292145' },
   selected: { borderColor: '#dac5ff', backgroundColor: '#483078' },
