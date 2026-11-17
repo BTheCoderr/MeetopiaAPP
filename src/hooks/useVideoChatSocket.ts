@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import type { VibeRoomState } from '@/lib/vibeRoom'
+import { VIBE_ROOM_PROTOCOL, confirmVibeRoomServer } from '@/lib/vibeRoomProtocol'
 import { useRouter } from 'next/navigation'
 
 const LOG = '[WebRTC:Signaling]'
@@ -79,6 +80,7 @@ export function useVideoChatSocket({
   const isCallerRef = useRef(false)
   const directCallAttemptedRef = useRef<string | null>(null)
   const incomingCallAcceptedRef = useRef<string | null>(null)
+  const searchGenerationRef = useRef(0)
 
   useEffect(() => {
     socketRef.current = socket
@@ -135,7 +137,7 @@ export function useVideoChatSocket({
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        auth: token ? { token } : {},
+        auth: token ? { token, meetopiaProtocol: VIBE_ROOM_PROTOCOL } : { meetopiaProtocol: VIBE_ROOM_PROTOCOL },
       })
       setSocket(newSocket)
       socketRef.current = newSocket
@@ -158,6 +160,7 @@ export function useVideoChatSocket({
       })
 
       newSocket.on('disconnect', () => {
+        searchGenerationRef.current += 1
         console.log(LOG, 'socket disconnected')
         setIsSocketConnected(false)
         setCurrentPeer(null)
@@ -673,15 +676,24 @@ export function useVideoChatSocket({
 
   const handleStartChat = useCallback(() => {
     if (!socket?.connected || !stream || buttonCooldown) return
-    console.log(LOG, 'find-user')
+    const requestId = ++searchGenerationRef.current
     setIsSearching(true)
     setError(null)
     setIntroduction(null)
-    socket.emit('find-user')
-    startCooldown()
+    void confirmVibeRoomServer(socket).then(supported => {
+      if (requestId !== searchGenerationRef.current) return
+      if (!supported || !socket.connected) {
+        setIsSearching(false)
+        setError('The Vibe Room signaling server must be updated before starting a Chemistry Check.')
+        return
+      }
+      socket.emit('find-user')
+      startCooldown()
+    })
   }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown])
 
   const handleCancelSearch = useCallback(() => {
+    searchGenerationRef.current += 1
     if (!socket?.connected) return
     socket.emit('cancel-search')
     setIsSearching(false)
@@ -690,11 +702,9 @@ export function useVideoChatSocket({
   }, [socket, setIsSearching, setError])
 
   const handleNextPerson = useCallback(() => {
-    console.log(LOG, 'find-next-user')
+    const requestId = ++searchGenerationRef.current
     pendingIceCandidatesRef.current = []
-    if (currentPeer) {
-      restartConnection()
-    }
+    if (currentPeer) restartConnection()
     setIsPeerConnected(false)
     currentPeerRef.current = null
     setCurrentPeer(null)
@@ -706,9 +716,18 @@ export function useVideoChatSocket({
     setIsSearching(true)
     setError(null)
     window.setTimeout(() => {
-      socket?.emit('find-next-user')
+      if (!socket?.connected || requestId !== searchGenerationRef.current) return
+      void confirmVibeRoomServer(socket).then(supported => {
+        if (requestId !== searchGenerationRef.current) return
+        if (!supported || !socket.connected) {
+          setIsSearching(false)
+          setError('The Vibe Room signaling server must be updated before another introduction.')
+          return
+        }
+        socket.emit('find-next-user')
+        startCooldown()
+      })
     }, 350)
-    startCooldown()
     return 'next' as const
   }, [currentPeer, restartConnection, socket, startCooldown, setError])
 
@@ -778,6 +797,7 @@ export function useVideoChatSocket({
   const handleLeaveChat = useCallback(() => {
     const confirmLeave = window.confirm('Are you sure you want to leave the chat?')
     if (!confirmLeave) return false
+    searchGenerationRef.current += 1
     socket?.emit('leave-chat')
     currentPeerRef.current = null
     setCurrentPeer(null)
