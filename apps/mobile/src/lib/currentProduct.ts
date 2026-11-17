@@ -9,6 +9,10 @@ export const currentProduct = {
     save: (passport: ChemistryPassport) => api<ChemistryPassportStatus>('/api/chemistry/passport', { method: 'PUT', body: JSON.stringify(passport) }),
   },
   connections: {
+    creation: {
+      get: (id: string) => api<{ creation: { themeId: string; activity: string; setting: string } | null; labels: { theme: string; activity: string; setting: string } | null }>(`/api/connections/${encodeURIComponent(id)}/creation`),
+      remove: (id: string) => api<{ creation: null; labels: null }>(`/api/connections/${encodeURIComponent(id)}/creation`, { method: 'DELETE' }),
+    },
     encore: {
       get: (id: string) => api<EncoreView>(`/api/connections/${encodeURIComponent(id)}/encore`),
       share: (id: string, choice: EncoreChoice) => api<EncoreView>(`/api/connections/${encodeURIComponent(id)}/encore`, { method: 'PUT', body: JSON.stringify({ choice, share: true }) }),
