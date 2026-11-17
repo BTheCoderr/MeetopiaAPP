@@ -6,6 +6,7 @@ import VideoStage from '@/components/video/VideoStage'
 import MessageBar from '@/components/video/MessageBar'
 import ControlBar from '@/components/video/ControlBar'
 import ChemistryTimer from '@/components/video/ChemistryTimer'
+import VibeRounds from '@/components/video/VibeRounds'
 import ReportModal, { type ReportCategory } from '@/components/safety/ReportModal'
 import { layout } from '@/components/video/mobileLayout'
 import { colors } from '@/theme/theme'
@@ -114,6 +115,7 @@ function LiveVideoScreen() {
     <VideoStage localStream={stream} remoteStream={chat.remoteStream} isPeerConnected={chat.peerConnected} isSearching={chat.searching} hasPeer={Boolean(chat.peerId)} isCameraOff={isCameraOff} remoteCameraOff={chat.remoteCameraOff} remoteMicOff={chat.remoteMicOff} hideConnectingOverlay />
     <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none"><View style={styles.headerRow}><Pressable onPress={leave} hitSlop={10} style={styles.backBtn}><Text style={styles.back}>‹</Text></Pressable><View style={styles.headerCenter}><Text style={styles.title}>Chemistry Check</Text><ChemistryTimer active={Boolean(chat.peerId) && chat.peerConnected} />{chat.callStatus ? <Text style={styles.callStatus}>{chat.callStatus}</Text> : null}</View><View style={styles.statusWrap}><Text style={[styles.status, chat.connected ? styles.online : styles.offline]}>●</Text></View></View></SafeAreaView>
     {showPreparing && <View style={styles.preparing} pointerEvents="none"><Text style={styles.preparingText}>{chat.callStatus || 'Preparing your Chemistry Check…'}</Text></View>}
+    <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} />
     {chat.introduction && <View style={styles.introOverlay}>
       <View style={styles.introCard}>
         <Text style={styles.introEyebrow}>MEETOPIA / THE INTRODUCTION</Text>
@@ -132,7 +134,7 @@ function LiveVideoScreen() {
     {(mediaError || chat.error || persistentMessages.error) && <View style={styles.errorBanner}><Text style={styles.errorText}>{mediaError ?? chat.error ?? persistentMessages.error}</Text></View>}
     {showVibeSuccess && <View style={styles.vibeOverlay}><View style={styles.vibeCard}><Text style={styles.vibeEmoji}>✨</Text><Text style={styles.vibeTitle}>It&apos;s a Vibe</Text><Text style={styles.vibeSub}>You both chose Vibe. This is now a Connection.</Text><Pressable style={styles.vibePrimary} onPress={() => setDismissedConnectionId(chat.mutualVibe?.connectionId || null)}><Text style={styles.vibePrimaryText}>Keep Talking</Text></Pressable><Pressable style={styles.vibeSecondary} onPress={() => router.replace(`/connections/${chat.mutualVibe!.connectionId}`)}><Text style={styles.vibeSecondaryText}>Open Connection</Text></Pressable></View></View>}
     <MessageBar messages={messages} value={draft} onChange={onDraftChange} onSend={sendMessage} disabled={!chat.peerId || persistentMessages.sending} isPeerTyping={isPeerTyping} />
-    <ControlBar hasPeer={Boolean(chat.peerId)} isSearching={chat.searching} isSocketConnected={chat.connected} canStart={Boolean(stream)} onStart={chat.start} onNext={chat.next} onLeave={leave} onToggleMute={toggleMute} onToggleCamera={toggleCamera} onFlipCamera={flipCamera} onVibe={chat.vibe} onReport={() => setReportOpen(true)} onBlock={handleBlock} isMuted={isMuted} isCameraOff={isCameraOff} myVibeSent={chat.hasVibed} mutualVibe={Boolean(chat.mutualVibe?.saved)} />
+    <ControlBar hasPeer={Boolean(chat.peerId)} isSearching={chat.searching} isSocketConnected={chat.connected} canStart={Boolean(stream)} onStart={chat.start} onNext={chat.next} onLeave={leave} onToggleMute={toggleMute} onToggleCamera={toggleCamera} onFlipCamera={flipCamera} onVibe={chat.vibe} canVibe={chat.room?.completed === true} onReport={() => setReportOpen(true)} onBlock={handleBlock} isMuted={isMuted} isCameraOff={isCameraOff} myVibeSent={chat.hasVibed} mutualVibe={Boolean(chat.mutualVibe?.saved)} />
     <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} onSubmit={(category) => void onReportSubmit(category)} />
   </View>
 }
