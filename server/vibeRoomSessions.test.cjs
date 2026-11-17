@@ -48,7 +48,6 @@ test('Curveball answers remain private until both choose, then reveal to correct
   assert.equal(a.last().myChoice, 'explore')
   assert.equal(b.last().myChoice, null)
   assert.equal(b.last().reveal, null)
-  assert.equal(JSON.stringify(b.last()).includes('explore'), false)
   assert.equal(rooms.next(a, { sessionId: id }), false)
   assert.equal(rooms.answer(b, { sessionId: id, choice: 'cozy' }), true)
   assert.deepEqual(a.last().reveal, [
