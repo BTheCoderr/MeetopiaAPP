@@ -18,9 +18,13 @@ import { usePersistentInCallMessages } from '@/hooks/usePersistentInCallMessages
 import { currentProduct } from '@/lib/currentProduct'
 import { accountStatus, isAuthFailure } from '@/lib/auth'
 import { invalidateAuthenticatedSocket } from '@/lib/socket'
+import { isVibeThemeId } from '@/types/vibeThemes'
 
 export default function VideoChatScreen() {
   const router = useRouter()
+  const params = useLocalSearchParams<{ themeId?: string | string[]; connectionId?: string | string[]; incomingCallId?: string | string[] }>()
+  const selectedTheme = Array.isArray(params.themeId) ? params.themeId[0] : params.themeId
+  const directCall = Boolean(params.connectionId || params.incomingCallId)
   const [access, setAccess] = useState<'checking' | 'allowed' | 'error'>('checking')
   const [accessError, setAccessError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -32,6 +36,7 @@ export default function VideoChatScreen() {
       const passport = await currentProduct.passport.get()
       if (!active) return
       if (!passport.complete) { router.replace('/onboarding/passport'); return }
+      if (!directCall && !isVibeThemeId(selectedTheme)) { router.replace('/sessions'); return }
       setAccess('allowed')
     }).catch(cause => {
       if (!active) return
@@ -42,7 +47,7 @@ export default function VideoChatScreen() {
       }
     })
     return () => { active = false }
-  }, [router, attempt])
+  }, [router, attempt, directCall, selectedTheme])
   if (access !== 'allowed') return <View style={layout.root}>
     <View style={styles.accessGate}>
       <Text style={styles.accessText}>{accessError || 'Checking Meetopia account…'}</Text>
@@ -54,7 +59,9 @@ export default function VideoChatScreen() {
 
 function LiveVideoScreen() {
   const router = useRouter()
-  const params = useLocalSearchParams<{ connectionId?: string | string[]; incomingCallId?: string | string[] }>()
+  const params = useLocalSearchParams<{ themeId?: string | string[]; connectionId?: string | string[]; incomingCallId?: string | string[] }>()
+  const themeCandidate = Array.isArray(params.themeId) ? params.themeId[0] : params.themeId
+  const themeId = isVibeThemeId(themeCandidate) ? themeCandidate : null
   const connectionId = Array.isArray(params.connectionId) ? params.connectionId[0] : params.connectionId
   const incomingCallId = Array.isArray(params.incomingCallId) ? params.incomingCallId[0] : params.incomingCallId
   const [isMuted, setIsMuted] = useState(false)
@@ -63,7 +70,7 @@ function LiveVideoScreen() {
   const [dismissedConnectionId, setDismissedConnectionId] = useState<string | null>(null)
   const { stream, error: mediaError } = useMobileMedia()
   const { peerConnection, restartConnection } = useMobilePeerConnection(stream)
-  const chat = useCurrentMeetopiaSignaling({ stream, peerConnection, restartConnection, directConnectionId: connectionId || null, incomingCallId: incomingCallId || null })
+  const chat = useCurrentMeetopiaSignaling({ stream, peerConnection, restartConnection, themeId, directConnectionId: connectionId || null, incomingCallId: incomingCallId || null })
   const activeConnectionId = chat.mutualVibe?.saved ? chat.mutualVibe.connectionId : connectionId || null
   const persistentMessages = usePersistentInCallMessages({ socket: chat.socket, connectionId: activeConnectionId })
   const chemistryMessages = useMobileVideoChatMessages({ socket: chat.socket, currentPeer: chat.peerId, enabled: !activeConnectionId })
@@ -115,12 +122,12 @@ function LiveVideoScreen() {
     <VideoStage localStream={stream} remoteStream={chat.remoteStream} isPeerConnected={chat.peerConnected} isSearching={chat.searching} hasPeer={Boolean(chat.peerId)} isCameraOff={isCameraOff} remoteCameraOff={chat.remoteCameraOff} remoteMicOff={chat.remoteMicOff} hideConnectingOverlay />
     <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none"><View style={styles.headerRow}><Pressable onPress={leave} hitSlop={10} style={styles.backBtn}><Text style={styles.back}>‹</Text></Pressable><View style={styles.headerCenter}><Text style={styles.title}>Chemistry Check</Text><ChemistryTimer active={Boolean(chat.peerId) && chat.peerConnected} />{chat.callStatus ? <Text style={styles.callStatus}>{chat.callStatus}</Text> : null}</View><View style={styles.statusWrap}><Text style={[styles.status, chat.connected ? styles.online : styles.offline]}>●</Text></View></View></SafeAreaView>
     {showPreparing && <View style={styles.preparing} pointerEvents="none"><Text style={styles.preparingText}>{chat.callStatus || 'Preparing your Chemistry Check…'}</Text></View>}
-    <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} />
+    <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} onContribute={chat.contribute} onApprove={chat.approveCreation} />
     {chat.introduction && <View style={styles.introOverlay}>
       <View style={styles.introCard}>
         <Text style={styles.introEyebrow}>MEETOPIA / THE INTRODUCTION</Text>
         <Text style={styles.introHeading}>Common ground. Real chemistry.</Text>
-        <Text style={styles.introName}>Meet {chat.introduction.person.displayName}</Text>
+        <Text style={styles.introName}>{chat.introduction.themeTitle}: Meet {chat.introduction.person.displayName}</Text>
         <Text style={styles.introDescription}>You both chose to explore these interests:</Text>
         <View style={styles.sharedChips}>{chat.introduction.person.sharedInterests.map(interest => <View key={interest} style={styles.sharedChip}><Text style={styles.sharedText}>{interest}</Text></View>)}</View>
         <Text style={styles.introDescription}>Their conversation style: {chat.introduction.person.conversationStyle}.</Text>

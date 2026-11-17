@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io-client'
 
-export const VIBE_ROOM_PROTOCOL = 2 as const
+export const VIBE_ROOM_PROTOCOL = 3 as const
 
 // Fail closed when a new client reaches an old signaling service.
 // A capability echo must complete BEFORE emitting find-user or find-next-user.

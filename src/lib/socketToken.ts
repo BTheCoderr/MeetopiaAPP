@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto'
+import { validateCreation } from './sharedCreation'
 
 type SocketTokenPayload = {
   sub: string
@@ -12,6 +13,7 @@ type SocketTokenPayload = {
 type ConnectionProofPayload = {
   type: 'connection'
   users: [string, string]
+  creation?: { themeId: string; activity: string; setting: string } | null
   exp: number
 }
 
@@ -69,6 +71,7 @@ export function verifyConnectionProof(token: string) {
   const payload = verify<ConnectionProofPayload>(token)
   if (!payload || payload.type !== 'connection' || payload.exp < Date.now()) return null
   if (!Array.isArray(payload.users) || payload.users.length !== 2) return null
+  if (payload.creation && !validateCreation(payload.creation)) return null
   return payload
 }
 

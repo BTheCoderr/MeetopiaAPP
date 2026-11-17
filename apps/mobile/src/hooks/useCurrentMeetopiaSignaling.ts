@@ -6,6 +6,7 @@ import { confirmVibeRoomServer } from '../lib/vibeRoomProtocol'
 import { currentProduct } from '../lib/currentProduct'
 import type { ChemistryIntroduction } from '../types/chemistryPassport'
 import type { VibeRoomState } from '../types/vibeRoom'
+import type { VibeThemeId } from '../types/vibeThemes'
 
 type PeerEvents = {
   addEventListener: (name: string, listener: (...args: any[]) => void) => void
@@ -15,10 +16,10 @@ type PeerEvents = {
 type Description = { type: string; sdp: string }
 type Candidate = ConstructorParameters<typeof RTCIceCandidate>[0]
 type MutualVibe = { partnerUserId: string | null; partnerDisplayName: string | null; connectionId: string | null; saved: boolean; error: string | null }
-type Options = { stream: MediaStream | null; peerConnection: RTCPeerConnection | null; restartConnection: () => void; directConnectionId?: string | null; incomingCallId?: string | null }
+type Options = { stream: MediaStream | null; peerConnection: RTCPeerConnection | null; restartConnection: () => void; themeId?: VibeThemeId | null; directConnectionId?: string | null; incomingCallId?: string | null }
 const usable = (pc: RTCPeerConnection) => pc.signalingState !== 'closed' && pc.connectionState !== 'closed'
 
-export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartConnection, directConnectionId = null, incomingCallId = null }: Options) {
+export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartConnection, themeId = null, directConnectionId = null, incomingCallId = null }: Options) {
   const [socket, setSocket] = useState<Socket | null>(null), [connected, setConnected] = useState(false), [searching, setSearching] = useState(false)
   const [peerId, setPeerId] = useState<string | null>(null), [peerUserId, setPeerUserId] = useState<string | null>(null), [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [peerConnected, setPeerConnected] = useState(false), [hasVibed, setHasVibed] = useState(false), [mutualVibe, setMutualVibe] = useState<MutualVibe | null>(null)
@@ -142,13 +143,23 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
       socket.emit('vibe-room-answer', { sessionId: room.sessionId, choice })
     }
   }, [socket, room])
+  const contribute = useCallback((choice: string) => {
+    if (socket?.connected && room?.index === 3 && !room.completed) {
+      socket.emit('vibe-room-contribute', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+  const approveCreation = useCallback(() => {
+    if (socket?.connected && room?.index === 3 && !room.completed && room.bridge?.proposal && !room.bridge.approved) {
+      socket.emit('vibe-room-approve', { sessionId: room.sessionId, revision: room.bridge.revision, share: true })
+    }
+  }, [socket, room])
   const nextRound = useCallback(() => {
-    if (socket?.connected && room && !room.ready && !room.completed) {
+    if (socket?.connected && room && !room.ready && !room.completed && room.index < 3) {
       socket.emit('vibe-room-next', { sessionId: room.sessionId })
     }
   }, [socket, room])
   const start = useCallback(() => {
-    if (!socket?.connected || !stream) return
+    if (!socket?.connected || !stream || !themeId) return
     const requestId = ++searchGeneration.current
     setSearching(true); setError(null); setIntroduction(null)
     void confirmVibeRoomServer(socket).then(supported => {
@@ -158,9 +169,9 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         setError('The Vibe Room server needs to be updated before you can start a Chemistry Check.')
         return
       }
-      socket.emit('find-user')
+      socket.emit('find-user', { themeId })
     })
-  }, [socket, stream])
+  }, [socket, stream, themeId])
   const cancel = useCallback(() => {
     searchGeneration.current += 1
     socket?.emit('cancel-search'); setSearching(false); setIntroduction(null)
@@ -180,10 +191,11 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
           setError('The Vibe Room server needs an update before another introduction.')
           return
         }
-        socket.emit('find-next-user')
+        if (!themeId) { setSearching(false); return }
+        socket.emit('find-next-user', { themeId })
       })
     }, 350)
-  }, [socket, restartConnection, clearPeer])
+  }, [socket, restartConnection, clearPeer, themeId])
   const acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && room?.completed && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, room, hasVibed]), leave = useCallback(() => { searchGeneration.current += 1; socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
-  return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, room, answerRound, nextRound, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
+  return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, room, answerRound, nextRound, contribute, approveCreation, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
 }

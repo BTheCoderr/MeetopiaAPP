@@ -1,167 +1,188 @@
 'use strict'
 
-// The Vibe Room is intentionally ephemeral. No private round answers, audio,
-// video, transcripts, or behavioural/compatibility scores are persisted.
+// Four server-authoritative phases: Spark, Curveball, Real Talk, Co-Create.
+// Conversation answers stay in memory only; the final jointly approved
+// creation MAY be saved on mutual Vibe using a short-lived signed proof.
 const { randomUUID } = require('node:crypto')
-
-const SPARK_BY_INTEREST = Object.freeze({
-  music: 'What is a song you wish you could hear for the first time again?',
-  fitness: 'What activity makes you forget to look at the clock?',
-  food: 'If you could share one meal with someone, what would you pick?',
-  travel: 'Where would you take someone for an unforgettable weekend?',
-  art: 'What is a piece of art or creativity that changed how you see things?',
-  gaming: 'What game would you teach someone on a first hangout?',
-  books: 'What is a story you still think about?',
-  outdoors: 'What is your favorite way to spend an afternoon outside?',
-  movies: 'Which movie would you happily watch one more time?',
-  tech: 'What invention made your day-to-day life more fun?',
-  sports: 'What sporting moment would you relive?',
-  culture: 'What tradition would you love to share with someone?',
-})
+const { getTheme, isBridgeChoice, validateCreation } = require('./themeCatalog')
 
 const CURVEBALL = Object.freeze({
   id: 'curveball-first-adventure',
   title: 'THE CURVEBALL',
   subtitle: 'Choose privately. Reveal together.',
-  prompt: 'You have one free evening together. Which plan feels more like you?',
+  prompt: 'You have one free evening. Which plan feels more like you?',
   options: [
     { id: 'explore', label: 'Go somewhere new and explore' },
     { id: 'cozy', label: 'Find a cozy spot and talk for hours' },
   ],
 })
-
 const REAL_TALK = Object.freeze({
   id: 'real-talk-connection',
   title: 'THE REAL TALK',
   subtitle: 'No perfect answers. Just a real conversation.',
-  prompt: 'What helps you feel safe and genuinely understood when meeting someone new?',
+  prompt: 'What helps you feel understood when meeting someone new?',
 })
 
 function createVibeRoomSessions({ canContinue = () => true } = {}) {
-  const sessions = new Map()
+  const rooms = new Map()
   const bySocket = new Map()
-
-  function roundFor(room) {
-    if (room.index === 0) return {
-      id: 'spark-' + room.interest,
-      title: 'THE SPARK',
-      subtitle: 'Start with something you both care about.',
-      prompt: SPARK_BY_INTEREST[room.interest],
-    }
-    if (room.index === 1) return CURVEBALL
-    return REAL_TALK
-  }
-
-  function validRoom(socket) {
+  function current(socket) {
     const id = bySocket.get(socket.id)
-    const room = id && sessions.get(id)
+    const room = id && rooms.get(id)
     if (!room || !room.sockets.some(s => s.id === socket.id)) return null
-    if (!room.sockets.every(s => s.connected) || !canContinue(room.sockets[0], room.sockets[1])) {
+    if (!room.sockets.every(s => s.connected) || !canContinue(...room.sockets)) {
       cancel(socket.id)
       return null
     }
     return room
   }
-
+  function round(room) {
+    const theme = getTheme(room.themeId)
+    if (room.index === 0) return {
+      id: 'spark-' + room.themeId, title: 'THE SPARK',
+      subtitle: 'A story behind your chosen theme.', prompt: theme.spark,
+    }
+    if (room.index === 1) return CURVEBALL
+    if (room.index === 2) return REAL_TALK
+    return {
+      id: 'the-bridge-' + room.themeId, title: 'THE BRIDGE',
+      subtitle: 'Create an adventure together. Both must approve to save it.',
+      prompt: theme.bridgePrompt,
+    }
+  }
+  function bridgeSnapshot(room, socket) {
+    if (room.index !== 3) return null
+    const theme = getTheme(room.themeId)
+    const role = socket.id === room.sockets[0].id ? 'activity' : 'setting'
+    const mine = room.contributions.get(socket.id) || null
+    const bothContributed = room.contributions.size === 2
+    const first = room.contributions.get(room.sockets[0].id)
+    const second = room.contributions.get(room.sockets[1].id)
+    return {
+      role, options: role === 'activity' ? theme.activities : theme.settings,
+      myChoice: mine, waitingForPartner: Boolean(mine && !bothContributed),
+      proposal: bothContributed ? { activity: first, setting: second } : null,
+      proposalLabels: bothContributed ? {
+        activity: theme.activities.find(option => option.id === first)?.label || '',
+        setting: theme.settings.find(option => option.id === second)?.label || '',
+      } : null,
+      revision: room.revision,
+      approved: room.approvals.has(socket.id),
+      otherApproved: room.approvals.size === 1 && !room.approvals.has(socket.id),
+    }
+  }
   function snapshot(room, socket) {
-    const peer = room.sockets.find(s => s.id !== socket.id)
+    const other = room.sockets.find(s => s.id !== socket.id)
     const bothAnswered = room.answers.size === 2
     return {
-      sessionId: room.id,
-      index: room.index,
-      total: 3,
-      completed: room.completed,
-      round: room.completed ? null : roundFor(room),
+      sessionId: room.id, themeId: room.themeId, themeTitle: getTheme(room.themeId).title,
+      index: room.index, total: 4, completed: room.completed,
+      round: room.completed ? null : round(room),
       ready: room.ready.has(socket.id),
       waitingForPartner: room.ready.has(socket.id) && room.ready.size !== 2,
       myChoice: room.index === 1 && !room.completed ? room.answers.get(socket.id) || null : null,
       waitingForAnswer: room.index === 1 && room.answers.has(socket.id) && !bothAnswered,
       revealed: room.index === 1 && bothAnswered,
-      // Don't send the other participant's answer until BOTH have intentionally
-      // chosen. Even in a response, the other's user id is never disclosed.
       reveal: room.index === 1 && bothAnswered
         ? [
           { label: 'You', choice: room.answers.get(socket.id) },
-          { label: 'Them', choice: room.answers.get(peer.id) },
-        ]
-        : null,
+          { label: 'Them', choice: room.answers.get(other.id) },
+        ] : null,
+      bridge: bridgeSnapshot(room, socket),
+      finalCreation: room.completed ? { ...room.finalCreation } : null,
     }
   }
-
   function broadcast(room) {
-    for (const socket of room.sockets) {
-      socket.emit('vibe-room-state', snapshot(room, socket))
-    }
+    for (const socket of room.sockets) if (socket.connected) socket.emit('vibe-room-state', snapshot(room, socket))
   }
-
-  function start(a, b, sharedInterests = []) {
-    cancel(a.id)
-    cancel(b.id)
-    if (!a.connected || !b.connected || a.id === b.id || !canContinue(a, b)) return null
-    const interest = sharedInterests.find(value => Object.hasOwn(SPARK_BY_INTEREST, value)) || 'music'
+  function start(a, b, themeId) {
+    cancel(a.id); cancel(b.id)
+    if (!a.connected || !b.connected || a.id === b.id || !canContinue(a, b) || !getTheme(themeId)) return null
     const room = {
-      id: randomUUID(), sockets: [a, b], interest, index: 0,
-      completed: false, answers: new Map(), ready: new Set(),
+      id: randomUUID(), themeId, sockets: [a, b], index: 0, completed: false,
+      answers: new Map(), ready: new Set(), contributions: new Map(),
+      approvals: new Set(), revision: 0, finalCreation: null,
     }
-    sessions.set(room.id, room)
-    bySocket.set(a.id, room.id)
-    bySocket.set(b.id, room.id)
+    rooms.set(room.id, room)
+    bySocket.set(a.id, room.id); bySocket.set(b.id, room.id)
     broadcast(room)
     return room.id
   }
-
   function cancel(socketId) {
     const id = bySocket.get(socketId)
     if (!id) return false
-    const room = sessions.get(id)
+    const room = rooms.get(id)
     if (!room) { bySocket.delete(socketId); return false }
-    sessions.delete(id)
+    rooms.delete(id)
     for (const socket of room.sockets) {
       bySocket.delete(socket.id)
       if (socket.connected) socket.emit('vibe-room-ended', { sessionId: id })
     }
-    room.answers.clear()
-    room.ready.clear()
+    room.answers.clear(); room.ready.clear()
+    room.contributions.clear(); room.approvals.clear(); room.finalCreation = null
     return true
   }
-
   function answer(socket, { sessionId, choice } = {}) {
-    const room = validRoom(socket)
+    const room = current(socket)
     if (!room || room.id !== sessionId || room.index !== 1 || room.completed || room.answers.has(socket.id)) return false
-    if (typeof choice !== 'string' || !CURVEBALL.options.some(option => option.id === choice)) return false
+    if (typeof choice !== 'string' || !CURVEBALL.options.some(o => o.id === choice)) return false
     room.answers.set(socket.id, choice)
     broadcast(room)
     return true
   }
-
   function next(socket, { sessionId } = {}) {
-    const room = validRoom(socket)
-    if (!room || room.id !== sessionId || room.completed || room.ready.has(socket.id)) return false
-    // Answers must be voluntarily submitted by BOTH participants before the
-    // private reveal and before either can progress past The Curveball.
+    const room = current(socket)
+    if (!room || room.id !== sessionId || room.completed || room.index === 3 || room.ready.has(socket.id)) return false
     if (room.index === 1 && room.answers.size !== 2) return false
     room.ready.add(socket.id)
     if (room.ready.size === 2) {
-      room.ready.clear()
-      room.answers.clear()
-      if (room.index === 2) room.completed = true
-      else room.index += 1
+      room.ready.clear(); room.answers.clear(); room.index += 1
     }
     broadcast(room)
     return true
   }
-
-  function canVibe(socketId, peerId) {
+  function contribute(socket, { sessionId, choice } = {}) {
+    const room = current(socket)
+    if (!room || room.id !== sessionId || room.index !== 3 || room.completed) return false
+    const role = room.sockets[0].id === socket.id ? 'activity' : 'setting'
+    if (!isBridgeChoice(room.themeId, role, choice)) return false
+    if (room.contributions.get(socket.id) === choice) return false
+    room.contributions.set(socket.id, choice)
+    // Any revision invalidates BOTH previous approvals. An approval is bound to
+    // a specific revision, preventing stale approval packets from finalizing.
+    room.revision += 1; room.approvals.clear()
+    broadcast(room)
+    return true
+  }
+  function approve(socket, { sessionId, revision, share } = {}) {
+    const room = current(socket)
+    if (!room || room.id !== sessionId || room.completed || room.index !== 3) return false
+    if (room.contributions.size !== 2 || !Number.isInteger(revision) || revision !== room.revision || share !== true) return false
+    if (room.approvals.has(socket.id)) return false
+    room.approvals.add(socket.id)
+    if (room.approvals.size === 2) {
+      const proposed = {
+        themeId: room.themeId,
+        activity: room.contributions.get(room.sockets[0].id),
+        setting: room.contributions.get(room.sockets[1].id),
+      }
+      const final = validateCreation(proposed)
+      if (!final) { room.approvals.clear(); return false }
+      room.finalCreation = final
+      room.completed = true
+    }
+    broadcast(room)
+    return true
+  }
+  function approvedOutcome(socketId, peerId) {
     const id = bySocket.get(socketId)
-    const room = id && sessions.get(id)
-    return Boolean(room && room.completed && room.sockets.some(s => s.id === peerId) && bySocket.get(peerId) === id)
+    const room = id && rooms.get(id)
+    if (!room || !room.completed || bySocket.get(peerId) !== id || !room.sockets.some(s => s.id === peerId)) return null
+    return room.finalCreation && { ...room.finalCreation }
   }
-
-  return {
-    start, cancel, answer, next, canVibe,
-    hasSession: socketId => bySocket.has(socketId),
-    sessionCount: () => sessions.size,
-  }
+  function canVibe(socketId, peerId) { return Boolean(approvedOutcome(socketId, peerId)) }
+  return { start, cancel, answer, next, contribute, approve, canVibe, approvedOutcome,
+    hasSession: id => bySocket.has(id), sessionCount: () => rooms.size }
 }
 
-module.exports = { createVibeRoomSessions, SPARK_BY_INTEREST, CURVEBALL, REAL_TALK }
+module.exports = { createVibeRoomSessions, CURVEBALL, REAL_TALK }

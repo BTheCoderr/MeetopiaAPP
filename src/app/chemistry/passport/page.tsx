@@ -49,7 +49,7 @@ export default function ChemistryPassportPage() {
       })
       const data = await res.json()
       if (!res.ok || !data.complete) throw new Error(data.error || 'Could not save Passport')
-      router.push('/chat/video')
+      router.push('/sessions')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save your Passport.')
     } finally { setSaving(false) }

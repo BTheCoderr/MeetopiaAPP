@@ -41,7 +41,7 @@ export default function StartPage() {
     const res = await fetch('/api/chemistry/passport', { credentials: 'same-origin', cache: 'no-store' })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error || 'Could not verify your Chemistry Passport.')
-    router.push(data.complete ? '/chat/video' : '/chemistry/passport')
+    router.push(data.complete ? '/sessions' : '/chemistry/passport')
   }
 
   const begin = async () => {
