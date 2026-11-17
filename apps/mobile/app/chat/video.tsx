@@ -122,12 +122,12 @@ function LiveVideoScreen() {
     <VideoStage localStream={stream} remoteStream={chat.remoteStream} isPeerConnected={chat.peerConnected} isSearching={chat.searching} hasPeer={Boolean(chat.peerId)} isCameraOff={isCameraOff} remoteCameraOff={chat.remoteCameraOff} remoteMicOff={chat.remoteMicOff} hideConnectingOverlay />
     <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none"><View style={styles.headerRow}><Pressable onPress={leave} hitSlop={10} style={styles.backBtn}><Text style={styles.back}>‹</Text></Pressable><View style={styles.headerCenter}><Text style={styles.title}>Chemistry Check</Text><ChemistryTimer active={Boolean(chat.peerId) && chat.peerConnected} />{chat.callStatus ? <Text style={styles.callStatus}>{chat.callStatus}</Text> : null}</View><View style={styles.statusWrap}><Text style={[styles.status, chat.connected ? styles.online : styles.offline]}>●</Text></View></View></SafeAreaView>
     {showPreparing && <View style={styles.preparing} pointerEvents="none"><Text style={styles.preparingText}>{chat.callStatus || 'Preparing your Chemistry Check…'}</Text></View>}
-    <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} />
+    <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} onContribute={chat.contribute} onApprove={chat.approveCreation} />
     {chat.introduction && <View style={styles.introOverlay}>
       <View style={styles.introCard}>
         <Text style={styles.introEyebrow}>MEETOPIA / THE INTRODUCTION</Text>
         <Text style={styles.introHeading}>Common ground. Real chemistry.</Text>
-        <Text style={styles.introName}>Meet {chat.introduction.person.displayName}</Text>
+        <Text style={styles.introName}>{chat.introduction.themeTitle}: Meet {chat.introduction.person.displayName}</Text>
         <Text style={styles.introDescription}>You both chose to explore these interests:</Text>
         <View style={styles.sharedChips}>{chat.introduction.person.sharedInterests.map(interest => <View key={interest} style={styles.sharedChip}><Text style={styles.sharedText}>{interest}</Text></View>)}</View>
         <Text style={styles.introDescription}>Their conversation style: {chat.introduction.person.conversationStyle}.</Text>
