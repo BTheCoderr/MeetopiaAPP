@@ -5,6 +5,7 @@ import Screen from '@/components/ui/Screen'
 import Brandmark from '@/components/ui/Brandmark'
 import GradientButton from '@/components/ui/GradientButton'
 import { accountStatus, isAuthFailure } from '@/lib/auth'
+import { currentProduct } from '@/lib/currentProduct'
 import { colors, spacing } from '@/theme/theme'
 
 export default function HomeScreen() {
@@ -18,12 +19,15 @@ export default function HomeScreen() {
     let active = true
     setReady(false)
     setError(null)
-    void accountStatus().then(({ account, adultConfirmed }) => {
+    void accountStatus().then(async ({ account, adultConfirmed }) => {
       if (!active) return
       if (!adultConfirmed) {
         router.replace('/onboarding/age-gate')
         return
       }
+      const passport = await currentProduct.passport.get()
+      if (!active) return
+      if (!passport.complete) { router.replace('/onboarding/passport'); return }
       setName(account.name || account.username)
       setReady(true)
     }).catch(cause => {
@@ -46,8 +50,8 @@ export default function HomeScreen() {
 
   return <Screen center scroll>
     <View style={styles.hero}><Brandmark size={80} /></View>
-    <Text style={styles.headline}>Talk first. Vibe after.</Text>
-    <Text style={styles.subtext}>Meet another adult in a live Chemistry Check. A Connection is saved only when the Vibe is mutual.</Text>
+    <Text style={styles.headline}>Find your chemistry.</Text>
+    <Text style={styles.subtext}>Choose your Chemistry Passport, accept an introduction together, and discover your connection on video. Only mutual Vibes become lasting Connections.</Text>
     <Text style={styles.welcome}>Signed in as {name}</Text>
     <View style={styles.actions}>
       <GradientButton label="Start live Chemistry Check" onPress={() => router.push('/chat/video')} />

@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation'
 
 const LOG = '[WebRTC:Signaling]'
 
+interface IntroductionState {
+  invitationId: string
+  expiresAt: number
+  accepted: boolean
+  person: { displayName: string; conversationStyle: string; sharedInterests: string[] }
+}
+
 interface MutualVibeState {
   partnerUserId: string | null
   partnerDisplayName: string | null
@@ -61,6 +68,7 @@ export function useVideoChatSocket({
   const [hasVibed, setHasVibed] = useState(false)
   const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
   const [callStatus, setCallStatus] = useState<string | null>(null)
+  const [introduction, setIntroduction] = useState<IntroductionState | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
@@ -157,6 +165,7 @@ export function useVideoChatSocket({
         setIsSearching(false)
         setHasVibed(false)
         setMutualVibe(null)
+        setIntroduction(null)
         setError('Connection lost. Attempting to reconnect...')
       })
 
@@ -168,13 +177,33 @@ export function useVideoChatSocket({
           router.push('/auth/signin?next=/start')
         } else if (code === 'ADULT_CONFIRMATION_REQUIRED') {
           router.push('/start')
+        } else if (code === 'PASSPORT_REQUIRED') {
+          router.push('/chemistry/passport')
         }
       })
 
       newSocket.on('search-cancelled', () => {
+        setIsSearching(false); setIntroduction(null); setError(null)
+      })
+      newSocket.on('introduction-searching', () => {
+        setIsSearching(true); setIntroduction(null); setError(null)
+      })
+      newSocket.on('introduction-offered', (invite: Omit<IntroductionState, 'accepted'>) => {
+        setIntroduction({ ...invite, accepted: false })
         setIsSearching(false)
         setError(null)
       })
+      newSocket.on('introduction-response-recorded', ({ invitationId }: { invitationId: string }) => {
+        setIntroduction(current => current?.invitationId === invitationId ? { ...current, accepted: true } : current)
+      })
+      const ended = ({ reason }: { reason?: string }) => {
+        setIntroduction(null); setIsSearching(false)
+        if (reason) setError(reason)
+      }
+      newSocket.on('introduction-declined', ended)
+      newSocket.on('introduction-expired', ended)
+      newSocket.on('introduction-cancelled', ended)
+      newSocket.on('introduction-approved', () => { setIntroduction(null); setError(null) })
 
       newSocket.on(
         'direct-call-unavailable',
@@ -366,6 +395,7 @@ export function useVideoChatSocket({
 
       console.log(LOG, 'matched peer ID', partnerId, '| my ID', sock.id)
       currentPeerRef.current = partnerId
+      setIntroduction(null)
       setCurrentPeer(partnerId)
       setIsSearching(false)
       setCallStatus(null)
@@ -638,6 +668,7 @@ export function useVideoChatSocket({
     console.log(LOG, 'find-user')
     setIsSearching(true)
     setError(null)
+    setIntroduction(null)
     socket.emit('find-user')
     startCooldown()
   }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown])
@@ -646,6 +677,7 @@ export function useVideoChatSocket({
     if (!socket?.connected) return
     socket.emit('cancel-search')
     setIsSearching(false)
+    setIntroduction(null)
     setError(null)
   }, [socket, setIsSearching, setError])
 
@@ -670,6 +702,19 @@ export function useVideoChatSocket({
     startCooldown()
     return 'next' as const
   }, [currentPeer, restartConnection, socket, startCooldown, setError])
+
+  const acceptIntroduction = useCallback(() => {
+    if (socket?.connected && introduction && !introduction.accepted) {
+      socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true })
+    }
+  }, [socket, introduction])
+
+  const declineIntroduction = useCallback(() => {
+    if (socket?.connected && introduction) {
+      socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false })
+    }
+    setIntroduction(null); setIsSearching(false)
+  }, [socket, introduction, setIsSearching])
 
   const handleVibe = useCallback(() => {
     if (!socket?.connected || !currentPeer || hasVibed) return
@@ -731,6 +776,9 @@ export function useVideoChatSocket({
   return {
     socket,
     isSocketConnected,
+    introduction,
+    acceptIntroduction,
+    declineIntroduction,
     currentPeer,
     currentPeerUserId,
     remoteStream,

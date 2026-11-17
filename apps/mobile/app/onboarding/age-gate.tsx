@@ -20,7 +20,7 @@ export default function AgeGateScreen() {
     try {
       const result = await accountAuth.confirmAdult()
       if (!result.confirmed) throw new Error('We could not save your age confirmation.')
-      router.replace('/')
+      router.replace('/onboarding/passport')
     } catch (cause) {
       if (isAuthFailure(cause)) router.replace('/auth/signin')
       else setError(cause instanceof Error ? cause.message : 'Could not confirm your age.')

@@ -1,7 +1,12 @@
 import { api } from './api'
 import type { BlockRecord, ConnectionMessage, ConnectionSummary, NotificationItem } from '../types/currentProduct'
+import type { ChemistryPassport, ChemistryPassportStatus } from '../types/chemistryPassport'
 
 export const currentProduct = {
+  passport: {
+    get: () => api<ChemistryPassportStatus>('/api/chemistry/passport'),
+    save: (passport: ChemistryPassport) => api<ChemistryPassportStatus>('/api/chemistry/passport', { method: 'PUT', body: JSON.stringify(passport) }),
+  },
   connections: {
     list: () => api<{ connections: ConnectionSummary[] }>('/api/connections'),
     get: (connectionId: string) => api<{ connection: ConnectionSummary }>(`/api/connections/${encodeURIComponent(connectionId)}`),

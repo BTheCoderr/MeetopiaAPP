@@ -6,6 +6,7 @@ type SocketTokenPayload = {
   displayName?: string | null
   adultConfirmed?: boolean
   blocked?: string[]
+  passport?: { intent: string; style: string; interests: string[] } | null
 }
 
 type ConnectionProofPayload = {

@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const { validateConnection } = require('./connectionAccess');
 const { isActivePeerRelay } = require('./activePeerRelay');
+const { validatePassport, comparePassports, createConsentIntroductions } = require('./consentIntroductions');
 const { randomUUID, timingSafeEqual } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const {
@@ -120,8 +121,7 @@ io.engine.on('headers', (headers, req) => {
   }
 });
 
-const waitingUsers = new Set();
-// Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
+// Active 1:1 video pairs (socketId -> partnerId), authorized only after both accept or a valid direct Connection call.
 const activePairs = new Map();
 const vibeTargets = new Map();
 const activeDatingSocketsByUser = new Map();
@@ -244,7 +244,7 @@ function clearActivePair(socketId, notifyPeer = true) {
 }
 
 function removeFromMatchQueues(socketId) {
-  waitingUsers.delete(socketId);
+  introductions.cancel(socketId);
 }
 
 function clearPendingConnectionCall(inviteId, callerEvent, targetEvent) {
@@ -308,56 +308,30 @@ function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   removeFromMatchQueues(socket.id);
 }
 
-function runFindUser(socket) {
-  if (activePairs.has(socket.id)) {
-    console.log(`User ${socket.id} already paired, skipping match queue`);
-    return;
-  }
-
-  if (!socket.data.userId) {
-    removeFromMatchQueues(socket.id);
-    socket.emit('match-error', {
-      code: 'AUTH_REQUIRED',
-      message: 'Sign in before starting a Chemistry Check.',
-    });
-    return;
-  }
-
-  if (!socket.data.adultConfirmed) {
-    removeFromMatchQueues(socket.id);
-    socket.emit('match-error', {
-      code: 'ADULT_CONFIRMATION_REQUIRED',
-      message: 'Confirm you are 18 or older before starting a Chemistry Check.',
-    });
-    return;
-  }
-
-  if (waitingUsers.size > 0) {
-    const partnerId = [...waitingUsers].find(
-      (id) => id !== socket.id && !activePairs.has(id) && canPair(socket.id, id)
-    );
-
-    if (partnerId) {
-      const partnerSocket = io.sockets.sockets.get(partnerId);
-      waitingUsers.delete(partnerId);
-
-      socket.emit('user-found', {
-        partnerId,
-        partnerUserId: partnerSocket?.data.userId || null,
-      });
-      io.to(partnerId).emit('user-found', {
-        partnerId: socket.id,
-        partnerUserId: socket.data.userId,
-      });
-
-      pairUsers(socket.id, partnerId);
-      console.log(`[Signaling] Chemistry Check matched: ${socket.id} <-> ${partnerId}`);
-      return;
+// Invitations do NOT create a media pair. The server grants WebRTC relay access
+// only after two independently authenticated, adult participants both accept.
+const introductions = createConsentIntroductions({
+  canIntroduce: (a, b) => (
+    Boolean(a.connected && b.connected && a.data.adultConfirmed && b.data.adultConfirmed) &&
+    Boolean(a.data.userId && b.data.userId && a.data.userId !== b.data.userId) &&
+    !activePairs.has(a.id) && !activePairs.has(b.id) &&
+    !isBlockedBetween(a.id, b.id) &&
+    !hasRecentPeer(a.id, b.id) && !hasRecentPeer(b.id, a.id) &&
+    Boolean(comparePassports(a.data.passport, b.data.passport))
+  ),
+  onApproved: (a, b) => {
+    // pairUsers is the ONLY granting operation for peer media and chat relays.
+    pairUsers(a.id, b.id);
+    for (const [me, other] of [[a, b], [b, a]]) {
+      me.emit('introduction-approved', { partnerDisplayName: other.data.displayName || 'Meetopia member' });
+      me.emit('user-found', { partnerId: other.id, partnerUserId: other.data.userId });
     }
-  }
+  },
+});
 
-  waitingUsers.add(socket.id);
-  console.log(`User ${socket.id} is waiting for a Chemistry Check`);
+function runFindUser(socket) {
+  if (activePairs.has(socket.id)) return;
+  introductions.start(socket);
 }
 
 io.use((socket, next) => {
@@ -371,6 +345,7 @@ io.use((socket, next) => {
   socket.data.displayName = payload.displayName || null;
   socket.data.adultConfirmed = payload.adultConfirmed === true;
   socket.data.blockedUserIds = new Set(Array.isArray(payload.blocked) ? payload.blocked : []);
+  socket.data.passport = validatePassport(payload.passport);
   next();
 });
 
@@ -387,6 +362,10 @@ io.on('connection', (socket) => {
     }
     leaveCurrentRoom(socket, { notifyVideoPeer: false });
     runFindUser(socket);
+  });
+
+  socket.on('introduction-response', ({ invitationId, accept } = {}) => {
+    introductions.respond(socket, invitationId, accept === true);
   });
 
   socket.on('call-connection', async ({ proof } = {}) => {
@@ -418,6 +397,7 @@ io.on('connection', (socket) => {
       !targetSocket ||
       !targetSocket.data.adultConfirmed ||
       activePairs.has(socket.id) ||
+      introductions.hasPending(socket.id) ||
       isUserBusy(payload.calleeId) ||
       isBlockedBetween(socket.id, targetSocket.id)
     ) {
@@ -502,6 +482,8 @@ io.on('connection', (socket) => {
       !socket.data.adultConfirmed ||
       activePairs.has(callerSocket.id) ||
       activePairs.has(socket.id) ||
+      introductions.hasPending(callerSocket.id) ||
+      introductions.hasPending(socket.id) ||
       isBlockedBetween(callerSocket.id, socket.id)
     ) {
       clearPendingConnectionCall(inviteId, 'direct-call-unavailable', null);

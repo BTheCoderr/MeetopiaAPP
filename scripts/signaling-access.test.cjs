@@ -31,6 +31,7 @@ function harness() {
       if (name === './reportsStore') return { getReportBackendStatus: () => ({}) };
       if (name === './socketAuth') return require(path.join(root, 'socketAuth'));
       if (name === './activePeerRelay') return require(path.join(root, 'activePeerRelay'));
+      if (name === './consentIntroductions') return require(path.join(root, 'consentIntroductions'));
       if (name === './connectionAccess') return { validateConnection: async (userId, _proof, details) => allowed ? {
         connectionId: 'connection', otherUserId: userId === 'alice' ? 'bob' : 'alice',
         message: details?.messageId === 'saved' ? { id: 'saved', content: 'Saved server content', senderId: 'alice', receiverId: 'bob' } : null,
@@ -44,7 +45,7 @@ function harness() {
   });
   function socket(id, userId) {
     const handlers = new Map(), events = [];
-    const s = { id, connected: true, data: { userId, adultConfirmed: true, blockedUserIds: new Set() },
+    const s = { id, connected: true, data: { userId, adultConfirmed: true, blockedUserIds: new Set(), passport: { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] } },
       on: (name, handler) => handlers.set(name, handler),
       emit: (name, payload) => events.push({ name, payload }),
       to: target => ({ emit: (name, payload) => sockets.get(target)?.emit(name, payload) }),
@@ -148,4 +149,47 @@ test('Prisma gateway requires server authentication, a valid proof, and a curren
   assert.equal((await success.json()).message.content, 'Database content');
   blocked = true; assert.equal((await call(body)).status, 403);
   blocked = false; exists = false; assert.equal((await call(body)).status, 403);
+});
+
+
+test('consent introduction never authorizes WebRTC before both participants accept', () => {
+  const h = harness();
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
+    a.run('find-user'); b.run('find-user');
+    const offeredA = a.events.find(e => e.name === 'introduction-offered');
+    const offeredB = b.events.find(e => e.name === 'introduction-offered');
+    assert.ok(offeredA); assert.ok(offeredB);
+    assert.equal(offeredA.payload.invitationId, offeredB.payload.invitationId);
+    assert.equal(a.events.some(e => e.name === 'user-found'), false);
+    assert.equal(b.events.some(e => e.name === 'user-found'), false);
+    a.run('call-user', { to: 'b', offer: { type: 'offer', sdp: 'unapproved' } });
+    assert.equal(b.events.some(e => e.name === 'call-made'), false);
+    a.run('introduction-response', { invitationId: offeredA.payload.invitationId, accept: true });
+    assert.equal(a.events.some(e => e.name === 'user-found'), false);
+    b.run('introduction-response', { invitationId: offeredA.payload.invitationId, accept: true });
+    assert.ok(a.events.some(e => e.name === 'user-found'));
+    assert.ok(b.events.some(e => e.name === 'user-found'));
+    a.run('call-user', { to: 'b', offer: { type: 'offer', sdp: 'approved' } });
+    assert.ok(b.events.some(e => e.name === 'call-made'));
+  } finally { h.close(); }
+});
+
+test('decline and incompatible Chemistry Passports never authorize a peer relay', () => {
+  const h = harness();
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
+    b.data.passport = { intent: 'friendship', style: 'balanced', interests: ['music', 'travel'] };
+    a.run('find-user'); b.run('find-user');
+    assert.equal(a.events.some(e => e.name === 'introduction-offered'), false);
+    assert.equal(b.events.some(e => e.name === 'user-found'), false);
+    b.data.passport = { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] };
+    b.run('find-user');
+    const invite = a.events.find(e => e.name === 'introduction-offered')?.payload;
+    assert.ok(invite);
+    b.run('introduction-response', { invitationId: invite.invitationId, accept: false });
+    assert.equal(a.events.some(e => e.name === 'user-found'), false);
+    a.run('call-user', { to: 'b', offer: { type: 'offer', sdp: 'forged' } });
+    assert.equal(b.events.some(e => e.name === 'call-made'), false);
+  } finally { h.close(); }
 });

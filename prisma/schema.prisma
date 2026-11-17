@@ -17,6 +17,9 @@ model User {
   displayName String?
   bio         String?
   interests   String[]  @default([])
+  chemistryIntent String?
+  chemistryStyle String?
+  chemistryInterests String[] @default([])
   adultConfirmedAt        DateTime?
   resetPasswordTokenHash   String?   @unique
   resetPasswordExpiresAt   DateTime?

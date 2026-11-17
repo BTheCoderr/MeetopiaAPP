@@ -3,6 +3,7 @@ import { MediaStream, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription 
 import type { Socket } from 'socket.io-client'
 import { getAuthenticatedSocket } from '../lib/socket'
 import { currentProduct } from '../lib/currentProduct'
+import type { ChemistryIntroduction } from '../types/chemistryPassport'
 
 type PeerEvents = {
   addEventListener: (name: string, listener: (...args: any[]) => void) => void
@@ -21,9 +22,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
   const [peerConnected, setPeerConnected] = useState(false), [hasVibed, setHasVibed] = useState(false), [mutualVibe, setMutualVibe] = useState<MutualVibe | null>(null)
   const [callStatus, setCallStatus] = useState<string | null>(null), [error, setError] = useState<string | null>(null)
   const [remoteCameraOff, setRemoteCameraOff] = useState(false), [remoteMicOff, setRemoteMicOff] = useState(false)
+  const [introduction, setIntroduction] = useState<ChemistryIntroduction | null>(null)
   const peerRef = useRef<string | null>(null), pcRef = useRef(peerConnection), pendingIce = useRef<Candidate[]>([]), directAttempt = useRef<string | null>(null), incomingAttempt = useRef<string | null>(null)
   useEffect(() => { pcRef.current = peerConnection }, [peerConnection])
-  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false) }, [])
+  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false); setIntroduction(null) }, [])
 
   useEffect(() => {
     let disposed = false
@@ -38,7 +40,19 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         try { const result = await currentProduct.connections.saveMutualVibe(connectionProof); setMutualVibe({ partnerUserId: partnerUserId || null, partnerDisplayName: partnerDisplayName || result.connection.person.displayName, connectionId: result.connection.id, saved: true, error: null }) }
         catch (e) { setMutualVibe({ partnerUserId: partnerUserId || null, partnerDisplayName: partnerDisplayName || null, connectionId: null, saved: false, error: e instanceof Error ? e.message : 'Failed to save Connection' }) }
       }
-      const onSearchCancelled = () => setSearching(false)
+      const onSearchCancelled = () => { setSearching(false); setIntroduction(null) }
+      const onIntroSearching = () => { setSearching(true); setIntroduction(null); setError(null) }
+      const onIntroOffered = (invite: Omit<ChemistryIntroduction, 'accepted'>) => {
+        setSearching(false); setError(null); setIntroduction({ ...invite, accepted: false })
+      }
+      const onIntroAccepted = ({ invitationId }: { invitationId: string }) => {
+        setIntroduction(current => current?.invitationId === invitationId ? { ...current, accepted: true } : current)
+      }
+      const onIntroEnded = ({ reason }: { reason?: string }) => {
+        setIntroduction(null); setSearching(false)
+        if (reason) setError(reason)
+      }
+      const onIntroApproved = () => { setIntroduction(null); setError(null) }
       const onCallRinging = () => { setSearching(true); setCallStatus('Calling your Connection…') }
       const onCallAccepted = () => { setSearching(false); setCallStatus('Connecting…') }
       const onCallDeclined = () => { setSearching(false); setCallStatus(null); setError('Your Connection declined the call.') }
@@ -54,6 +68,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
       const listeners: [string, (...args: any[]) => void][] = [
         ['connect', onConnect], ['disconnect', onDisconnect],
         ['match-error', onMatchError], ['search-cancelled', onSearchCancelled],
+        ['introduction-searching', onIntroSearching], ['introduction-offered', onIntroOffered],
+        ['introduction-response-recorded', onIntroAccepted],
+        ['introduction-declined', onIntroEnded], ['introduction-cancelled', onIntroEnded],
+        ['introduction-expired', onIntroEnded], ['introduction-approved', onIntroApproved],
         ['mutual-vibe', onMutual], ['connection-call-ringing', onCallRinging],
         ['connection-call-accepted', onCallAccepted],
         ['connection-call-declined', onCallDeclined],
@@ -75,6 +93,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
       const active = pcRef.current
       if (!socket.id || !active || !usable(active)) return setError('Failed to establish video connection.')
       peerRef.current = partnerId
+      setIntroduction(null)
       setPeerId(partnerId)
       setPeerUserId(partnerUserId || null)
       setSearching(false)
@@ -110,6 +129,6 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
 
   useEffect(() => { if (!directConnectionId || incomingCallId || !socket?.connected || !peerConnection || directAttempt.current === directConnectionId) return; directAttempt.current = directConnectionId; setSearching(true); setError(null); void currentProduct.connections.callProof(directConnectionId).then(({ proof }) => socket.emit('call-connection', { proof })).catch((e) => { setSearching(false); setError(e instanceof Error ? e.message : 'Could not start this Connection call.') }) }, [directConnectionId, incomingCallId, socket, peerConnection])
   useEffect(() => { if (!incomingCallId || !socket?.connected || !peerConnection || incomingAttempt.current === incomingCallId) return; incomingAttempt.current = incomingCallId; setSearching(true); setCallStatus('Connecting your call…'); socket.emit('accept-connection-call', { inviteId: incomingCallId }) }, [incomingCallId, socket, peerConnection])
-  const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
-  return { socket, connected, searching, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
+  const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); setIntroduction(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false); setIntroduction(null) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), acceptIntroduction = useCallback(() => { if (socket?.connected && introduction && !introduction.accepted) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true }) }, [socket, introduction]), declineIntroduction = useCallback(() => { if (socket?.connected && introduction) socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false }); setIntroduction(null); setSearching(false) }, [socket, introduction]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
+  return { socket, connected, searching, introduction, acceptIntroduction, declineIntroduction, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
 }
