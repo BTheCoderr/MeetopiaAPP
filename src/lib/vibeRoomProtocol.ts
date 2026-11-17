@@ -9,7 +9,16 @@ export const VIBE_ROOM_PROTOCOL = 2 as const
 export async function confirmVibeRoomServer(socket: Socket): Promise<boolean> {
   if (!socket.connected) return false
   try {
-    const reply: unknown = await socket.timeout(4500).emitWithAck('vibe-room-hello', { version: VIBE_ROOM_PROTOCOL })
+    const response = await fetch('/api/auth/socket-token', {
+      credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
+    })
+    if (!response.ok) return false
+    const data: { token?: unknown } = await response.json()
+    if (typeof data.token !== 'string' || !data.token) return false
+    const reply: unknown = await socket.timeout(4500).emitWithAck('vibe-room-hello', {
+      version: VIBE_ROOM_PROTOCOL,
+      token: data.token,
+    })
     return Boolean(
       reply &&
       typeof reply === 'object' &&
