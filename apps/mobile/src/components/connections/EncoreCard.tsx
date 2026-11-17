@@ -20,7 +20,13 @@ export default function EncoreCard({ connectionId }: { connectionId: string }) {
     }
   }, [connectionId])
 
-  useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    let active = true
+    // Defer the initial network callback beyond effect setup; no synchronous
+    // React state updates in effects on React 19.3 / Expo SDK 58.
+    void Promise.resolve().then(() => { if (active) void refresh() })
+    return () => { active = false }
+  }, [refresh])
   useEffect(() => {
     if (data?.status !== 'waiting') return
     const id = setInterval(() => { void refresh() }, 15000)
