@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io-client'
+import { api } from './api'
 
 export const VIBE_ROOM_PROTOCOL = 2 as const
 
@@ -9,7 +10,12 @@ export const VIBE_ROOM_PROTOCOL = 2 as const
 export async function confirmVibeRoomServer(socket: Socket): Promise<boolean> {
   if (!socket.connected) return false
   try {
-    const reply: unknown = await socket.timeout(4500).emitWithAck('vibe-room-hello', { version: VIBE_ROOM_PROTOCOL })
+    const data = await api<{ token: string }>('/api/auth/socket-token', { method: 'GET' })
+    if (typeof data.token !== 'string' || !data.token) return false
+    const reply: unknown = await socket.timeout(4500).emitWithAck('vibe-room-hello', {
+      version: VIBE_ROOM_PROTOCOL,
+      token: data.token,
+    })
     return Boolean(
       reply &&
       typeof reply === 'object' &&
