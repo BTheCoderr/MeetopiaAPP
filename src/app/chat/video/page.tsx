@@ -16,9 +16,13 @@ import ChatPanel from '@/components/video-chat/ChatPanel'
 import VibeRounds from '@/components/video-chat/VibeRounds'
 import VideoChatModals from '@/components/video-chat/VideoChatModals'
 import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
+import { isVibeThemeId, type VibeThemeId } from '@/lib/vibeThemes'
+import { useRouter } from 'next/navigation'
 
 export default function VideoChatPage() {
+  const router = useRouter()
   const state = useVideoChatState()
+  const [themeId, setThemeId] = useState<VibeThemeId | null>(null)
   const [directConnectionId, setDirectConnectionId] = useState<string | null>(null)
   const [incomingCallId, setIncomingCallId] = useState<string | null>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -32,7 +36,10 @@ export default function VideoChatPage() {
     const params = new URLSearchParams(window.location.search)
     setDirectConnectionId(params.get('connection'))
     setIncomingCallId(params.get('incomingCall'))
-  }, [])
+    const value = params.get('themeId')
+    if (isVibeThemeId(value)) setThemeId(value)
+    else if (!params.get('connection') && !params.get('incomingCall')) router.replace('/sessions')
+  }, [router])
 
   const chat = useVideoChatSocket({
     stream,
@@ -46,6 +53,7 @@ export default function VideoChatPage() {
     isAdaptiveQuality: state.isAdaptiveQuality,
     directConnectionId,
     incomingCallId,
+    themeId,
   })
 
   const media = useMediaControls({
