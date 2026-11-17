@@ -342,8 +342,20 @@ const introductions = createConsentIntroductions({
   },
 });
 
+// Protocol compatibility is an operational guard, not a security credential.
+// Existing Connection messaging/calls keep working for older clients, but
+// legacy clients cannot accidentally enter the new consent-only matchmaking.
+const VIBE_ROOM_PROTOCOL = 2;
+function requireVibeRoomProtocol(socket) {
+  if (socket.handshake?.auth?.meetopiaProtocol === VIBE_ROOM_PROTOCOL) return true;
+  socket.emit('match-error', {
+    code: 'CLIENT_UPDATE_REQUIRED',
+    message: 'This Meetopia version cannot start new Chemistry Checks. Update to the Vibe Room release.',
+  });
+  return false;
+}
 function runFindUser(socket) {
-  if (activePairs.has(socket.id)) return;
+  if (!requireVibeRoomProtocol(socket) || activePairs.has(socket.id)) return;
   introductions.start(socket);
 }
 
@@ -368,16 +380,38 @@ io.on('connection', (socket) => {
     addActiveSocket(socket.data.userId, socket.id);
   }
 
+  socket.on('vibe-room-hello', ({ version, token } = {}, ack) => {
+    if (typeof ack !== 'function') return;
+    if (version !== VIBE_ROOM_PROTOCOL || !requireVibeRoomProtocol(socket)) {
+      ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'update-required' });
+      return;
+    }
+    // The token was JUST issued by the authenticated account API; checking it
+    // on every new search prevents a long-lived socket from matching somebody
+    // using stale blocks, age confirmation or Chemistry Passport settings.
+    const current = verifySocketToken(token);
+    if (!current || current.sub !== socket.data.userId) {
+      ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'reauthenticate' });
+      return;
+    }
+    socket.data.adultConfirmed = current.adultConfirmed === true;
+    socket.data.blockedUserIds = new Set(Array.isArray(current.blocked) ? current.blocked : []);
+    socket.data.passport = validatePassport(current.passport);
+    ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'ready' });
+  });
+
   socket.on('find-user', () => {
+    if (!requireVibeRoomProtocol(socket)) return;
     if (activePairs.has(socket.id)) {
       console.log(`User ${socket.id} already paired, ignoring duplicate find-user`);
       return;
     }
-    leaveCurrentRoom(socket, { notifyVideoPeer: false });
+    leaveCurrentRoom(socket, { notifyVideoPeer: true });
     runFindUser(socket);
   });
 
   socket.on('introduction-response', ({ invitationId, accept } = {}) => {
+    if (!requireVibeRoomProtocol(socket)) return;
     introductions.respond(socket, invitationId, accept === true);
   });
 
@@ -625,6 +659,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('find-next-user', () => {
+    if (!requireVibeRoomProtocol(socket)) return;
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
     runFindUser(socket);

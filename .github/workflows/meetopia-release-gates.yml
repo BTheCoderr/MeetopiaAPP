@@ -1,0 +1,91 @@
+name: Meetopia pre-release protocol and disposable DB gates
+
+on:
+  push:
+    branches: [meetopia-vibe-room-release-gates]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  code-and-signaling:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetopia
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/meetopia
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:3003
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Exercise mutual consent, private reveal, expiration, legacy protocol and peer relay
+        run: node --test server/consentIntroductions.test.cjs server/vibeRoomSessions.test.cjs server/activePeerRelay.test.cjs
+      - name: Install Next.js and signaling dependencies
+        run: npm install --no-fund
+      - name: Compile Next.js and generate Prisma client
+        run: npm run build
+      - name: Verify 2-client signaling, authorized direct calls and Encore privacy
+        run: node --test scripts/signaling-access.test.cjs scripts/encore-privacy.test.cjs
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  disposable-postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: meetopia
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetopia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/meetopia
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/meetopia
+      MEETOPIA_DISPOSABLE_DB: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install dependencies and Prisma
+        run: npm install --no-fund
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - name: Bootstrap synthetic Supabase roles in disposable DB
+        run: node scripts/prepare-disposable-db.cjs
+      - name: Apply ALL migrations to disposable PostgreSQL only
+        run: npx prisma migrate deploy
+      - name: Check migration state
+        run: npx prisma migrate status
+      - name: Exercise persisted chemistry, Encore and cascading deletion with synthetic data
+        run: node scripts/disposable-db-smoke.cjs
+
+  expo-mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install locked Expo SDK 58 dependencies
+        run: npm ci --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Generate unsigned iOS JavaScript bundle (NO EAS BUILD)
+        run: npx expo export --platform ios --output-dir dist-ios
+      - name: Check Expo/EAS configuration
+        run: node scripts/check-eas-config.cjs

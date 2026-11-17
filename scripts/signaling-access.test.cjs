@@ -44,13 +44,13 @@ function harness() {
     setTimeout(fn, ms) { const id = setTimeout(fn, ms); timers.add(id); return id; },
     clearTimeout,
   });
-  function socket(id, userId) {
+  function socket(id, userId, { protocol = 2 } = {}) {
     const handlers = new Map(), events = [];
-    const s = { id, connected: true, data: { userId, adultConfirmed: true, blockedUserIds: new Set(), passport: { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] } },
+    const s = { id, connected: true, handshake: { auth: { meetopiaProtocol: protocol } }, data: { userId, adultConfirmed: true, blockedUserIds: new Set(), passport: { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] } },
       on: (name, handler) => handlers.set(name, handler),
       emit: (name, payload) => events.push({ name, payload }),
       to: target => ({ emit: (name, payload) => sockets.get(target)?.emit(name, payload) }),
-      events, run: (name, payload) => handlers.get(name)(payload),
+      events, run: (name, ...args) => handlers.get(name)(...args),
     };
     sockets.set(id, s); connect(s); return s;
   }
@@ -59,6 +59,8 @@ function harness() {
 
 const proof = () => signed({ type: 'connection-realtime', users: ['alice', 'bob'], connectionId: 'connection' });
 const callProof = () => signed({ type: 'direct-call', callerId: 'alice', calleeId: 'bob', connectionId: 'connection' });
+const passport = { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] };
+const freshAccount = (sub, blocked = []) => signed({ sub, adultConfirmed: true, blocked, passport });
 
 test('realtime messages use saved content and reject unpersisted messages', async () => {
   const h = harness();
@@ -232,3 +234,94 @@ test('Vibe is forbidden until both participants finish all three server-owned ro
     assert.ok(b.events.some(e => e.name === 'mutual-vibe'));
   } finally { h.close(); }
 });
+
+
+test('new clients negotiate protocol 2 before matching; legacy clients cannot bypass consent', () => {
+  const h = harness()
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
+    const legacy = h.socket('old', 'old-user', { protocol: 1 })
+    let reply
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice') }, value => { reply = value })
+    assert.equal(reply.protocol, 2)
+    assert.equal(reply.status, 'ready')
+    let wrongReply
+    legacy.run('vibe-room-hello', { version: 2, token: freshAccount('old-user') }, value => { wrongReply = value })
+    assert.equal(wrongReply.status, 'update-required')
+    legacy.run('find-user')
+    assert.equal(legacy.events.some(e => e.name === 'introduction-offered'), false)
+    assert.equal(legacy.events.find(e => e.name === 'match-error')?.payload.code, 'CLIENT_UPDATE_REQUIRED')
+    // A legacy client cannot be paired even by a newer compatible partner.
+    a.run('find-user')
+    assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
+    // A newer client can only enter an invitation, not a media pair, before both agree.
+    b.run('find-user')
+    const offer = a.events.find(e => e.name === 'introduction-offered')?.payload
+    assert.ok(offer)
+    assert.equal(a.events.some(e => e.name === 'user-found'), false)
+    a.run('introduction-response', { invitationId: offer.invitationId, accept: true })
+    b.run('introduction-response', { invitationId: offer.invitationId, accept: true })
+    assert.ok(a.events.some(e => e.name === 'user-found'))
+    assert.ok(b.events.some(e => e.name === 'user-found'))
+  } finally { h.close() }
+})
+
+test('legacy Connection calls remain authorized while old random matching is rejected', async () => {
+  const h = harness()
+  try {
+    const a = h.socket('a', 'alice', { protocol: 1 })
+    const b = h.socket('b', 'bob')
+    a.run('find-user')
+    assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
+    await a.run('call-connection', { proof: callProof() })
+    const invite = b.events.find(e => e.name === 'incoming-connection-call')?.payload
+    assert.ok(invite)
+    await b.run('accept-connection-call', { inviteId: invite.inviteId })
+    assert.ok(a.events.some(e => e.name === 'user-found'))
+    assert.ok(b.events.some(e => e.name === 'user-found'))
+  } finally { h.close() }
+})
+
+test('skipping an active Vibe Room notifies the partner and revokes old room', () => {
+  const h = harness()
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
+    a.run('find-user'); b.run('find-user')
+    const offer = a.events.find(e => e.name === 'introduction-offered')?.payload
+    a.run('introduction-response', { invitationId: offer.invitationId, accept: true })
+    b.run('introduction-response', { invitationId: offer.invitationId, accept: true })
+    const oldRoom = a.events.find(e => e.name === 'vibe-room-state')?.payload
+    assert.ok(oldRoom)
+    a.run('find-next-user')
+    assert.equal(b.events.some(e => e.name === 'peer-left'), true)
+    assert.equal(b.events.some(e => e.name === 'vibe-room-ended'), true)
+    const before = b.events.filter(e => e.name === 'vibe-room-state').length
+    b.run('vibe-room-next', { sessionId: oldRoom.sessionId })
+    assert.equal(b.events.filter(e => e.name === 'vibe-room-state').length, before)
+    assert.equal(b.events.some(e => e.name === 'mutual-vibe'), false)
+  } finally { h.close() }
+})
+
+
+test('fresh signed blocklist and Passport prevent stale-socket matching', () => {
+  const h = harness()
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
+    let reply
+    // A new token from the API contains a recent block not in the original
+    // socket state. Matchmaking must use these fresh signed claims.
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice', ['bob']) }, value => { reply = value })
+    assert.equal(reply.status, 'ready')
+    a.run('find-user')
+    b.run('find-user')
+    assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
+    assert.equal(b.events.some(e => e.name === 'introduction-offered'), false)
+    // An otherwise valid token for a different account cannot refresh this socket.
+    let rejected
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('bob') }, value => { rejected = value })
+    assert.equal(rejected.status, 'reauthenticate')
+    // A forged/expired token is also rejected.
+    a.run('vibe-room-hello', { version: 2, token: 'forged' }, value => { rejected = value })
+    assert.equal(rejected.status, 'reauthenticate')
+  } finally { h.close() }
+})

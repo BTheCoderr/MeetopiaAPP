@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client'
 import { getSocketUrl } from './iceServers'
 import { api } from './api'
+import { VIBE_ROOM_PROTOCOL } from './vibeRoomProtocol'
 
 const LOG = '[Mobile:Socket.io]'
 let socket: Socket | null = null
@@ -46,7 +47,7 @@ export async function getAuthenticatedSocket(): Promise<Socket> {
     const token = await fetchSocketToken(), url = getSocketUrl()
     console.log(LOG, 'socket URL', url)
     socket?.removeAllListeners(); socket?.disconnect()
-    const created = io(url, { transports: ['polling','websocket'], reconnectionAttempts: 5, reconnectionDelay: 1000, timeout: 10000, auth: { token } })
+    const created = io(url, { transports: ['polling','websocket'], reconnectionAttempts: 5, reconnectionDelay: 1000, timeout: 10000, auth: { token, meetopiaProtocol: VIBE_ROOM_PROTOCOL } })
     if (createdFor !== generation) {
       created.disconnect()
       throw new Error('Meetopia realtime connection was replaced.')
