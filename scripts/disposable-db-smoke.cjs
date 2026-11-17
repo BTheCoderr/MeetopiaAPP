@@ -57,10 +57,24 @@ async function main() {
       where: { connectionId: connection.id },
       data: { userBChoice: 'playlist-swap', userBShared: true },
     })
+    await prisma.sharedCreation.create({
+      data: {
+        connectionId: connection.id,
+        themeId: 'music-memories',
+        activity: 'live-music',
+        setting: 'cafe',
+      },
+    })
+    const creation = await prisma.sharedCreation.findUnique({ where: { connectionId: connection.id } })
+    assert.equal(creation.themeId, 'music-memories')
+    assert.equal(creation.activity, 'live-music')
+    assert.equal(creation.setting, 'cafe')
     await prisma.connection.delete({ where: { id: connection.id } })
     assert.equal(await prisma.encore.findUnique({ where: { connectionId: connection.id } }), null,
       'Spark Card/Encore must cascade-delete with its parent Connection')
-    console.log('Disposable PostgreSQL migrations, chemistry fields, Encore and cascade-delete passed.')
+    assert.equal(await prisma.sharedCreation.findUnique({ where: { connectionId: connection.id } }), null,
+      'Co-Creation must cascade-delete with its parent Connection')
+    console.log('Disposable PostgreSQL migrations, chemistry fields, Encore, jointly shared creation and cascade-delete passed.')
   } finally {
     for (const user of [a, b]) {
       if (user) await prisma.user.deleteMany({ where: { id: user.id } })
