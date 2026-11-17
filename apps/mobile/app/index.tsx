@@ -54,7 +54,7 @@ export default function HomeScreen() {
     <Text style={styles.subtext}>Choose your Chemistry Passport, accept an introduction together, and discover your connection on video. Only mutual Vibes become lasting Connections.</Text>
     <Text style={styles.welcome}>Signed in as {name}</Text>
     <View style={styles.actions}>
-      <GradientButton label="Start live Chemistry Check" onPress={() => router.push('/chat/video')} />
+      <GradientButton label="Choose a Vibe Session" onPress={() => router.push('/sessions')} />
       <GradientButton label="My Connections" variant="outline" onPress={() => router.push('/connections')} style={styles.spaced} />
     </View>
     <View style={styles.links}>
