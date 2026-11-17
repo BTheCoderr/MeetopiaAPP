@@ -1,110 +1,87 @@
-# Meetopia TestFlight QA Checklist
+# Meetopia iOS TestFlight release gate (native parity rebuild)
 
-Use this checklist before promoting a build from TestFlight to App Store review.
+**Build under test:** ______   **Commit:** ______   **Date:** ______
+**Tester/account A:** ______   **Device/iOS:** ______
+**Tester/account B:** ______   **Device/iOS:** ______
 
-**Build under test:** _______________  
-**Tester:** _______________  
-**Date:** _______________  
-**Device / iOS version:** _______________
+Do not promote to App Review until all critical items below have a verified result. Leave unchecked items unchecked.
 
-## Install & launch
+## Build workflow: Expo + EAS only
 
-- [ ] App installs from TestFlight without crash
-- [ ] Splash and icon display (or documented placeholder)
-- [ ] Home screen shows dating/meeting positioning (not “random chat”)
+Meetopia is an **Expo Router / EAS Build** application, not a hand-maintained CocoaPods/Xcode build. Do not add manual `pod install`, `xcodebuild`, or native signing commands to GitHub Actions.
 
-## Onboarding
+The Git repository intentionally contains historical native iOS files, but root `.easignore` excludes `/apps/mobile/ios/` and `/apps/mobile/android/` from EAS Build upload. EAS regenerates native projects through Expo config plugins, including React Native WebRTC. This prevents stale native build numbers and SDK changes from persisting.
 
-- [ ] Age gate: Continue disabled until 18+ confirmed
-- [ ] Age gate persists after app restart
-- [ ] Profile screen: name, age, city, gender, interested in, prompt
-- [ ] Intent screen: all six intents selectable
-- [ ] Incomplete onboarding redirects from Chemistry Check
+Run the following from `apps/mobile/` using the correct connected Expo account:
 
-## Chemistry Check (video)
+```sh
+npm ci
+npm run typecheck
+npm run lint
+npx expo config --type public
+npx expo export --platform ios
+npx eas-cli build:inspect --platform ios --stage archive --profile production --output ./eas-archive
+# Confirm the EAS archive has app.config.ts/assets and DOES NOT contain ios/.
+# Only after release QA:
+npx eas-cli build --platform ios --profile production
+# After a verified signed build, use EAS submit deliberately:
+# npx eas-cli submit --platform ios --profile production --latest
+```
 
-- [ ] Camera/mic permission prompts show correct copy
-- [ ] Local preview full-screen before match
-- [ ] Searching copy: “Looking for someone who matches your intent…”
-- [ ] Match connects with second device/browser (web or mobile)
-- [ ] Peer profile card shows name, age, city, intent (no private extras)
-- [ ] 3-minute Chemistry Check timer visible during call
-- [ ] Mute / camera toggle work
-- [ ] Skip/Next finds another partner
-- [ ] Leave shows confirmation and returns cleanly
+`build:inspect` is not an EAS build and should not spend a build slot. The production profile is for TestFlight/App Store; the preview profile uses internal distribution and may need registered iPhone devices. Never auto-submit or upload build 18 while the checklist below is incomplete.
 
-## Vibe & chat
+## Automated checks
 
-- [ ] Vibe button sends vibe (UI shows sent state)
-- [ ] Mutual Vibe shows “It’s a vibe — chat unlocked”
-- [ ] Chat input disabled until mutual Vibe
-- [ ] Messages send/receive after mutual Vibe
-- [ ] Typing indicator (if peer typing)
+- [ ] Native TypeScript typecheck passes from locked dependencies
+- [ ] Native lint passes
+- [ ] Expo iOS JavaScript export passes
+- [ ] Root web build and signaling tests pass
+- [ ] Dependency audits reviewed and high/critical findings resolved or documented with an approved fix plan
+- [ ] EAS archive inspection confirms native ios/ and android/ folders are excluded and all Expo assets/plugins are included
+- [ ] EAS cloud iOS production build succeeds from the reviewed commit with build number 18 or higher; no auto-submit
+- [ ] Full device validation performed using the resulting TestFlight binary
 
-## Safety
+## Identity and account
 
-- [ ] Report modal: all six categories
-- [ ] Report shows confirmation (no false “AI reviewed instantly” copy)
-- [ ] Block: confirmation, leaves chat, skips blocked user on rematch
-- [ ] Settings: Delete local profile clears data and returns to age gate
+- [ ] Sign up on iPhone returns an authenticated native session that survives app restart
+- [ ] Sign in with the same account on web and iPhone
+- [ ] Invalid credentials fail without entering the product
+- [ ] Server-backed 18+ confirmation required for matching
+- [ ] Sign out revokes session and disconnects realtime socket
+- [ ] Password-confirmed account deletion removes account and associated Connections/messages
+- [ ] Existing web account can sign in after mobile account deletion, or receives accurate account-not-found response
+- [ ] Native cookie handling does not leak/lose sessions across accounts
 
-## Settings & legal links
+## Real Chemistry Check — test with two physical devices
 
-All links open in Safari from Settings (`apps/mobile/src/config/links.ts`):
+- [ ] No suggested sample profiles or simulated peer acceptance appear in ordinary product flow
+- [ ] Camera/microphone prompts show correct descriptions
+- [ ] Both independently authenticated adults enter live queue and are paired
+- [ ] Realtime socket authenticates and reconnects after temporary network loss
+- [ ] Audio/video work both directions over Wi-Fi and over cellular/TURN
+- [ ] Mute/camera off/skip/leave work without stale peer connections or unwanted re-pairing
+- [ ] 3-minute timer and correct peer states are presented
+- [ ] In-call safety report/block remove or prevent unwanted contact
+- [ ] Vibe on one side alone does not save a Connection
+- [ ] Mutual Vibe saves exactly one persistent Connection for both users
+- [ ] Connection remains visible after app restart and on web
+- [ ] Message send/receive, read and presence behave correctly
+- [ ] Call Again invites the right Connection, with accept/decline/missed states
 
-- [ ] Home — https://meetopia-live.netlify.app
-- [ ] Privacy Policy — https://meetopia-live.netlify.app/privacy
-- [ ] Terms — https://meetopia-live.netlify.app/terms
-- [ ] Community Guidelines — https://meetopia-live.netlify.app/community-guidelines
-- [ ] Safety & Reporting — https://meetopia-live.netlify.app/safety
-- [ ] Support — https://meetopia-live.netlify.app/support
+## UX, compliance, review evidence
 
-## Demo Mode (App Review)
+- [ ] Test on current supported physical iPhone sizes and accessibility settings
+- [ ] Native foreground/background and interrupted-call recovery tested
+- [ ] Settings URLs for privacy, support, terms and safety work
+- [ ] Report persistence and handling are confirmed (no unimplemented moderation claims)
+- [ ] App screenshot set and descriptions reflect the current native build
+- [ ] Rejection response answers all 9 questions factually
+- [ ] Named beta testers and actual feedback/changes documented
+- [ ] Reviewer can test real two-person video without relying on a hardcoded mock
+- [ ] Original developer/ownership and shared-framework answers verified
 
-- [ ] Home shows **Try Demo Mode** after age gate
-- [ ] Demo banner visible during simulated Chemistry Check
-- [ ] Simulated match, Vibe, and chat unlock without second device
-- [ ] Report in demo shows demo-only message (no false server claim)
+## Sign off
 
-## Network & backend
+Engineering: ______   Product: ______   Reviewer test account details stored securely: ______
 
-- [ ] Connects to `EXPO_PUBLIC_SOCKET_URL` (Render production)
-- [ ] Report creates Supabase row (email alerts optional — not required for MVP)
-- [ ] Reconnect after background/foreground (best effort)
-- [ ] No CORS errors on web (regression check — web unchanged)
-
-## Performance
-
-- [ ] Video latency acceptable on Wi‑Fi
-- [ ] Video acceptable on cellular (note quality)
-- [ ] No memory leak after 5+ skip cycles
-
-## Known limitations (expected in MVP)
-
-- Profile/matches stored locally only
-- No push notifications
-- No payments
-- Reports stored in Supabase for review
-- No AI moderation / auto-blur
-
-## External TestFlight / App Store blockers
-
-Before external review, confirm:
-
-1. [ ] Live policy URLs on https://meetopia-live.netlify.app (`/privacy`, `/terms`, `/community-guidelines`, `/support`, `/safety`)
-2. [ ] **App Store Connect URLs** use `https://meetopia-live.netlify.app` (use the home URL for Marketing URL)
-3. [ ] Report persistence: Supabase `mobile_reports` on Render
-4. [ ] Block persists on device (profile fingerprint + socket ID)
-5. [ ] Demo Mode works on one device; App Review notes in `docs/APP_REVIEW_NOTES.md`
-6. [ ] No false safety claims (no AI moderation / auto-blur / verified users)
-7. [ ] App icon/splash are real brand assets (not blank placeholders)
-8. [ ] Physical iPhone QA completed (this checklist)
-
-## Sign-off
-
-| Role | Name | Pass/Fail | Notes |
-|------|------|-----------|-------|
-| Engineering | | | |
-| Product | | | |
-
-**Do not submit to App Store until all critical paths pass.**
+Do not submit if live video, session handling, account deletion, moderation or app originality cannot be demonstrated on the compiled iOS binary.

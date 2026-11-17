@@ -10,17 +10,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'meetopia',
   platforms: ['ios', 'android'],
   userInterfaceStyle: 'dark',
-  newArchEnabled: false,
   icon: './assets/icon.png',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#000000',
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.meetopia.app',
-    buildNumber: '16',
+    buildNumber: '18',
     infoPlist: {
       CFBundleURLTypes: [
         {
@@ -32,10 +26,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           CFBundleURLSchemes: ['exp+meetopia-app'],
         },
       ],
+      ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
       NSMicrophoneUsageDescription:
         'Meetopia uses your microphone so you can talk during video dates and meetings.',
+      NSBluetoothAlwaysUsageDescription:
+        'Meetopia uses Bluetooth so you can use a headset during video Chemistry Checks.',
     },
   },
   android: {
@@ -50,13 +47,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-dev-client',
     'expo-router',
+    'expo-status-bar',
     'expo-asset',
     'expo-font',
     [
       '@config-plugins/react-native-webrtc',
       {
-        cameraPermission: 'Meetopia needs camera access for video Chemistry Checks.',
-        microphonePermission: 'Meetopia needs microphone access for voice during video chat.',
+        cameraPermission: 'Meetopia uses your camera for live video Chemistry Checks with other members.',
+        microphonePermission: 'Meetopia uses your microphone so you can talk during video dates and meetings.',
       },
     ],
   ],

@@ -1,79 +1,50 @@
-# App Review Notes (copy into App Store Connect)
+# Meetopia iOS App Review notes — rebuild in progress
 
-Paste the sections below into **App Review Information** when submitting Meetopia for TestFlight or App Store review.
+**Status: DO NOT RESUBMIT YET.** These instructions describe the proposed native rebuild on branch `meetopia-mobile-current-parity`, not the already rejected build 17. Confirm a newly installed TestFlight build on physical iPhones before copying any claim to App Store Connect.
 
-## Demo account / special instructions
+## What Meetopia actually does
 
-Meetopia is a **profile-based, video-first dating app**. It is **not** anonymous or random matching. Users create a local profile, choose a dating intent, browse **suggested profiles**, and request a **Chemistry Check** with a specific person. Live video starts **only after** a profile-based match accepts the request. No sign-in is required for this beta.
+Meetopia is an independent, conversation-first social and dating product for adults 18 or older. Its intended experience is:
 
-### Primary flow
+1. Create an account or sign in to the same Meetopia network as the web product.
+2. Confirm 18+ status on the server.
+3. Start a live Chemistry Check with another online adult.
+4. Communicate face to face through WebRTC; controls include mute, camera, report, block, skip and leave.
+5. Choose Vibe independently; only mutual Vibe can create a lasting server-backed Connection.
+6. Return to Connections for persistent messaging and calling again.
 
-Age Gate (18+) → Create Profile → Choose Intent → **Suggested Matches** → Profile Card → **Request Chemistry Check** → Match accepts → Video (Chemistry Check) → mutual **Vibe** → Chat unlocks.
+This is a dedicated application with custom native React Native screens, a WebRTC media layer, Socket.IO signaling, a session-backed Next.js API, and persisted social state. Standard development frameworks and common infrastructure are not evidence that the app is a commercial template.
 
-### Reviewer test path (single device — recommended)
+## Critical distinction from rejected iOS build
 
-1. Open the app and confirm the **18+** age gate.
-2. Create a basic local profile and choose a dating/meeting intent.
-3. On the home screen, tap **View Suggested Matches** (or **Try Demo Mode**).
-4. Open any suggested profile to see name, age, city, intent, prompt, and interests.
-5. Tap **Request Chemistry Check**. The screen shows "Waiting for [Name] to accept…", then the match accepts (simulated for review).
-6. Allow **camera** and **microphone** when prompted.
-7. You enter the **Chemistry Check** video screen titled "You're meeting [Name]".
-8. Tap **✨ Vibe** — mutual Vibe unlocks chat after a short delay. Send a message.
-9. Test **Report (🚩)**, **Block (⛔)**, **Skip (⏭)**, and **Leave (✕)** from the control bar.
-10. Open **Settings** for privacy, terms, support, community guidelines, safety, website home, and delete-local-profile options.
+The original mobile submission routed Suggested Matches through five hardcoded profiles and simulated acceptance, even outside an explicitly selected demo. The proposed rebuild removes the hardcoded suggested-match routes, the simulated peer hook, and local-only onboarding from the native product flow. It integrates server-backed accounts and live matching instead.
 
-**Why simulated acceptance:** in this beta, Suggested Matches uses local demo profiles so a single reviewer can experience the entire profile → request → accept → video flow without needing two live users. Requesting a Chemistry Check never opens random/anonymous video — it always meets the specific profile you selected.
+The current desktop/web product has more functionality than the rejected native build. Do not use website-only functionality as proof that a particular iOS binary supports it.
 
-### Known beta limits
+## Reviewer test credentials and path
 
-- Suggested matches and the accept step use **local demo data** for review.
-- Profiles, blocks, and matches are stored **locally on the device**.
-- Reports are stored in Supabase for review by the Meetopia team.
-- No payments, push notifications, AI moderation, automatic blur, or subscription features in this build.
+Create a dedicated nonproduction reviewer account after the native build is validated. Never place a real user password or production secret in this repository.
 
-### Optional — live two-user test
+Review should include two real devices and two accounts. Make sure the reviewer can complete sign-in, age confirmation, live pairing, Vibe/Connection creation, Connection messages, report/block, sign-out and account deletion. Document how they can reach a second participant; reviewers cannot verify person-to-person video with a simulated peer.
 
-If you want to schedule a live video test between two real devices, email **ermias6822@gmail.com** and we will arrange a test window.
+## Evidence required before reply to Apple
 
-## Signaling backend
+- Full iOS build number and exact tested commit
+- Physical iPhone model and iOS version for both test devices
+- Sign-in/session cookie verified from the native networking layer
+- Camera and microphone, live matching, TURN/Wi-Fi/cellular, reconnect and call lifecycle verified
+- Mutual Vibe saved to a persistent Connection; post-match messaging verified after restart
+- Report/block/privacy/delete account verified end to end against configured backend
+- TestFlight tester count, dates, specific feedback and implemented changes (do not invent)
+- Clear distinction from unrelated apps in the same Apple developer account
+- Details of any code/assets shared across apps, plus ownership and content provider statement
+- Updated App Store screenshots matching the actual iOS build
 
-Production signaling: `https://meetopia-signaling-v2.onrender.com`  
-(Cold start may take ~30 seconds on first connection.)
+## References
 
-## Hardware
+- Native parity work: https://github.com/BTheCoderr/MeetopiaAPP/pull/29
+- Native release checklist: `docs/TESTFLIGHT_QA.md`
+- Product behavior: `apps/mobile/CURRENT_PRODUCT_PARITY.md`
+- Public service: https://meetopia-live.netlify.app
 
-- Physical iPhone with front camera and microphone required for video features.
-- Simulator can open Demo Mode but camera preview may be limited.
-
-## Safety features (MVP — no AI moderation)
-
-- 18+ age gate
-- Community Guidelines, Privacy Policy, Terms, Support, and Safety pages (web URLs in Settings)
-- In-app Report with categories
-- Block (persists on device by profile fingerprint)
-- Delete local profile & data in Settings
-
-## Public website URLs (App Store Connect + Settings)
-
-| Field | URL |
-|-------|-----|
-| Marketing / Home | https://meetopia-live.netlify.app |
-| Support | https://meetopia-live.netlify.app/support |
-| Privacy Policy | https://meetopia-live.netlify.app/privacy |
-| Terms | https://meetopia-live.netlify.app/terms |
-| Community Guidelines | https://meetopia-live.netlify.app/community-guidelines |
-| Safety & Reporting | https://meetopia-live.netlify.app/safety |
-
-Mobile Settings imports these from `apps/mobile/src/config/links.ts`.
-
-## Contact for review support
-
-ermias6822@gmail.com
-
-## Notes
-
-- No payments or subscriptions in this build.
-- No push notifications in this build.
-- Profile data is stored locally on device (no server account yet).
-- Reports are stored in Supabase for review (no email alerts in this build).
+The App Review response must answer all nine of Apple's questions with verified facts. Do not resubmit or represent this branch as a shipped app until release QA is complete.

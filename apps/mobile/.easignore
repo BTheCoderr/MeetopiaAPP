@@ -1,0 +1,31 @@
+# Used when EAS Build's project root is apps/mobile:
+# the no-VCS workflow, or a Git repository created inside this directory.
+# A monorepo Git checkout uses the repository-root .easignore instead.
+# .easignore replaces .gitignore, so keep the mobile ignore rules here too.
+
+node_modules/
+.expo/
+dist/
+dist-ios/
+dist-android/
+web-build/
+expo-env.d.ts
+.env
+.env.local
+.env*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Continuous Native Generation. EAS must generate iOS/Android from app.config.ts.
+ios/
+android/
+
+eas-archive/
+.eas-build/
+coverage/
+ios-build/
+android-build/

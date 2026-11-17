@@ -14,7 +14,9 @@ export function useMobilePeerConnection(stream: MediaStream | null) {
   const streamRef = useRef<MediaStream | null>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
 
-  streamRef.current = stream
+  useEffect(() => {
+    streamRef.current = stream
+  }, [stream])
 
   const attachLocalTracks = useCallback((pc: RTCPeerConnection, mediaStream: MediaStream | null) => {
     if (!mediaStream || !isUsable(pc)) return
@@ -53,13 +55,19 @@ export function useMobilePeerConnection(stream: MediaStream | null) {
   }, [configurationIndex, createPeerConnection])
 
   useEffect(() => {
-    const pc = createPeerConnection(configurationIndex)
-    setPeerConnection(pc)
+    let mounted = true
+    const pc = createPeerConnection(0)
+    // Defer the state update until effect setup finishes, avoiding a
+    // cascading render while WebRTC is installing its native resources.
+    void Promise.resolve().then(() => {
+      if (mounted) setPeerConnection(pc)
+    })
     return () => {
+      mounted = false
       pc.close()
-      pcRef.current = null
+      if (pcRef.current === pc) pcRef.current = null
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [createPeerConnection])
 
   useEffect(() => {
     if (peerConnection && stream) attachLocalTracks(peerConnection, stream)

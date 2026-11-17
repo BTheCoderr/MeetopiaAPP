@@ -1,0 +1,56 @@
+# Meetopia monorepo EAS Build upload rules.
+# EAS reads this file from the repository root, not apps/mobile/.
+# Replicate root and mobile .gitignore rules because .easignore replaces them.
+
+# Repository root .gitignore rules
+/node_modules
+/server/node_modules
+/.pnp
+.pnp.js
+/coverage
+/.next/
+/out/
+/build
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env*.local
+.vercel
+/app.json
+/eas.json
+*.tsbuildinfo
+next-env.d.ts
+
+# Mobile-local .gitignore equivalents
+/apps/mobile/node_modules/
+/apps/mobile/.expo/
+/apps/mobile/dist/
+/apps/mobile/dist-ios/
+/apps/mobile/dist-android/
+/apps/mobile/web-build/
+/apps/mobile/expo-env.d.ts
+/apps/mobile/.env
+/apps/mobile/.env.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# EAS-managed Continuous Native Generation.
+# Exclude committed/stale native projects from the cloud build archive.
+# EAS Build generates the current iOS/Android projects using app.config.ts
+# and @config-plugins/react-native-webrtc at build time.
+/apps/mobile/ios/
+/apps/mobile/android/
+
+# Optional generated debug outputs and test coverage
+/apps/mobile/eas-archive/
+/apps/mobile/.eas-build/
+/apps/mobile/coverage/
+/apps/mobile/ios-build/
+/apps/mobile/android-build/
