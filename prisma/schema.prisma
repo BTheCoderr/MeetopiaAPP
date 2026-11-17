@@ -139,6 +139,7 @@ model Connection {
   userB User @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
 
   encore Encore?
+  sharedCreation SharedCreation?
 
   @@unique([userAId, userBId])
   @@index([userBId])
@@ -154,6 +155,17 @@ model Encore {
   userBShared Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+}
+
+// Only both-participant-approved final creations, never private answers.
+model SharedCreation {
+  connectionId String @id
+  themeId String
+  activity String
+  setting String
+  createdAt DateTime @default(now())
 
   connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 }
