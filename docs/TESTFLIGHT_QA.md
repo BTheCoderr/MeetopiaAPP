@@ -6,6 +6,30 @@
 
 Do not promote to App Review until all critical items below have a verified result. Leave unchecked items unchecked.
 
+## Build workflow: Expo + EAS only
+
+Meetopia is an **Expo Router / EAS Build** application, not a hand-maintained CocoaPods/Xcode build. Do not add manual `pod install`, `xcodebuild`, or native signing commands to GitHub Actions.
+
+The Git repository intentionally contains historical native iOS files, but root `.easignore` excludes `/apps/mobile/ios/` and `/apps/mobile/android/` from EAS Build upload. EAS regenerates native projects through Expo config plugins, including React Native WebRTC. This prevents stale native build numbers and SDK changes from persisting.
+
+Run the following from `apps/mobile/` using the correct connected Expo account:
+
+```sh
+npm ci
+npm run typecheck
+npm run lint
+npx expo config --type public
+npx expo export --platform ios
+npx eas-cli build:inspect --platform ios --stage archive --profile production --output ./eas-archive
+# Confirm the EAS archive has app.config.ts/assets and DOES NOT contain ios/.
+# Only after release QA:
+npx eas-cli build --platform ios --profile production
+# After a verified signed build, use EAS submit deliberately:
+# npx eas-cli submit --platform ios --profile production --latest
+```
+
+`build:inspect` is not an EAS build and should not spend a build slot. The production profile is for TestFlight/App Store; the preview profile uses internal distribution and may need registered iPhone devices. Never auto-submit or upload build 18 while the checklist below is incomplete.
+
 ## Automated checks
 
 - [ ] Native TypeScript typecheck passes from locked dependencies
@@ -13,7 +37,9 @@ Do not promote to App Review until all critical items below have a verified resu
 - [ ] Expo iOS JavaScript export passes
 - [ ] Root web build and signaling tests pass
 - [ ] Dependency audits reviewed and high/critical findings resolved or documented with an approved fix plan
-- [ ] iOS release build succeeds from the current branch and uses a new build number
+- [ ] EAS archive inspection confirms native ios/ and android/ folders are excluded and all Expo assets/plugins are included
+- [ ] EAS cloud iOS production build succeeds from the reviewed commit with build number 18 or higher; no auto-submit
+- [ ] Full device validation performed using the resulting TestFlight binary
 
 ## Identity and account
 
