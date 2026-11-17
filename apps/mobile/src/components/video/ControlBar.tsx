@@ -43,7 +43,7 @@ export default function ControlBar({
   return (
     <View style={layout.controls} pointerEvents="box-none">
       {mutualVibe && (
-        <Text style={styles.vibeBanner}>Chat unlocked — say hi 👋</Text>
+        <Text style={styles.vibeBanner}>Connection saved — you can keep talking</Text>
       )}
       <View style={layout.controlRow}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'} style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>

@@ -26,10 +26,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           CFBundleURLSchemes: ['exp+meetopia-app'],
         },
       ],
+      ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription:
         'Meetopia uses your camera for live video Chemistry Checks with other members.',
       NSMicrophoneUsageDescription:
         'Meetopia uses your microphone so you can talk during video dates and meetings.',
+      NSBluetoothAlwaysUsageDescription:
+        'Meetopia uses Bluetooth so you can use a headset during video Chemistry Checks.',
     },
   },
   android: {
@@ -50,8 +53,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       '@config-plugins/react-native-webrtc',
       {
-        cameraPermission: 'Meetopia needs camera access for video Chemistry Checks.',
-        microphonePermission: 'Meetopia needs microphone access for voice during video chat.',
+        cameraPermission: 'Meetopia uses your camera for live video Chemistry Checks with other members.',
+        microphonePermission: 'Meetopia uses your microphone so you can talk during video dates and meetings.',
       },
     ],
   ],

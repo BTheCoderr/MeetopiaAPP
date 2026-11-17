@@ -28,6 +28,8 @@ next-env.d.ts
 /apps/mobile/node_modules/
 /apps/mobile/.expo/
 /apps/mobile/dist/
+/apps/mobile/dist-ios/
+/apps/mobile/dist-android/
 /apps/mobile/web-build/
 /apps/mobile/expo-env.d.ts
 /apps/mobile/.env

@@ -1,15 +1,35 @@
 import { useEffect, useRef } from 'react'
-import { Alert } from 'react-native'
+import { Alert, AppState } from 'react-native'
 import { Stack, usePathname, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { accountStatus } from '@/lib/auth'
+import { currentProduct } from '@/lib/currentProduct'
 import { getAuthenticatedSocket } from '@/lib/socket'
 
 export default function RootLayout() {
   const router = useRouter()
   const path = usePathname()
   const latestInvite = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (path.startsWith('/auth/') || path === '/onboarding/age-gate') return
+    let active = true
+    let interval: ReturnType<typeof setInterval> | null = null
+    let subscription: { remove: () => void } | null = null
+    const beat = () => { void currentProduct.presence.touch().catch(() => {}) }
+    void accountStatus().then(({ adultConfirmed }) => {
+      if (!active || !adultConfirmed) return
+      beat()
+      interval = setInterval(() => {
+        if (active && AppState.currentState === 'active') beat()
+      }, 45_000)
+      subscription = AppState.addEventListener('change', state => {
+        if (state === 'active') beat()
+      })
+    }).catch(() => {})
+    return () => { active = false; if (interval) clearInterval(interval); subscription?.remove() }
+  }, [path])
 
   useEffect(() => {
     // Listen throughout the authenticated app, not only on its home screen.

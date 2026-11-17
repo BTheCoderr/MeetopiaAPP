@@ -29,6 +29,18 @@ export type ConnectionMessage = {
   receiverId?: string
 }
 
+export type BlockedPerson = {
+  id: string
+  username: string | null
+  displayName: string | null
+}
+
+export type BlockRecord = {
+  id: string
+  createdAt: string
+  blocked: BlockedPerson
+}
+
 export type NotificationItem = {
   id: string
   type: string

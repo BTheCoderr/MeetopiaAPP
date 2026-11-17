@@ -15,13 +15,24 @@ for (const nativeDir of ['/apps/mobile/ios/', '/apps/mobile/android/']) {
 }
 assert(rules.has('/apps/mobile/.env'), 'Do not upload mobile local environment variables')
 
+const mobileIgnore = fs.readFileSync(path.join(mobileRoot, '.easignore'), 'utf8')
+const mobileRules = new Set(mobileIgnore.split(/\r?\n/).map(value => value.trim()))
+for (const nativeDir of ['ios/', 'android/']) {
+  assert(mobileRules.has(nativeDir), `apps/mobile/.easignore must exclude ${nativeDir} when that directory is the EAS project root`)
+}
+assert(mobileRules.has('.env'), 'Do not upload mobile local environment variables from apps/mobile')
+
 const eas = JSON.parse(fs.readFileSync(path.join(mobileRoot, 'eas.json'), 'utf8'))
 assert.equal(eas.cli.appVersionSource, 'local')
 assert.equal(eas.build.production.ios.image, 'sdk-58')
+assert.equal(eas.build.production.node, '22.23.3')
+assert.equal(eas.build.preview.node, '22.23.3')
+assert.equal(eas.build.development.node, '22.23.3')
 assert.notEqual(eas.build.production.autoSubmit, true)
 assert.equal(eas.submit.production.ios.ascAppId, '6747625372')
 
-const publicConfig = JSON.parse(execFileSync('npx', ['expo', 'config', '--type', 'public', '--json'], {
+const expoCli = path.join(mobileRoot, 'node_modules', 'expo', 'bin', 'cli')
+const publicConfig = JSON.parse(execFileSync(process.execPath, [expoCli, 'config', '--type', 'public', '--json'], {
   cwd: mobileRoot,
   encoding: 'utf8',
 }))
@@ -29,6 +40,7 @@ assert.equal(publicConfig.slug, 'meetopia-app')
 assert.equal(publicConfig.ios.bundleIdentifier, 'com.meetopia.app')
 assert(Number(publicConfig.ios.buildNumber) >= 18, 'iOS build number must exceed rejected build 17')
 assert.equal(publicConfig.extra.eas.projectId, '37e69074-d079-4c60-a3c4-5d468645bcf1')
+assert.equal(publicConfig.ios.infoPlist.ITSAppUsesNonExemptEncryption, false)
 const appSource = fs.readFileSync(path.join(mobileRoot, 'app.config.ts'), 'utf8')
 assert(appSource.includes("'@config-plugins/react-native-webrtc'"), 'EAS CNG must configure native WebRTC')
 console.log('Expo/EAS configuration verified; no build or upload initiated.')

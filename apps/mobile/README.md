@@ -1,117 +1,94 @@
 # Meetopia Native (Expo)
 
-Separate iOS/Android app. Does **not** replace the Next.js web app.
+Separate iOS and Android app. It does not replace the Next.js web app.
 
-## Prerequisites
+Release builds use Expo and EAS only. This project is Expo SDK 58 with Continuous Native Generation. Do not install CocoaPods, open the historical Xcode project, or run `expo run:ios` / `expo run:android` to produce a TestFlight or Play build. Expo Go cannot run this app: it depends on `react-native-webrtc` and `expo-dev-client`.
 
-- Node 18+
-- Expo account + EAS CLI (`npm i -g eas-cli`)
-- Apple Developer account (TestFlight)
-- Signaling server running (same as web)
+## Stack
+
+- Expo SDK 58 (`expo ~58.0.25`), Expo Router `~58.0.31`
+- React Native 0.88.1 and React 19.3.0
+- `react-native-webrtc` 124.0.7 with `@config-plugins/react-native-webrtc`
+- Node `^22.13.0`, `^24.3.0`, or `>=26`. CI uses 22.16.0. The EAS `sdk-58` image uses Node 22.23.3, and `eas.json` pins that version on every build profile.
+
+## App identity
+
+These values are already set. Do not run `eas init` or replace them.
+
+| Setting | Value |
+| --- | --- |
+| Slug | `meetopia-app` |
+| iOS bundle / Android package | `com.meetopia.app` |
+| Expo project ID | `37e69074-d079-4c60-a3c4-5d468645bcf1` |
+| EAS owner | `bferrell514` |
+| iOS build number | `18` in `app.config.ts` (`cli.appVersionSource` is `local`) |
+| Production API | `https://meetopia-live.netlify.app` |
+| Signaling | `https://meetopia-signaling-v2.onrender.com` |
 
 ## Setup
 
-```bash
-cd apps/mobile
-cp .env.example .env
-npm install
-# WebRTC requires @config-plugins/react-native-webrtc (not the raw package as a plugin)
-npx expo install @config-plugins/react-native-webrtc react-native-webrtc@124.0.4
-eas login
-eas init   # sets projectId in app.config.ts extra.eas.projectId
-```
-
-Set `EXPO_PUBLIC_SOCKET_URL` to your signaling server (LAN IP for device testing, HTTPS for production).
-
-## Quick test (no EAS cloud build)
-
-**Easiest:** use the web app on your phone — `http://YOUR_LAN_IP:3000/chat/video` with `npm run dev` at repo root. No native build needed.
-
-**Native app (local only):**
+From `apps/mobile`:
 
 ```bash
-# Terminal 1 — repo root
-cd ~/Desktop/MeetopiaAPP && npm run dev
-
-# Terminal 2 — mobile (real iPhone via USB; Simulator has no camera)
-cd ~/Desktop/MeetopiaAPP/apps/mobile
-npm install
-echo "EXPO_PUBLIC_SOCKET_URL=http://192.168.1.152:3003" > .env
-npx expo config                    # must exit 0
-npx expo run:ios -d                # builds locally, installs on device (Xcode required)
-# then optionally:
-npx expo start --dev-client
+npm ci
 ```
 
-Do **not** use Expo Go — this app uses WebRTC and requires a **development build** (`expo-dev-client`). Expo Go on your phone is SDK 54; this project is SDK 52, and Expo Go cannot run WebRTC anyway.
+Copy `.env.example` to `.env` only on a machine that is running a local dev client. Do not commit `.env`. When `EXPO_PUBLIC_SOCKET_URL` is unset, the app uses the production signaling URL above.
 
-### Expo Go error (SDK 54 vs SDK 52)
+TURN is not configured. Public Google STUN is always used. A TURN server is added only when `EXPO_PUBLIC_TURN_URL`, `EXPO_PUBLIC_TURN_USERNAME`, and `EXPO_PUBLIC_TURN_CREDENTIAL` are all set. Those `EXPO_PUBLIC_*` values are embedded in the app bundle, so do not put a long-lived TURN password there.
 
-If you see *"Project is incompatible with this version of Expo Go"*:
+## Local checks
 
-1. Do **not** press `s` to switch to Expo Go.
-2. Install a **dev build** once (EAS cloud — no CocoaPods on your Mac):
+Run these from `apps/mobile` before spending an EAS build. None of them uploads a build or submits to Apple.
 
 ```bash
-cd apps/mobile
-eas build --profile development --platform ios
+npm ci
+npm run typecheck
+npm run lint
+npx expo-doctor
+npx expo config --type public
+npx expo export --platform ios --output-dir dist-ios
+node scripts/check-eas-config.cjs
 ```
 
-3. After install, run `npm start` and open the **Meetopia dev app** on your phone (not Expo Go).
+`dist-ios` is generated output. It is gitignored and excluded from the EAS upload.
 
-### EAS slug mismatch
+## Continuous Native Generation
 
-If `eas build` says slug does not match `meetopia-app`, ensure `app.config.ts` has `slug: 'meetopia-app'` (matches your EAS project).
+`apps/mobile/ios` and `apps/mobile/android` may still exist in Git from earlier native checkouts. EAS must not compile those trees.
 
-### CocoaPods / `expo run:ios`
+`.easignore` replaces `.gitignore` for the upload:
 
-Local `expo run:ios` needs Xcode + CocoaPods. If pod install fails, skip it and use `eas build` above instead.
+- The repository-root `.easignore` is what EAS reads for this monorepo. It excludes `/apps/mobile/ios/` and `/apps/mobile/android/`.
+- `apps/mobile/.easignore` excludes `ios/` and `android/` when the EAS project root is `apps/mobile` (no Git repository, or a repository created in that directory).
+- Both files also exclude `node_modules`, local `.env` files, and generated `dist-ios` / `dist-android` output.
 
-Do **not** paste comments or TypeScript into the terminal — run one command per line.
+EAS then runs prebuild and generates the native projects from `app.config.ts` and `@config-plugins/react-native-webrtc`.
 
-### TypeScript / IDE shows errors but typecheck passes
+## Inspect the upload
 
-The web app root `tsconfig.json` **excludes** `apps/mobile`. Mobile uses its own config under `apps/mobile/tsconfig.json`.
-
-If the Problems panel still shows old JSX/WebRTC errors (e.g. 72 stale errors):
-
-1. Run the real check: `cd apps/mobile && npm run typecheck`
-2. In VS Code: **Cmd+Shift+P** → **TypeScript: Restart TS Server**
-3. Ensure workspace TypeScript is **5.4+** (repo root `node_modules/typescript`)
-
-### If `expo start` says missing `expo-asset`
+After `npx eas-cli login`, from `apps/mobile`:
 
 ```bash
-npx expo install expo-asset expo-font
+npx eas-cli build:inspect --platform ios --stage archive --profile production --output ./eas-archive
 ```
 
-### If `eas build` says `Invalid UUID appId`
+The output directory must not already exist. This command does not start a cloud build. Confirm the archive contains `app.config.ts`, `eas.json`, `package-lock.json`, the app source, and `assets/`. Confirm it does not contain `ios/` or `android/`.
 
-`app.config.ts` still has `REPLACE_WITH_EAS_PROJECT_ID`. Either skip EAS and use `expo run:ios -d`, or run:
+## EAS iOS build
+
+Run this only when you intend to spend a build, from `apps/mobile`, on the commit you inspected:
 
 ```bash
-eas init
+npx eas-cli build --platform ios --profile production
 ```
 
-(answer prompts only — no `#` comments on the same line)
+Do not pass `--auto-submit`. Production `autoSubmit` is off. Submitting build 18 to TestFlight is a separate step.
 
-## EAS / TestFlight (later)
+A development client, still through EAS and not Expo Go:
 
 ```bash
-eas build --profile development --platform ios
-# or
-npx expo run:ios
+npx eas-cli build --platform ios --profile development
 ```
 
-```bash
-npx expo start --dev-client
-```
-
-## Milestones
-
-1. Home + local camera + socket — **scaffold**
-2. WebRTC match + PIP + next/leave — hooks in `src/hooks/`
-3. Messages + dating payload
-4. TestFlight via `eas build --profile production --platform ios`
-
-See [../../docs/MOBILE_APP_AUDIT.md](../../docs/MOBILE_APP_AUDIT.md).
+Then `npm start` and open the installed Meetopia development app.

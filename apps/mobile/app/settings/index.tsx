@@ -32,6 +32,7 @@ export default function SettingsScreen() {
     <Text style={styles.sectionLabel}>Account</Text>
     <View style={styles.group}>
       <Row label="Sign out" onPress={signOut} first />
+      <Row label="Blocked users" onPress={() => router.push('/settings/blocked')} />
       <Row label="Delete Meetopia account" onPress={() => router.push('/settings/delete-account')} />
     </View>
     <Text style={styles.sectionLabel}>Legal and safety</Text>

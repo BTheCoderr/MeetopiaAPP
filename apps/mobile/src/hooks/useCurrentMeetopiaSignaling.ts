@@ -20,9 +20,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
   const [peerId, setPeerId] = useState<string | null>(null), [peerUserId, setPeerUserId] = useState<string | null>(null), [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [peerConnected, setPeerConnected] = useState(false), [hasVibed, setHasVibed] = useState(false), [mutualVibe, setMutualVibe] = useState<MutualVibe | null>(null)
   const [callStatus, setCallStatus] = useState<string | null>(null), [error, setError] = useState<string | null>(null)
+  const [remoteCameraOff, setRemoteCameraOff] = useState(false), [remoteMicOff, setRemoteMicOff] = useState(false)
   const peerRef = useRef<string | null>(null), pcRef = useRef(peerConnection), pendingIce = useRef<Candidate[]>([]), directAttempt = useRef<string | null>(null), incomingAttempt = useRef<string | null>(null)
   useEffect(() => { pcRef.current = peerConnection }, [peerConnection])
-  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null) }, [])
+  const clearPeer = useCallback(() => { peerRef.current = null; pendingIce.current = []; setPeerId(null); setPeerUserId(null); setRemoteStream(null); setPeerConnected(false); setHasVibed(false); setMutualVibe(null); setSearching(false); setCallStatus(null); setRemoteCameraOff(false); setRemoteMicOff(false) }, [])
 
   useEffect(() => {
     let disposed = false
@@ -46,6 +47,10 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         setSearching(false); setCallStatus(null)
         setError(message || 'Your Connection is not available for a call.')
       }
+      const onRemoteMedia = ({ type, state }: { type?: string; state?: boolean }) => {
+        if (type === 'audio') setRemoteMicOff(state === false)
+        else if (type === 'video') setRemoteCameraOff(state === false)
+      }
       const listeners: [string, (...args: any[]) => void][] = [
         ['connect', onConnect], ['disconnect', onDisconnect],
         ['match-error', onMatchError], ['search-cancelled', onSearchCancelled],
@@ -54,6 +59,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
         ['connection-call-declined', onCallDeclined],
         ['connection-call-expired', onCallExpired],
         ['direct-call-unavailable', onDirectUnavailable],
+        ['stream-state-change', onRemoteMedia],
       ]
       listeners.forEach(([event, handler]) => sock.on(event, handler))
       cleanup = () => listeners.forEach(([event, handler]) => sock.off(event, handler))
@@ -65,16 +71,45 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
     if (!socket || !peerConnection) return
     const pc = peerConnection, drain = () => { if (pc.remoteDescription) pendingIce.current.splice(0).forEach((c) => pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error)) }
     const onTrack = (e: { streams: readonly MediaStream[] }) => { if (e.streams[0]) { setRemoteStream(e.streams[0]); setError(null) } }, onIce = (e: { candidate: RTCIceCandidate | null }) => { if (e.candidate && peerRef.current) socket.emit('ice-candidate', { candidate: e.candidate.toJSON(), to: peerRef.current }) }, onState = () => { setPeerConnected(pc.connectionState === 'connected'); if (pc.connectionState === 'failed' || pc.connectionState === 'closed') setRemoteStream(null) }
-    const userFound = async ({ partnerId, partnerUserId }: { partnerId: string; partnerUserId?: string | null }) => { const active = pcRef.current; if (!socket.id || !active || !usable(active)) return setError('Failed to establish video connection.'); peerRef.current = partnerId; setPeerId(partnerId); setPeerUserId(partnerUserId || null); setSearching(false); setHasVibed(false); setMutualVibe(null); pendingIce.current = []; if (partnerId <= socket.id || active.signalingState !== 'stable') return; try { const offer = await active.createOffer({}); await active.setLocalDescription(offer); socket.emit('call-user', { offer, to: partnerId }) } catch { setError('Failed to establish video connection.') } }
+    const userFound = async ({ partnerId, partnerUserId }: { partnerId: string; partnerUserId?: string | null }) => {
+      const active = pcRef.current
+      if (!socket.id || !active || !usable(active)) return setError('Failed to establish video connection.')
+      peerRef.current = partnerId
+      setPeerId(partnerId)
+      setPeerUserId(partnerUserId || null)
+      setSearching(false)
+      setHasVibed(false)
+      setMutualVibe(null)
+      setRemoteCameraOff(false)
+      setRemoteMicOff(false)
+      pendingIce.current = []
+      // The lower socket id creates the offer, matching the web Chemistry Check.
+      if (partnerId <= socket.id) return
+      const sendOffer = async (pc: RTCPeerConnection) => {
+        if (!usable(pc) || pc.signalingState !== 'stable') throw new Error('Peer connection is not ready.')
+        const offer = await pc.createOffer({})
+        await pc.setLocalDescription(offer)
+        socket.emit('call-user', { offer, to: partnerId })
+      }
+      try {
+        await sendOffer(active)
+      } catch {
+        await new Promise(resolve => setTimeout(resolve, 300))
+        const retry = pcRef.current
+        if (!retry) return setError('Failed to establish video connection.')
+        try { await sendOffer(retry) } catch { setError('Failed to establish video connection.') }
+      }
+    }
     const callMade = async ({ offer, from }: { offer: Description; from: string }) => { const active = pcRef.current; if (!active || !usable(active)) return; peerRef.current = from; setPeerId(from); try { await active.setRemoteDescription(new RTCSessionDescription(offer)); drain(); const answer = await active.createAnswer(); await active.setLocalDescription(answer); socket.emit('make-answer', { answer, to: from }) } catch { setError('Failed to establish video connection.') } }
     const answerMade = async ({ answer }: { answer: Description }) => { const active = pcRef.current; if (!active || !usable(active)) return; try { if (!(active.signalingState === 'stable' && active.remoteDescription)) { await active.setRemoteDescription(new RTCSessionDescription(answer)); drain() } } catch { setError('Failed to establish video connection.') } }
-    const ice = ({ candidate }: { candidate: Candidate }) => { if (pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error); else pendingIce.current.push(candidate) }, left = () => { clearPeer(); restartConnection() }
-    (pc as unknown as PeerEvents).addEventListener('track', onTrack); (pc as unknown as PeerEvents).addEventListener('icecandidate', onIce); (pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState); socket.on('user-found', userFound); socket.on('call-made', callMade); socket.on('answer-made', answerMade); socket.on('ice-candidate', ice); socket.on('peer-left', left)
+    const ice = ({ candidate }: { candidate: Candidate }) => { if (pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error); else pendingIce.current.push(candidate) }
+    const left = () => { clearPeer(); restartConnection() }
+    ;(pc as unknown as PeerEvents).addEventListener('track', onTrack); (pc as unknown as PeerEvents).addEventListener('icecandidate', onIce); (pc as unknown as PeerEvents).addEventListener('connectionstatechange', onState); socket.on('user-found', userFound); socket.on('call-made', callMade); socket.on('answer-made', answerMade); socket.on('ice-candidate', ice); socket.on('peer-left', left)
     return () => { (pc as unknown as PeerEvents).removeEventListener('track', onTrack); (pc as unknown as PeerEvents).removeEventListener('icecandidate', onIce); (pc as unknown as PeerEvents).removeEventListener('connectionstatechange', onState); socket.off('user-found', userFound); socket.off('call-made', callMade); socket.off('answer-made', answerMade); socket.off('ice-candidate', ice); socket.off('peer-left', left) }
   }, [socket, peerConnection, clearPeer, restartConnection])
 
   useEffect(() => { if (!directConnectionId || incomingCallId || !socket?.connected || !peerConnection || directAttempt.current === directConnectionId) return; directAttempt.current = directConnectionId; setSearching(true); setError(null); void currentProduct.connections.callProof(directConnectionId).then(({ proof }) => socket.emit('call-connection', { proof })).catch((e) => { setSearching(false); setError(e instanceof Error ? e.message : 'Could not start this Connection call.') }) }, [directConnectionId, incomingCallId, socket, peerConnection])
   useEffect(() => { if (!incomingCallId || !socket?.connected || !peerConnection || incomingAttempt.current === incomingCallId) return; incomingAttempt.current = incomingCallId; setSearching(true); setCallStatus('Connecting your call…'); socket.emit('accept-connection-call', { inviteId: incomingCallId }) }, [incomingCallId, socket, peerConnection])
   const start = useCallback(() => { if (socket?.connected && stream) { setSearching(true); setError(null); socket.emit('find-user') } }, [socket, stream]), cancel = useCallback(() => { socket?.emit('cancel-search'); setSearching(false) }, [socket]), next = useCallback(() => { pendingIce.current = []; if (peerRef.current) restartConnection(); clearPeer(); setSearching(true); setTimeout(() => socket?.emit('find-next-user'), 350) }, [socket, restartConnection, clearPeer]), vibe = useCallback(() => { if (socket?.connected && peerRef.current && !hasVibed) { socket.emit('vibe-tap', { to: peerRef.current }); setHasVibed(true) } }, [socket, hasVibed]), leave = useCallback(() => { socket?.emit('leave-chat'); clearPeer(); restartConnection() }, [socket, clearPeer, restartConnection]), streamState = useCallback((type: 'audio' | 'video', state: boolean) => { if (socket?.connected && peerRef.current) socket.emit('stream-state-change', { type, state, to: peerRef.current }) }, [socket])
-  return { socket, connected, searching, peerId, peerUserId, remoteStream, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
+  return { socket, connected, searching, peerId, peerUserId, remoteStream, remoteCameraOff, remoteMicOff, peerConnected, hasVibed, mutualVibe, callStatus, error, start, cancel, next, vibe, leave, streamState, dismissMutualVibe: () => setMutualVibe(null) }
 }

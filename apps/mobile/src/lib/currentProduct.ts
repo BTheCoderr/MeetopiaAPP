@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { ConnectionMessage, ConnectionSummary, NotificationItem } from '../types/currentProduct'
+import type { BlockRecord, ConnectionMessage, ConnectionSummary, NotificationItem } from '../types/currentProduct'
 
 export const currentProduct = {
   connections: {
@@ -24,12 +24,12 @@ export const currentProduct = {
     list: () => api<{ notifications: NotificationItem[] }>('/api/notifications'),
   },
   presence: {
-    touch: () => api('/api/presence', { method: 'POST' }),
+    touch: () => api<{ lastSeenAt: string }>('/api/presence/heartbeat', { method: 'POST' }),
   },
   blocks: {
-    list: () => api('/api/blocks'),
+    list: () => api<{ blocks: BlockRecord[] }>('/api/blocks'),
     block: (blockedUserId: string) => api('/api/blocks', { method: 'POST', body: JSON.stringify({ blockedUserId }) }),
-    unblock: (blockedUserId: string) => api(`/api/blocks?blockedUserId=${encodeURIComponent(blockedUserId)}`, { method: 'DELETE' }),
+    unblock: (blockedUserId: string) => api('/api/blocks', { method: 'DELETE', body: JSON.stringify({ blockedUserId }) }),
   },
   reports: {
     create: (reportedUserId: string, reason: string, details?: string) =>

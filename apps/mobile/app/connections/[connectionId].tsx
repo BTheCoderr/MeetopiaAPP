@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import type { Socket } from 'socket.io-client'
+import ReportModal, { type ReportCategory } from '../../src/components/safety/ReportModal'
 import { currentProduct } from '../../src/lib/currentProduct'
 import { getAuthenticatedSocket } from '../../src/lib/socket'
 import type { ConnectionMessage, ConnectionSummary } from '../../src/types/currentProduct'
@@ -16,6 +17,7 @@ export default function ConnectionScreen() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const proofRef = useRef<string | null>(null)
 
@@ -112,6 +114,31 @@ export default function ConnectionScreen() {
   }
 
   const name = connection?.person.displayName || connection?.person.username || 'Connection'
+
+  const blockPerson = () => {
+    if (!connection) return
+    Alert.alert(`Block ${name}?`, 'You will not be matched or connected again.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Block', style: 'destructive', onPress: async () => {
+        try {
+          await currentProduct.blocks.block(connection.person.id)
+          router.replace('/connections')
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : 'Could not block this person.')
+        }
+      } },
+    ])
+  }
+
+  const submitReport = async (category: ReportCategory) => {
+    if (!connection) return
+    try {
+      await currentProduct.reports.create(connection.person.id, category)
+      Alert.alert('Report received', 'Thank you for helping keep Meetopia safe.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not submit this report.')
+    }
+  }
   return <SafeAreaView style={styles.safe}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
@@ -125,6 +152,10 @@ export default function ConnectionScreen() {
         <Pressable onPress={() => router.push({ pathname: '/chat/video', params: { connectionId: id } })} style={styles.call} disabled={!connection}>
           <Text style={styles.callText}>Call again</Text>
         </Pressable>
+      </View>
+      <View style={styles.safetyRow}>
+        <Pressable onPress={() => setReportOpen(true)} disabled={!connection} style={styles.safetyButton}><Text style={styles.safetyText}>Report</Text></Pressable>
+        <Pressable onPress={blockPerson} disabled={!connection} style={styles.safetyButton}><Text style={styles.safetyText}>Block</Text></Pressable>
       </View>
       {error ? <Pressable onPress={() => void load()} style={styles.errorBanner} accessibilityRole="button">
         <Text style={styles.errorText}>{error} Tap to retry.</Text>
@@ -144,6 +175,7 @@ export default function ConnectionScreen() {
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+    <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} onSubmit={(category) => { void submitReport(category) }} />
   </SafeAreaView>
 }
 
@@ -154,6 +186,9 @@ const styles = StyleSheet.create({
   name: { color: 'white', fontSize: 20, fontWeight: '800' }, status: { color: '#8f929d', marginTop: 2 },
   call: { backgroundColor: '#7c5cff', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16 },
   callText: { color: 'white', fontWeight: '800' },
+  safetyRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+  safetyButton: { paddingHorizontal: 12, paddingVertical: 6 },
+  safetyText: { color: '#ff8a80', fontWeight: '700' },
   messages: { padding: 16, gap: 9, flexGrow: 1 },
   bubble: { maxWidth: '82%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   mine: { alignSelf: 'flex-end', backgroundColor: '#7c5cff' }, theirs: { alignSelf: 'flex-start', backgroundColor: '#191c25' },
