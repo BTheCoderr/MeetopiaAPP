@@ -264,13 +264,13 @@ export default function VideoChatPage() {
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
-      <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} />
+      <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} onContribute={chat.contribute} onApprove={chat.approveCreation} />
       {chat.introduction && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#090718]/95 p-5 text-white">
           <div className="w-full max-w-md rounded-[32px] border border-violet-400/40 bg-[#191332] p-8 shadow-2xl">
             <p className="text-xs font-black tracking-[0.24em] text-violet-300">MEETOPIA / THE INTRODUCTION</p>
             <h2 className="mt-4 text-3xl font-black">Common ground. Real chemistry.</h2>
-            <p className="mt-6 text-lg text-white/90">Meet {chat.introduction.person.displayName}</p>
+            <p className="mt-6 text-lg text-white/90">{chat.introduction.themeTitle}: Meet {chat.introduction.person.displayName}</p>
             <p className="mt-4 text-sm text-white/60">You share these interests:</p>
             <div className="mt-3 flex flex-wrap gap-2">{chat.introduction.person.sharedInterests.map(interest => <span key={interest} className="rounded-full border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-sm font-semibold capitalize">{interest}</span>)}</div>
             <p className="mt-5 text-sm text-white/70">Their conversation style: {chat.introduction.person.conversationStyle}.</p>
