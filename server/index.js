@@ -380,12 +380,23 @@ io.on('connection', (socket) => {
     addActiveSocket(socket.data.userId, socket.id);
   }
 
-  socket.on('vibe-room-hello', ({ version } = {}, ack) => {
+  socket.on('vibe-room-hello', ({ version, token } = {}, ack) => {
     if (typeof ack !== 'function') return;
     if (version !== VIBE_ROOM_PROTOCOL || !requireVibeRoomProtocol(socket)) {
       ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'update-required' });
       return;
     }
+    // The token was JUST issued by the authenticated account API; checking it
+    // on every new search prevents a long-lived socket from matching somebody
+    // using stale blocks, age confirmation or Chemistry Passport settings.
+    const current = verifySocketToken(token);
+    if (!current || current.sub !== socket.data.userId) {
+      ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'reauthenticate' });
+      return;
+    }
+    socket.data.adultConfirmed = current.adultConfirmed === true;
+    socket.data.blockedUserIds = new Set(Array.isArray(current.blocked) ? current.blocked : []);
+    socket.data.passport = validatePassport(current.passport);
     ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'ready' });
   });
 
