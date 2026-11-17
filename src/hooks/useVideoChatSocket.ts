@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import type { VibeRoomState } from '@/lib/vibeRoom'
 import { VIBE_ROOM_PROTOCOL, confirmVibeRoomServer } from '@/lib/vibeRoomProtocol'
+import type { VibeThemeId } from '@/lib/vibeThemes'
 import { useRouter } from 'next/navigation'
 
 const LOG = '[WebRTC:Signaling]'
@@ -35,6 +36,7 @@ interface UseVideoChatSocketOptions {
   isAdaptiveQuality: boolean
   directConnectionId?: string | null
   incomingCallId?: string | null
+  themeId?: VibeThemeId | null
 }
 
 function serializeCandidate(candidate: RTCIceCandidate): RTCIceCandidateInit {
@@ -57,6 +59,7 @@ export function useVideoChatSocket({
   isAdaptiveQuality,
   directConnectionId = null,
   incomingCallId = null,
+  themeId = null,
 }: UseVideoChatSocketOptions) {
   const router = useRouter()
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -675,7 +678,7 @@ export function useVideoChatSocket({
   }, [remoteStream, peerConnection, isAdaptiveQuality, setBandwidthQuality])
 
   const handleStartChat = useCallback(() => {
-    if (!socket?.connected || !stream || buttonCooldown) return
+    if (!socket?.connected || !stream || buttonCooldown || !themeId) return
     const requestId = ++searchGenerationRef.current
     setIsSearching(true)
     setError(null)
@@ -687,10 +690,10 @@ export function useVideoChatSocket({
         setError('The Vibe Room signaling server must be updated before starting a Chemistry Check.')
         return
       }
-      socket.emit('find-user')
+      socket.emit('find-user', { themeId })
       startCooldown()
     })
-  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown])
+  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown, themeId])
 
   const handleCancelSearch = useCallback(() => {
     searchGenerationRef.current += 1
@@ -724,12 +727,13 @@ export function useVideoChatSocket({
           setError('The Vibe Room signaling server must be updated before another introduction.')
           return
         }
-        socket.emit('find-next-user')
+        if (!themeId) { setIsSearching(false); return }
+        socket.emit('find-next-user', { themeId })
         startCooldown()
       })
     }, 350)
     return 'next' as const
-  }, [currentPeer, restartConnection, socket, startCooldown, setError])
+  }, [currentPeer, restartConnection, socket, startCooldown, setError, themeId])
 
   const acceptIntroduction = useCallback(() => {
     if (socket?.connected && introduction && !introduction.accepted) {
