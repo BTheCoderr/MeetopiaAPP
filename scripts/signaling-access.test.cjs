@@ -59,6 +59,8 @@ function harness() {
 
 const proof = () => signed({ type: 'connection-realtime', users: ['alice', 'bob'], connectionId: 'connection' });
 const callProof = () => signed({ type: 'direct-call', callerId: 'alice', calleeId: 'bob', connectionId: 'connection' });
+const passport = { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] };
+const freshAccount = (sub, blocked = []) => signed({ sub, adultConfirmed: true, blocked, passport });
 
 test('realtime messages use saved content and reject unpersisted messages', async () => {
   const h = harness();
@@ -240,11 +242,11 @@ test('new clients negotiate protocol 2 before matching; legacy clients cannot by
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
     const legacy = h.socket('old', 'old-user', { protocol: 1 })
     let reply
-    a.run('vibe-room-hello', { version: 2 }, value => { reply = value })
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice') }, value => { reply = value })
     assert.equal(reply.protocol, 2)
     assert.equal(reply.status, 'ready')
     let wrongReply
-    legacy.run('vibe-room-hello', { version: 2 }, value => { wrongReply = value })
+    legacy.run('vibe-room-hello', { version: 2, token: freshAccount('old-user') }, value => { wrongReply = value })
     assert.equal(wrongReply.status, 'update-required')
     legacy.run('find-user')
     assert.equal(legacy.events.some(e => e.name === 'introduction-offered'), false)
@@ -297,5 +299,29 @@ test('skipping an active Vibe Room notifies the partner and revokes old room', (
     b.run('vibe-room-next', { sessionId: oldRoom.sessionId })
     assert.equal(b.events.filter(e => e.name === 'vibe-room-state').length, before)
     assert.equal(b.events.some(e => e.name === 'mutual-vibe'), false)
+  } finally { h.close() }
+})
+
+
+test('fresh signed blocklist and Passport prevent stale-socket matching', () => {
+  const h = harness()
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
+    let reply
+    // A new token from the API contains a recent block not in the original
+    // socket state. Matchmaking must use these fresh signed claims.
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice', ['bob']) }, value => { reply = value })
+    assert.equal(reply.status, 'ready')
+    a.run('find-user')
+    b.run('find-user')
+    assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
+    assert.equal(b.events.some(e => e.name === 'introduction-offered'), false)
+    // An otherwise valid token for a different account cannot refresh this socket.
+    let rejected
+    a.run('vibe-room-hello', { version: 2, token: freshAccount('bob') }, value => { rejected = value })
+    assert.equal(rejected.status, 'reauthenticate')
+    // A forged/expired token is also rejected.
+    a.run('vibe-room-hello', { version: 2, token: 'forged' }, value => { rejected = value })
+    assert.equal(rejected.status, 'reauthenticate')
   } finally { h.close() }
 })
