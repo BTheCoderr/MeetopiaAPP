@@ -33,6 +33,8 @@ export type ChemistryPassportStatus = {
 }
 
 export type ChemistryIntroduction = {
+  themeId: string
+  themeTitle: string
   invitationId: string
   expiresAt: number
   accepted: boolean
