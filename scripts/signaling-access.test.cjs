@@ -44,7 +44,7 @@ function harness() {
     setTimeout(fn, ms) { const id = setTimeout(fn, ms); timers.add(id); return id; },
     clearTimeout,
   });
-  function socket(id, userId, { protocol = 2 } = {}) {
+  function socket(id, userId, { protocol = 3 } = {}) {
     const handlers = new Map(), events = [];
     const s = { id, connected: true, handshake: { auth: { meetopiaProtocol: protocol } }, data: { userId, adultConfirmed: true, blockedUserIds: new Set(), passport: { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] } },
       on: (name, handler) => handlers.set(name, handler),
@@ -122,7 +122,7 @@ test('Prisma gateway requires server authentication, a valid proof, and a curren
     const exports = {};
     const source = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
     vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
-      exports, require: name => overrides[name] || require(name), Buffer, process,
+      exports, require: name => name === './sharedCreation' ? loadTs('src/lib/sharedCreation.ts') : overrides[name] || require(name), Buffer, process,
     });
     return exports;
   }
@@ -159,7 +159,7 @@ test('consent introduction never authorizes WebRTC before both participants acce
   const h = harness();
   try {
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
-    a.run('find-user'); b.run('find-user');
+    a.run('find-user', { themeId: 'music-memories' }); b.run('find-user', { themeId: 'music-memories' });
     const offeredA = a.events.find(e => e.name === 'introduction-offered');
     const offeredB = b.events.find(e => e.name === 'introduction-offered');
     assert.ok(offeredA); assert.ok(offeredB);
@@ -183,11 +183,11 @@ test('decline and incompatible Chemistry Passports never authorize a peer relay'
   try {
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
     b.data.passport = { intent: 'friendship', style: 'balanced', interests: ['music', 'travel'] };
-    a.run('find-user'); b.run('find-user');
+    a.run('find-user', { themeId: 'music-memories' }); b.run('find-user', { themeId: 'music-memories' });
     assert.equal(a.events.some(e => e.name === 'introduction-offered'), false);
     assert.equal(b.events.some(e => e.name === 'user-found'), false);
     b.data.passport = { intent: 'relationship', style: 'balanced', interests: ['music', 'travel'] };
-    b.run('find-user');
+    b.run('find-user', { themeId: 'music-memories' });
     const invite = a.events.find(e => e.name === 'introduction-offered')?.payload;
     assert.ok(invite);
     b.run('introduction-response', { invitationId: invite.invitationId, accept: false });
@@ -198,11 +198,11 @@ test('decline and incompatible Chemistry Passports never authorize a peer relay'
 });
 
 
-test('Vibe is forbidden until both participants finish all three server-owned rounds', () => {
+test('Vibe requires mutually approved fourth round with final shared creation', () => {
   const h = harness();
   try {
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
-    a.run('find-user'); b.run('find-user');
+    a.run('find-user', { themeId: 'music-memories' }); b.run('find-user', { themeId: 'music-memories' });
     const invite = a.events.find(e => e.name === 'introduction-offered')?.payload;
     assert.ok(invite);
     a.run('introduction-response', { invitationId: invite.invitationId, accept: true });
@@ -226,6 +226,22 @@ test('Vibe is forbidden until both participants finish all three server-owned ro
     b.run('vibe-room-next', { sessionId: room.sessionId });
     a.run('vibe-room-next', { sessionId: room.sessionId });
     b.run('vibe-room-next', { sessionId: room.sessionId });
+    let stage = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload;
+    assert.equal(stage.index, 3);
+    assert.equal(stage.completed, false);
+    // Bridge is required. Each member contributes one half, both approve the
+    // exact same revision and explicitly share before mutual Vibe can exist.
+    a.run('vibe-room-contribute', { sessionId: room.sessionId, choice: 'live-music' });
+    assert.equal(b.events.filter(e => e.name === 'vibe-room-state').at(-1).payload.bridge.proposal, null);
+    b.run('vibe-room-contribute', { sessionId: room.sessionId, choice: 'cafe' });
+    stage = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload;
+    assert.deepEqual(JSON.parse(JSON.stringify(stage.bridge.proposal)), { activity: 'live-music', setting: 'cafe' });
+    a.run('vibe-tap', { to: 'b' });
+    assert.equal(b.events.some(e => e.name === 'vibe-received'), false);
+    a.run('vibe-room-approve', { sessionId: room.sessionId, revision: stage.bridge.revision, share: true });
+    a.run('vibe-tap', { to: 'b' });
+    assert.equal(b.events.some(e => e.name === 'vibe-received'), false);
+    b.run('vibe-room-approve', { sessionId: room.sessionId, revision: stage.bridge.revision, share: true });
     const end = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload;
     assert.equal(end.completed, true);
     a.run('vibe-tap', { to: 'b' });
@@ -236,26 +252,26 @@ test('Vibe is forbidden until both participants finish all three server-owned ro
 });
 
 
-test('new clients negotiate protocol 2 before matching; legacy clients cannot bypass consent', () => {
+test('new clients negotiate protocol 3 before matching; legacy clients cannot bypass consent', () => {
   const h = harness()
   try {
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
     const legacy = h.socket('old', 'old-user', { protocol: 1 })
     let reply
-    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice') }, value => { reply = value })
-    assert.equal(reply.protocol, 2)
+    a.run('vibe-room-hello', { version: 3, token: freshAccount('alice') }, value => { reply = value })
+    assert.equal(reply.protocol, 3)
     assert.equal(reply.status, 'ready')
     let wrongReply
-    legacy.run('vibe-room-hello', { version: 2, token: freshAccount('old-user') }, value => { wrongReply = value })
+    legacy.run('vibe-room-hello', { version: 3, token: freshAccount('old-user') }, value => { wrongReply = value })
     assert.equal(wrongReply.status, 'update-required')
-    legacy.run('find-user')
+    legacy.run('find-user', { themeId: 'music-memories' })
     assert.equal(legacy.events.some(e => e.name === 'introduction-offered'), false)
     assert.equal(legacy.events.find(e => e.name === 'match-error')?.payload.code, 'CLIENT_UPDATE_REQUIRED')
     // A legacy client cannot be paired even by a newer compatible partner.
-    a.run('find-user')
+    a.run('find-user', { themeId: 'music-memories' })
     assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
     // A newer client can only enter an invitation, not a media pair, before both agree.
-    b.run('find-user')
+    b.run('find-user', { themeId: 'music-memories' })
     const offer = a.events.find(e => e.name === 'introduction-offered')?.payload
     assert.ok(offer)
     assert.equal(a.events.some(e => e.name === 'user-found'), false)
@@ -271,7 +287,7 @@ test('legacy Connection calls remain authorized while old random matching is rej
   try {
     const a = h.socket('a', 'alice', { protocol: 1 })
     const b = h.socket('b', 'bob')
-    a.run('find-user')
+    a.run('find-user', { themeId: 'music-memories' })
     assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
     await a.run('call-connection', { proof: callProof() })
     const invite = b.events.find(e => e.name === 'incoming-connection-call')?.payload
@@ -286,13 +302,13 @@ test('skipping an active Vibe Room notifies the partner and revokes old room', (
   const h = harness()
   try {
     const a = h.socket('a', 'alice'), b = h.socket('b', 'bob')
-    a.run('find-user'); b.run('find-user')
+    a.run('find-user', { themeId: 'music-memories' }); b.run('find-user', { themeId: 'music-memories' })
     const offer = a.events.find(e => e.name === 'introduction-offered')?.payload
     a.run('introduction-response', { invitationId: offer.invitationId, accept: true })
     b.run('introduction-response', { invitationId: offer.invitationId, accept: true })
     const oldRoom = a.events.find(e => e.name === 'vibe-room-state')?.payload
     assert.ok(oldRoom)
-    a.run('find-next-user')
+    a.run('find-next-user', { themeId: 'music-memories' })
     assert.equal(b.events.some(e => e.name === 'peer-left'), true)
     assert.equal(b.events.some(e => e.name === 'vibe-room-ended'), true)
     const before = b.events.filter(e => e.name === 'vibe-room-state').length
@@ -310,18 +326,46 @@ test('fresh signed blocklist and Passport prevent stale-socket matching', () => 
     let reply
     // A new token from the API contains a recent block not in the original
     // socket state. Matchmaking must use these fresh signed claims.
-    a.run('vibe-room-hello', { version: 2, token: freshAccount('alice', ['bob']) }, value => { reply = value })
+    a.run('vibe-room-hello', { version: 3, token: freshAccount('alice', ['bob']) }, value => { reply = value })
     assert.equal(reply.status, 'ready')
-    a.run('find-user')
-    b.run('find-user')
+    a.run('find-user', { themeId: 'music-memories' })
+    b.run('find-user', { themeId: 'music-memories' })
     assert.equal(a.events.some(e => e.name === 'introduction-offered'), false)
     assert.equal(b.events.some(e => e.name === 'introduction-offered'), false)
     // An otherwise valid token for a different account cannot refresh this socket.
     let rejected
-    a.run('vibe-room-hello', { version: 2, token: freshAccount('bob') }, value => { rejected = value })
+    a.run('vibe-room-hello', { version: 3, token: freshAccount('bob') }, value => { rejected = value })
     assert.equal(rejected.status, 'reauthenticate')
     // A forged/expired token is also rejected.
-    a.run('vibe-room-hello', { version: 2, token: 'forged' }, value => { rejected = value })
+    a.run('vibe-room-hello', { version: 3, token: 'forged' }, value => { rejected = value })
     assert.equal(rejected.status, 'reauthenticate')
   } finally { h.close() }
+})
+
+
+test('different explicit themes never produce a peer invitation', () => {
+  const h = harness()
+  try {
+    const a=h.socket('a','alice'), b=h.socket('b','bob')
+    a.run('find-user', { themeId: 'music-memories' })
+    b.run('find-user', { themeId: 'curious-minds' })
+    assert.equal(a.events.some(e=>e.name==='introduction-offered'),false)
+    assert.equal(b.events.some(e=>e.name==='introduction-offered'),false)
+    b.run('find-user', { themeId: 'music-memories' })
+    const offer=a.events.find(e=>e.name==='introduction-offered')?.payload
+    assert.equal(offer.themeId,'music-memories')
+  } finally {h.close()}
+})
+
+test('an unsupported theme never joins matchmaking or authorizes peer SDP', () => {
+  const h=harness()
+  try {
+    const a=h.socket('a','alice'), b=h.socket('b','bob')
+    a.run('find-user', { themeId: 'fake' })
+    b.run('find-user', { themeId: 'music-memories' })
+    assert.equal(a.events.some(e=>e.name==='introduction-offered'),false)
+    assert.equal(a.events.find(e=>e.name==='match-error')?.payload.code,'THEME_REQUIRED')
+    a.run('call-user',{to:'b',offer:{type:'offer',sdp:'forged'}})
+    assert.equal(b.events.some(e=>e.name==='call-made'),false)
+  } finally {h.close()}
 })
