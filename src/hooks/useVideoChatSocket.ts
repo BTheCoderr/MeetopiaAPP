@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation'
 const LOG = '[WebRTC:Signaling]'
 
 interface IntroductionState {
+  themeId: string
+  themeTitle: string
   invitationId: string
   expiresAt: number
   accepted: boolean
