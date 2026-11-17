@@ -330,11 +330,10 @@ const introductions = createConsentIntroductions({
     !hasRecentPeer(a.id, b.id) && !hasRecentPeer(b.id, a.id) &&
     Boolean(comparePassports(a.data.passport, b.data.passport))
   ),
-  onApproved: (a, b) => {
+  onApproved: (a, b, { themeId }) => {
     // pairUsers is the ONLY granting operation for peer media and chat relays.
     pairUsers(a.id, b.id);
-    const comparison = comparePassports(a.data.passport, b.data.passport);
-    vibeRooms.start(a, b, comparison?.sharedInterests || []);
+    vibeRooms.start(a, b, themeId);
     for (const [me, other] of [[a, b], [b, a]]) {
       me.emit('introduction-approved', { partnerDisplayName: other.data.displayName || 'Meetopia member' });
       me.emit('user-found', { partnerId: other.id, partnerUserId: other.data.userId });
@@ -345,18 +344,18 @@ const introductions = createConsentIntroductions({
 // Protocol compatibility is an operational guard, not a security credential.
 // Existing Connection messaging/calls keep working for older clients, but
 // legacy clients cannot accidentally enter the new consent-only matchmaking.
-const VIBE_ROOM_PROTOCOL = 2;
+const VIBE_ROOM_PROTOCOL = 3;
 function requireVibeRoomProtocol(socket) {
   if (socket.handshake?.auth?.meetopiaProtocol === VIBE_ROOM_PROTOCOL) return true;
   socket.emit('match-error', {
     code: 'CLIENT_UPDATE_REQUIRED',
-    message: 'This Meetopia version cannot start new Chemistry Checks. Update to the Vibe Room release.',
+    message: 'Update Meetopia to join themed Co-Create sessions.',
   });
   return false;
 }
-function runFindUser(socket) {
+function runFindUser(socket, themeId) {
   if (!requireVibeRoomProtocol(socket) || activePairs.has(socket.id)) return;
-  introductions.start(socket);
+  introductions.start(socket, themeId);
 }
 
 io.use((socket, next) => {
@@ -400,14 +399,14 @@ io.on('connection', (socket) => {
     ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'ready' });
   });
 
-  socket.on('find-user', () => {
+  socket.on('find-user', ({ themeId } = {}) => {
     if (!requireVibeRoomProtocol(socket)) return;
     if (activePairs.has(socket.id)) {
       console.log(`User ${socket.id} already paired, ignoring duplicate find-user`);
       return;
     }
     leaveCurrentRoom(socket, { notifyVideoPeer: true });
-    runFindUser(socket);
+    runFindUser(socket, themeId);
   });
 
   socket.on('introduction-response', ({ invitationId, accept } = {}) => {
@@ -424,6 +423,17 @@ io.on('connection', (socket) => {
   socket.on('vibe-room-next', (payload = {}) => {
     if (!vibeRooms.next(socket, payload)) {
       socket.emit('vibe-room-error', { message: 'Wait for both participants to complete this round.' });
+    }
+  });
+
+  socket.on('vibe-room-contribute', (payload = {}) => {
+    if (!vibeRooms.contribute(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Your contribution could not be saved to this session.' });
+    }
+  });
+  socket.on('vibe-room-approve', (payload = {}) => {
+    if (!vibeRooms.approve(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Both people must approve the current shared creation.' });
     }
   });
 
@@ -658,11 +668,11 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('find-next-user', () => {
+  socket.on('find-next-user', ({ themeId } = {}) => {
     if (!requireVibeRoomProtocol(socket)) return;
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
-    runFindUser(socket);
+    runFindUser(socket, themeId);
   });
 
   socket.on('cancel-search', () => {
@@ -767,7 +777,7 @@ io.on('connection', (socket) => {
     // An existing Connection call does not need new Vibe confirmation.
     // A new introduction must complete all three rounds on the server.
     if (!vibeRooms.canVibe(socket.id, to)) {
-      socket.emit('vibe-room-error', { message: 'Complete the three Vibe Rounds together before choosing Vibe.' });
+      socket.emit('vibe-room-error', { message: 'Complete The Bridge and approve your shared creation together before choosing Vibe.' });
       return;
     }
 
@@ -780,7 +790,8 @@ io.on('connection', (socket) => {
     const peerSocket = io.sockets.sockets.get(to);
     const userId = socket.data.userId;
     const peerUserId = peerSocket?.data.userId || null;
-    const proof = userId && peerUserId ? createConnectionProof(userId, peerUserId) : null;
+    const creation = vibeRooms.approvedOutcome(socket.id, to);
+    const proof = userId && peerUserId && creation ? createConnectionProof(userId, peerUserId, creation) : null;
 
     socket.emit('mutual-vibe', {
       partnerUserId: peerUserId,
