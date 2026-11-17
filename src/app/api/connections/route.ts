@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { createConnectionRealtimeProof, verifyConnectionProof } from '@/lib/socketToken'
+import { validateCreation } from '@/lib/sharedCreation'
 
 async function currentUserId(request: NextRequest) {
   const sessionId = request.cookies.get('meetopia_session')?.value
@@ -139,6 +140,17 @@ export async function POST(request: NextRequest) {
         userB: { select: personSelect },
       },
     })
+
+    // A final creation was jointly approved during the in-memory live session
+    // and cryptographically signed by signaling. The client cannot invent it.
+    const creation = validateCreation(proof.creation)
+    if (creation) {
+      await prisma.sharedCreation.upsert({
+        where: { connectionId: connection.id },
+        create: { connectionId: connection.id, ...creation },
+        update: {}, // Preserve an existing Connection's previous jointly shared artifact.
+      })
+    }
 
     return NextResponse.json({
       connection: {
