@@ -231,9 +231,12 @@ test('Vibe requires mutually approved fourth round with final shared creation', 
     assert.equal(stage.completed, false);
     // Bridge is required. Each member contributes one half, both approve the
     // exact same revision and explicitly share before mutual Vibe can exist.
-    a.run('vibe-room-contribute', { sessionId: room.sessionId, choice: 'live-music' });
+    const aRole = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload.bridge.role;
+    // Signaling decides which socket initiates the pair. Roles are not tied
+    // to the order in which the test creates the two mock sockets.
+    a.run('vibe-room-contribute', { sessionId: room.sessionId, choice: aRole === 'activity' ? 'live-music' : 'cafe' });
     assert.equal(b.events.filter(e => e.name === 'vibe-room-state').at(-1).payload.bridge.proposal, null);
-    b.run('vibe-room-contribute', { sessionId: room.sessionId, choice: 'cafe' });
+    b.run('vibe-room-contribute', { sessionId: room.sessionId, choice: aRole === 'activity' ? 'cafe' : 'live-music' });
     stage = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload;
     assert.deepEqual(JSON.parse(JSON.stringify(stage.bridge.proposal)), { activity: 'live-music', setting: 'cafe' });
     a.run('vibe-tap', { to: 'b' });
