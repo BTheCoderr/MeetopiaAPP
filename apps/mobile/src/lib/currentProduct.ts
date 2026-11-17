@@ -1,6 +1,7 @@
 import { api } from './api'
 import type { BlockRecord, ConnectionMessage, ConnectionSummary, NotificationItem } from '../types/currentProduct'
 import type { ChemistryPassport, ChemistryPassportStatus } from '../types/chemistryPassport'
+import type { EncoreChoice, EncoreView } from '../types/encore'
 
 export const currentProduct = {
   passport: {
@@ -8,6 +9,11 @@ export const currentProduct = {
     save: (passport: ChemistryPassport) => api<ChemistryPassportStatus>('/api/chemistry/passport', { method: 'PUT', body: JSON.stringify(passport) }),
   },
   connections: {
+    encore: {
+      get: (id: string) => api<EncoreView>(`/api/connections/${encodeURIComponent(id)}/encore`),
+      share: (id: string, choice: EncoreChoice) => api<EncoreView>(`/api/connections/${encodeURIComponent(id)}/encore`, { method: 'PUT', body: JSON.stringify({ choice, share: true }) }),
+      withdraw: (id: string) => api<EncoreView>(`/api/connections/${encodeURIComponent(id)}/encore`, { method: 'DELETE' }),
+    },
     list: () => api<{ connections: ConnectionSummary[] }>('/api/connections'),
     get: (connectionId: string) => api<{ connection: ConnectionSummary }>(`/api/connections/${encodeURIComponent(connectionId)}`),
     saveMutualVibe: (connectionProof: string) =>
