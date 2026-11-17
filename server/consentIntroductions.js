@@ -1,6 +1,7 @@
 'use strict'
 
 const { randomUUID } = require('node:crypto')
+const { getTheme } = require('./themeCatalog')
 
 const INTENTS = new Set(['relationship', 'dating', 'friendship', 'open'])
 const STYLES = new Set(['playful', 'thoughtful', 'balanced'])
@@ -58,8 +59,13 @@ function createConsentIntroductions({ canIntroduce, onApproved, ttlMs = 30000, n
     if (invite) resolve(invite, 'introduction-cancelled', 'A participant left the introduction.')
   }
 
-  function start(socket) {
+  function start(socket, themeId) {
     cancel(socket.id)
+    const theme = getTheme(themeId)
+    if (!theme) {
+      socket.emit('match-error', { code: 'THEME_REQUIRED', message: 'Choose a real Vibe Session to join.' })
+      return false
+    }
     if (!socket.connected || !socket.data?.userId || !socket.data.adultConfirmed) {
       socket.emit('match-error', { code: 'AUTH_REQUIRED', message: 'Sign in and confirm you are 18+ to join introductions.' })
       return false
@@ -69,22 +75,24 @@ function createConsentIntroductions({ canIntroduce, onApproved, ttlMs = 30000, n
       return false
     }
     let best = null
-    for (const candidate of waiting.values()) {
+    for (const entry of waiting.values()) {
+      const candidate = entry.socket
+      if (entry.themeId !== theme.id) continue
       if (!candidate.connected || candidate.id === socket.id || candidate.data.userId === socket.data.userId) continue
       const comparison = comparePassports(socket.data.passport, candidate.data.passport)
       if (!comparison || !canIntroduce(socket, candidate)) continue
       if (!best || comparison.score > best.comparison.score) best = { candidate, comparison }
     }
     if (!best) {
-      waiting.set(socket.id, socket)
-      socket.emit('introduction-searching', { message: 'Looking for a compatible introduction.' })
+      waiting.set(socket.id, { socket, themeId: theme.id })
+      socket.emit('introduction-searching', { themeId: theme.id, themeTitle: theme.title, message: 'Looking for someone who chose this Vibe Session.' })
       return true
     }
     const candidate = best.candidate
     waiting.delete(candidate.id)
     const id = randomUUID()
     const invite = {
-      id, a: socket, b: candidate, accepted: new Set(),
+      id, a: socket, b: candidate, themeId: theme.id, accepted: new Set(),
       expiresAt: now() + ttlMs, timer: null,
     }
     pending.set(id, invite)
@@ -94,6 +102,8 @@ function createConsentIntroductions({ canIntroduce, onApproved, ttlMs = 30000, n
     for (const [me, other] of [[socket, candidate], [candidate, socket]]) {
       me.emit('introduction-offered', {
         invitationId: id,
+        themeId: theme.id,
+        themeTitle: theme.title,
         expiresAt: invite.expiresAt,
         person: {
           displayName: typeof other.data.displayName === 'string' ? other.data.displayName.slice(0, 60) : 'Meetopia member',
@@ -125,7 +135,7 @@ function createConsentIntroductions({ canIntroduce, onApproved, ttlMs = 30000, n
     socket.emit('introduction-response-recorded', { invitationId })
     if (invite.accepted.has(invite.a.id) && invite.accepted.has(invite.b.id)) {
       resolve(invite, null, null)
-      onApproved(invite.a, invite.b)
+      onApproved(invite.a, invite.b, { themeId: invite.themeId })
     }
     return true
   }
