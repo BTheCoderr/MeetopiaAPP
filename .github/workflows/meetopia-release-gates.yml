@@ -60,6 +60,8 @@ jobs:
         run: npm install --no-fund
       - name: Validate Prisma schema
         run: npx prisma validate
+      - name: Bootstrap synthetic Supabase roles in disposable DB
+        run: node scripts/prepare-disposable-db.cjs
       - name: Apply ALL migrations to disposable PostgreSQL only
         run: npx prisma migrate deploy
       - name: Check migration state
