@@ -194,3 +194,41 @@ test('decline and incompatible Chemistry Passports never authorize a peer relay'
     assert.equal(b.events.some(e => e.name === 'call-made'), false);
   } finally { h.close(); }
 });
+
+
+test('Vibe is forbidden until both participants finish all three server-owned rounds', () => {
+  const h = harness();
+  try {
+    const a = h.socket('a', 'alice'), b = h.socket('b', 'bob');
+    a.run('find-user'); b.run('find-user');
+    const invite = a.events.find(e => e.name === 'introduction-offered')?.payload;
+    assert.ok(invite);
+    a.run('introduction-response', { invitationId: invite.invitationId, accept: true });
+    b.run('introduction-response', { invitationId: invite.invitationId, accept: true });
+    const room = a.events.find(e => e.name === 'vibe-room-state')?.payload;
+    assert.ok(room);
+    assert.equal(room.round.title, 'THE SPARK');
+    a.run('vibe-tap', { to: 'b' });
+    assert.equal(b.events.some(e => e.name === 'vibe-received'), false);
+    assert.ok(a.events.some(e => e.name === 'vibe-room-error'));
+
+    a.run('vibe-room-next', { sessionId: room.sessionId });
+    b.run('vibe-room-next', { sessionId: room.sessionId });
+    a.run('vibe-room-answer', { sessionId: room.sessionId, choice: 'explore' });
+    assert.equal(b.events.filter(e => e.name === 'vibe-room-state').at(-1).payload.reveal, null);
+    // Cannot skip the private reveal with a forged progression.
+    a.run('vibe-room-next', { sessionId: room.sessionId });
+    assert.equal(a.events.filter(e => e.name === 'vibe-room-state').at(-1).payload.index, 1);
+    b.run('vibe-room-answer', { sessionId: room.sessionId, choice: 'cozy' });
+    a.run('vibe-room-next', { sessionId: room.sessionId });
+    b.run('vibe-room-next', { sessionId: room.sessionId });
+    a.run('vibe-room-next', { sessionId: room.sessionId });
+    b.run('vibe-room-next', { sessionId: room.sessionId });
+    const end = a.events.filter(e => e.name === 'vibe-room-state').at(-1)?.payload;
+    assert.equal(end.completed, true);
+    a.run('vibe-tap', { to: 'b' });
+    b.run('vibe-tap', { to: 'a' });
+    assert.ok(a.events.some(e => e.name === 'mutual-vibe'));
+    assert.ok(b.events.some(e => e.name === 'mutual-vibe'));
+  } finally { h.close(); }
+});
