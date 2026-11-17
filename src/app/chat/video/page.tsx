@@ -254,6 +254,21 @@ export default function VideoChatPage() {
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
+      {chat.introduction && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#090718]/95 p-5 text-white">
+          <div className="w-full max-w-md rounded-[32px] border border-violet-400/40 bg-[#191332] p-8 shadow-2xl">
+            <p className="text-xs font-black tracking-[0.24em] text-violet-300">MEETOPIA / THE INTRODUCTION</p>
+            <h2 className="mt-4 text-3xl font-black">Common ground. Real chemistry.</h2>
+            <p className="mt-6 text-lg text-white/90">Meet {chat.introduction.person.displayName}</p>
+            <p className="mt-4 text-sm text-white/60">You share these interests:</p>
+            <div className="mt-3 flex flex-wrap gap-2">{chat.introduction.person.sharedInterests.map(interest => <span key={interest} className="rounded-full border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-sm font-semibold capitalize">{interest}</span>)}</div>
+            <p className="mt-5 text-sm text-white/70">Their conversation style: {chat.introduction.person.conversationStyle}.</p>
+            <p className="mt-5 text-sm text-white/50">Your camera will only connect after you both agree to meet. Either person may decline.</p>
+            <button type="button" disabled={chat.introduction.accepted} onClick={chat.acceptIntroduction} className="mt-7 w-full rounded-2xl bg-violet-500 p-4 font-bold disabled:opacity-50">{chat.introduction.accepted ? 'Accepted · waiting for them…' : 'Meet in the Vibe Room'}</button>
+            <button type="button" onClick={chat.declineIntroduction} className="mt-3 w-full rounded-2xl border border-white/15 p-4 font-semibold">Not this introduction</button>
+          </div>
+        </div>
+      )}
       {chat.callStatus && !state.error && (
         <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4">
           <div className="rounded-2xl bg-black/65 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-md">
