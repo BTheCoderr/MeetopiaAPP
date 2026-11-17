@@ -62,6 +62,10 @@ function createVibeRoomSessions({ canContinue = () => true } = {}) {
       role, options: role === 'activity' ? theme.activities : theme.settings,
       myChoice: mine, waitingForPartner: Boolean(mine && !bothContributed),
       proposal: bothContributed ? { activity: first, setting: second } : null,
+      proposalLabels: bothContributed ? {
+        activity: theme.activities.find(option => option.id === first)?.label || '',
+        setting: theme.settings.find(option => option.id === second)?.label || '',
+      } : null,
       revision: room.revision,
       approved: room.approvals.has(socket.id),
       otherApproved: room.approvals.size === 1 && !room.approvals.has(socket.id),
