@@ -7,9 +7,9 @@ const vm = require('node:vm')
 const path = require('node:path')
 const source=fs.readFileSync(path.join(__dirname,'..','src/lib/stagingConfig.ts'),'utf8')
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
-const exports={}
-vm.runInNewContext(compiled,{exports,URL,console,process}, { filename:'stagingConfig.js' })
-const { assertStagingConfig }=exports
+const moduleExports={}
+vm.runInNewContext(compiled,{exports:moduleExports,URL,console,process}, { filename:'stagingConfig.js' })
+const { assertStagingConfig }=moduleExports
 const ref='abcdefghijklmnopqrst'
 const base={
   MEETOPIA_DEPLOY_ENV:'staging',
