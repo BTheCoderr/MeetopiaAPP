@@ -6,11 +6,10 @@ if (IS_STAGING) {
   if (process.env.EXPO_PUBLIC_STAGING !== 'true') {
     throw new Error('Staging Expo build requires EXPO_PUBLIC_STAGING=true.')
   }
-  for (const [key, liveHost] of [
-    ['EXPO_PUBLIC_API_URL', 'meetopia-live.netlify.app'],
-    ['EXPO_PUBLIC_SOCKET_URL', 'meetopia-signaling-v2.onrender.com'],
+  for (const [key, value, liveHost] of [
+    ['EXPO_PUBLIC_API_URL', process.env.EXPO_PUBLIC_API_URL, 'meetopia-live.netlify.app'],
+    ['EXPO_PUBLIC_SOCKET_URL', process.env.EXPO_PUBLIC_SOCKET_URL, 'meetopia-signaling-v2.onrender.com'],
   ]) {
-    const value = process.env[key]
     if (!value) throw new Error(`Staging build requires ${key}; refusing production fallback.`)
     let url: URL
     try { url = new URL(value) } catch { throw new Error(`Invalid staging ${key}.`) }
