@@ -1,4 +1,13 @@
 const DEFAULT_API_URL = 'https://meetopia-live.netlify.app'
+const IS_STAGING = process.env.EXPO_PUBLIC_STAGING === 'true'
+if (IS_STAGING) {
+  const configured = process.env.EXPO_PUBLIC_API_URL
+  if (!configured) throw new Error('Staging app has no dedicated API URL.')
+  const api = new URL(configured)
+  if (api.protocol !== 'https:' || api.hostname === 'meetopia-live.netlify.app') {
+    throw new Error('Staging app refuses the production Meetopia API.')
+  }
+}
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
 
