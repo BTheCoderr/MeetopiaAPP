@@ -209,8 +209,24 @@ async function run() {
   try { await test() }
   finally {
     for (const socket of sockets) socket.disconnect()
-    for (const id of createdUsers.reverse()) {
-      await prisma.user.deleteMany({ where: { id } })
+    if (createdUsers.length) {
+      // Historic Meetopia migrations contain NO ACTION foreign keys for some
+      // relations despite newer Prisma schema annotations. Delete test records
+      // explicitly in child-first order instead of assuming cascades.
+      await prisma.session.deleteMany({ where: { userId: { in: createdUsers } } })
+      const connectionIds = (await prisma.connection.findMany({
+        where: { OR: [{ userAId: { in: createdUsers } }, { userBId: { in: createdUsers } }] },
+        select: { id: true },
+      })).map(item => item.id)
+      if (connectionIds.length) {
+        await prisma.sharedCreation.deleteMany({ where: { connectionId: { in: connectionIds } } })
+        await prisma.encore.deleteMany({ where: { connectionId: { in: connectionIds } } })
+        await prisma.connection.deleteMany({ where: { id: { in: connectionIds } } })
+      }
+      await prisma.vibe.deleteMany({
+        where: { OR: [{ senderId: { in: createdUsers } }, { receiverId: { in: createdUsers } }] },
+      })
+      await prisma.user.deleteMany({ where: { id: { in: createdUsers } } })
     }
     await prisma.$disconnect()
   }
