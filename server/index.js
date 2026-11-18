@@ -15,10 +15,28 @@ const {
   verifyConnectionRealtimeProof,
 } = require('./socketAuth');
 
+// Staging must never pair with live web APIs, real accounts, or production
+// signaling. Validate environment before starting the Socket.IO listener.
+if (process.env.MEETOPIA_DEPLOY_ENV === 'staging') {
+  const api = process.env.WEB_APP_URL || '';
+  const origin = process.env.CORS_ORIGINS || '';
+  const secret = process.env.SOCKET_AUTH_SECRET || '';
+  const ref = process.env.MEETOPIA_STAGING_DB_REF || '';
+  const stagingUrl = /^https:\/\/[a-z0-9.-]+$/i.test(api) &&
+    api !== 'https://meetopia-live.netlify.app';
+  if (!stagingUrl || !origin.split(',').includes(api) || secret.length < 32 || !/^[a-z0-9]{20}$/.test(ref)) {
+    throw new Error('Staging signaling requires a separate HTTPS web host, explicit CORS, DB ref and 32+ character auth secret.');
+  }
+  const supabaseUrl = process.env.SUPABASE_URL || '';
+  if (supabaseUrl && new URL(supabaseUrl).hostname !== `${ref}.supabase.co`) {
+    throw new Error('Refusing staging signaling configuration tied to a different Supabase project.');
+  }
+}
+
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
 
-const productionOrigins = [
+const productionOrigins = process.env.MEETOPIA_DEPLOY_ENV === 'staging' ? [] : [
   'https://meetopia-live.netlify.app',
 ];
 
@@ -32,6 +50,7 @@ const allowedOrigins = [...new Set([...configuredOrigins, ...productionOrigins])
 
 const isMeetopiaPreviewOrigin = (origin) =>
   typeof origin === 'string' &&
+  process.env.MEETOPIA_DEPLOY_ENV !== 'staging' &&
   /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(origin);
 
 const corsOriginCheck = (origin, callback) => {
@@ -61,6 +80,8 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
+    environment: process.env.MEETOPIA_DEPLOY_ENV === 'staging' ? 'staging' : 'normal',
+    protocol: VIBE_ROOM_PROTOCOL,
     nodeEnv: process.env.NODE_ENV,
     allowedOrigins,
     reports: getReportBackendStatus(),
