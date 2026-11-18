@@ -1,0 +1,103 @@
+name: Meetopia ephemeral full-stack staging smoke
+
+on:
+  push:
+    branches: [meetopia-staging-preflight]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-stack-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: meetopia
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetopia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/meetopia
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/meetopia
+      MEETOPIA_DISPOSABLE_DB: 'yes'
+      MEETOPIA_DEPLOY_ENV: ci
+      SOCKET_AUTH_SECRET: 'ci-only-Meetopia-CoCreate-full-stack-integration-secret-not-for-hosted-use'
+      WEB_APP_URL: http://127.0.0.1:3100
+      CORS_ORIGINS: http://127.0.0.1:3100
+      NEXT_PUBLIC_SOCKET_URL: http://127.0.0.1:3103
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install web dependencies and generate Prisma client
+        run: npm install --no-fund
+      - name: Validate staging environment cannot reference production
+        run: node --test scripts/staging-config.test.cjs
+      - name: Bootstrap temporary Supabase roles on disposable Postgres
+        run: node scripts/prepare-disposable-db.cjs
+      - name: Apply migrations only to disposable Postgres
+        run: npx prisma migrate deploy
+      - name: Confirm migrated schema and synthetic data deletion
+        run: node scripts/disposable-db-smoke.cjs
+      - name: Install standalone Socket.IO signaling dependencies
+        run: cd server && npm ci --no-fund
+      - name: Start real Next.js and real Socket.IO for ephemeral integration
+        run: |
+          nohup npm run dev:next -- --hostname 127.0.0.1 --port 3100 > /tmp/meetopia-ci-next.log 2>&1 &
+          nohup env PORT=3103 node server/index.js > /tmp/meetopia-ci-signaling.log 2>&1 &
+      - name: Run real two-user API, signed WebSocket and persisted Co-Create scenario
+        run: node scripts/staging-e2e-smoke.cjs
+      - name: Read temporary service logs if test fails
+        if: failure()
+        run: |
+          echo '=== Next.js recent output ==='
+          tail -n 80 /tmp/meetopia-ci-next.log || true
+          echo '=== Signaling recent output ==='
+          tail -n 80 /tmp/meetopia-ci-signaling.log || true
+
+  ios-staging-config:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install locked Expo SDK 58 dependencies
+        run: npm ci --no-fund
+      - name: Typecheck and lint
+        run: npm run typecheck && npm run lint
+      - name: Validate that staging Expo has a separate iOS bundle identity
+        env:
+          MEETOPIA_DEPLOY_ENV: staging
+          EXPO_PUBLIC_STAGING: 'true'
+          EXPO_PUBLIC_API_URL: https://meetopia-staging.netlify.app
+          EXPO_PUBLIC_SOCKET_URL: https://meetopia-staging-signaling.onrender.com
+        run: |
+          npx expo config --json > /tmp/meetopia-staging-app.json
+          node -e "const c=require('/tmp/meetopia-staging-app.json'); if(c.ios.bundleIdentifier!=='com.meetopia.app.staging'||c.android.package!=='com.meetopia.app.staging'||c.name!=='Meetopia Staging')process.exit(1);console.log('Verified distinct Meetopia Staging bundle identity')"
+      - name: Reject missing staging endpoint at bundle config time
+        env:
+          MEETOPIA_DEPLOY_ENV: staging
+          EXPO_PUBLIC_STAGING: 'true'
+        run: |
+          if npx expo config --json > /tmp/meetopia-unsafe.json 2>&1; then
+            echo "ERROR: staging unexpectedly accepted missing API/socket endpoints"
+            exit 1
+          fi
+          echo "Confirmed staging config fails closed."
+      - name: Validate native iOS JavaScript compilation (not an EAS cloud build)
+        run: npx expo export --platform ios --output-dir dist-ios
