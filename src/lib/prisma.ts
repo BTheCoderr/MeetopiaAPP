@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client'
+import { assertStagingDatabaseConfig } from './stagingConfig'
+
+assertStagingDatabaseConfig(process.env)
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined

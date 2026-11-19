@@ -30,6 +30,13 @@ export function getSocketUrl(): string {
   const configured = process.env.EXPO_PUBLIC_SOCKET_URL ??
     (Constants.expoConfig?.extra?.socketUrl as string | undefined)
   const candidate = typeof configured === 'string' ? configured.trim().replace(/\/$/, '') : ''
+  if (process.env.EXPO_PUBLIC_STAGING === 'true') {
+    if (!candidate) throw new Error('Staging app has no dedicated signaling endpoint.')
+    const endpoint = new URL(candidate)
+    if (endpoint.protocol !== 'https:' || endpoint.hostname === 'meetopia-signaling-v2.onrender.com') {
+      throw new Error('Staging app refuses the production signaling service.')
+    }
+  }
   if (candidate && /^https?:\/\//i.test(candidate)) return candidate
   return 'https://meetopia-signaling-v2.onrender.com'
 }
