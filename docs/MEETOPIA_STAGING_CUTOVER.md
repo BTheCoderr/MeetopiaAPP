@@ -1,6 +1,6 @@
 # Meetopia staging cutover: Co-Create M3 + four-component release track
 
-**Status:** staging preflight ONLY. A real hosted staging stack has not been created or deployed.
+**Status:** staging preflight ONLY. Hosted database creation failed because the Supabase free-project quota has been reached; no hosted staging services have been deployed.
 Updated: 2026-11-18. **Do not touch Meetopia production.**
 
 ## Discovered production infrastructure (read-only account inspection)
@@ -10,6 +10,21 @@ Updated: 2026-11-18. **Do not touch Meetopia production.**
 - Database: active Supabase **Meetopia** project `irdacfchqzbbfvwclinh`; no development branches currently exist. Older inactive similarly named Meetopia projects exist under other organizations; do not reuse them.
 - Expo app: owner `bferrell514`, original bundle `com.meetopia.app`, EAS project `37e69074-d079-4c60-a3c4-5d468645bcf1`.
 - Unmerged source: branch `meetopia-co-create-m3`, draft PR #36, followed by `meetopia-staging-preflight`. No production deploy should track either branch.
+
+## Hosted staging provisioning blocked (verified 2026-11-18)
+
+The project owner **approved a $0/month independent `Meetopia-Staging` Supabase project in the existing Meetopia organization** (`gxiwiewcnavhdjxnwvld`, US East 2). The current project list confirmed this project does not exist.
+
+- `get_cost` confirmed `$0/month` quoted creation cost.
+- The required `confirm_cost` step was completed at $0.
+- `create_project` was attempted, but Supabase refused it with `BadRequestException`: the account holder has reached **two active free projects** within organizations where they are an owner/admin.
+- **No staging Supabase project was created.** Existing `Meetopia` and `praxis-ot` were not changed, paused, deleted or upgraded.
+- This is a free-tier quota blocker, not a failure of the staged code or the CI integration tests.
+- There is no approval to spend money, switch database providers, or pause another project.
+- A possible alternative is a **new isolated free Render PostgreSQL instance**, but Render says free Postgres **expires after 30 days**. That alternative requires the owner's permission and revised staging-only URL guard; it is NOT provisioned.
+- Another alternative is upgrading the existing Supabase organization to a paid plan, with separate pricing and explicit consent. Do not do so implicitly.
+
+**STOP:** Do not provision Netlify/Render hosted services and point them at production database credentials. Keep the two-service hosted staging rollout pending an approved database isolation route. Ephemeral CI full-stack staging remains passing and does not depend on paid hosted services.
 
 ## Isolation choice and cost approval
 
