@@ -10,11 +10,15 @@ async function validateConnection(userId, proof, details = {}) {
       body: JSON.stringify({ userId, proof, ...details }),
       signal: AbortSignal.timeout(8000),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn('[ConnectionAccess] Validation failed:', response.status);
+      return null;
+    }
     const data = await response.json();
     return data && typeof data.connectionId === 'string' && typeof data.otherUserId === 'string'
       ? data : null;
-  } catch {
+  } catch (error) {
+    console.warn('[ConnectionAccess] Validation request failed:', error?.name || 'Error');
     // Do not relay private events when the current access state cannot be checked.
     return null;
   }

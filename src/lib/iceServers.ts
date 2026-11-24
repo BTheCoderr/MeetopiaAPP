@@ -28,6 +28,9 @@ export function getIceServers(): RTCIceServer[] {
     });
   }
 
+  if (process.env.NODE_ENV === 'production' && !(turnUrl && turnUser && turnCred)) {
+    console.warn('[WebRTC:ICE] TURN not configured; restricted networks may fail')
+  }
   return servers;
 }
 
@@ -37,14 +40,14 @@ export const fallbackConfigurations: RTCConfiguration[] = [
     iceCandidatePoolSize: 10,
   },
   {
-    iceServers: getIceServers().slice(0, 5),
+    iceServers: getIceServers().filter((server, index) => index < 5 || Boolean(server.credential)),
     iceCandidatePoolSize: 5,
     iceTransportPolicy: 'all' as RTCIceTransportPolicy,
     bundlePolicy: 'max-bundle' as RTCBundlePolicy,
     rtcpMuxPolicy: 'require' as RTCRtcpMuxPolicy,
   },
   {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    iceServers: getIceServers().filter((server, index) => index === 0 || Boolean(server.credential)),
     iceCandidatePoolSize: 0,
   },
 ];
