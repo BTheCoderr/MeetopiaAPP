@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { getSocketUrl } from '@/lib/socketUrl'
 import { io, Socket } from 'socket.io-client'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -79,6 +80,11 @@ export default function IncomingConnectionCall() {
     let liveSocket: Socket | null = null
 
     const connect = async () => {
+      const socketUrl = getSocketUrl()
+      if (!socketUrl) {
+        console.error('[Meetopia:Signaling] NEXT_PUBLIC_SOCKET_URL is not configured')
+        return
+      }
       try {
         const response = await fetch('/api/auth/socket-token', {
           cache: 'no-store',
@@ -91,7 +97,7 @@ export default function IncomingConnectionCall() {
         if (!data?.token || disposed) return
 
         liveSocket = io(
-          process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003',
+          socketUrl,
           {
             transports: ['polling', 'websocket'],
             reconnectionAttempts: 5,

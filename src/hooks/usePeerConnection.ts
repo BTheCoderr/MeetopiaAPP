@@ -21,14 +21,11 @@ function isPeerConnectionUsable(pc: RTCPeerConnection): boolean {
 
 export function usePeerConnection(stream: MediaStream | null): UsePeerConnectionResult {
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null)
-  const [configurationIndex, setConfigurationIndex] = useState(0)
+  const configurationIndex = 0
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState | 'closed'>('closed')
 
   const streamRef = useRef<MediaStream | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
-  const reconnectAttemptsRef = useRef(0)
-  const hadSuccessfulConnectionRef = useRef(false)
-  const MAX_RECONNECT_ATTEMPTS = 3
 
   streamRef.current = stream
 
@@ -61,10 +58,7 @@ export function usePeerConnection(stream: MediaStream | null): UsePeerConnection
     const onConnectionStateChange = () => {
       const state = pc.connectionState
       console.log(LOG, 'connectionState', state)
-      setConnectionState(state)
-      if (state === 'connected') {
-        hadSuccessfulConnectionRef.current = true
-      }
+      if (peerConnectionRef.current === pc) setConnectionState(state)
     }
     const onIceConnectionStateChange = () => {
       console.log(LOG, 'iceConnectionState', pc.iceConnectionState)
@@ -77,42 +71,22 @@ export function usePeerConnection(stream: MediaStream | null): UsePeerConnection
   }, [attachLocalTracks])
 
   const restartConnection = useCallback(() => {
-    reconnectAttemptsRef.current += 1
-    console.log(LOG, 'restartConnection attempt', reconnectAttemptsRef.current)
-
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close()
-      peerConnectionRef.current = null
-    }
-
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      reconnectAttemptsRef.current = 0
-      setConfigurationIndex(0)
-      const pc = createPeerConnection(0)
-      setPeerConnection(pc)
-      return
-    }
-
-    const nextConfigIndex = (configurationIndex + 1) % fallbackConfigurations.length
-    setConfigurationIndex(nextConfigIndex)
-  }, [configurationIndex, createPeerConnection])
-
-  // Create peer connection once per configurationIndex (not on every render)
-  useEffect(() => {
-    console.log(LOG, 'creating peer connection, config index', configurationIndex)
-    const pc = createPeerConnection(configurationIndex)
+    const old = peerConnectionRef.current
+    peerConnectionRef.current = null
+    old?.close()
+    setConnectionState('closed')
+    const pc = createPeerConnection(0)
     setPeerConnection(pc)
+  }, [createPeerConnection])
 
+  useEffect(() => {
+    restartConnection()
     return () => {
-      console.log(LOG, 'closing peer connection (cleanup)')
-      pc.close()
-      if (peerConnectionRef.current === pc) {
-        peerConnectionRef.current = null
-      }
-      setPeerConnection(null)
-      setConnectionState('closed')
+      const pc = peerConnectionRef.current
+      peerConnectionRef.current = null
+      pc?.close()
     }
-  }, [configurationIndex, createPeerConnection])
+  }, [restartConnection])
 
   // Attach tracks when stream becomes available without recreating the PC
   useEffect(() => {
@@ -120,23 +94,6 @@ export function usePeerConnection(stream: MediaStream | null): UsePeerConnection
     if (!pc || !stream) return
     attachLocalTracks(pc, stream)
   }, [stream, attachLocalTracks, peerConnection])
-
-  // Only auto-restart after a real failure post-connection — not during negotiation "disconnected"
-  useEffect(() => {
-    if (connectionState !== 'failed') return
-    if (!hadSuccessfulConnectionRef.current) {
-      console.log(LOG, 'ignoring failed state before first successful connection')
-      return
-    }
-
-    console.log(LOG, 'connection failed after connect, scheduling restart')
-    const timeoutId = window.setTimeout(() => {
-      hadSuccessfulConnectionRef.current = false
-      restartConnection()
-    }, 2000)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [connectionState, restartConnection])
 
   return {
     peerConnection,
