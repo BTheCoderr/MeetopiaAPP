@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+  # Lets the main-branch release gates run against a release branch before merging.
+  workflow_dispatch:
 
 jobs:
   web:
@@ -22,8 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Refresh and install web dependencies
-        run: npm install --no-fund
+      - name: Install locked web dependencies
+        run: npm ci --no-fund
       - name: Verify web manifest is resolved
         run: npm ls --depth=0
       - name: Build web app
@@ -45,8 +47,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Refresh and install signaling dependencies
-        run: npm install --no-fund
+      - name: Install locked signaling dependencies
+        run: npm ci --no-fund
       - name: Verify signaling manifest is resolved
         run: npm ls --depth=0
       - name: Validate signaling server syntax

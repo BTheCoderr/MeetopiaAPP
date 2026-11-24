@@ -3,7 +3,7 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20.19.0"
+  NODE_VERSION = "22.16.0"  # must match .node-version and the CI release gates
   # These NEXT_PUBLIC values are intentionally bundled into client code.
   # Keep secret scanning enabled for real server-side secrets.
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SOCKET_URL"
