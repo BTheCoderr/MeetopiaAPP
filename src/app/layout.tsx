@@ -13,8 +13,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'Meetopia — Talk First. Vibe After.',
-  description: 'Meetopia connects adults through live Chemistry Checks. Talk first, decide for yourself, then Vibe or move on. 18+ only.',
-  keywords: 'video dating, live conversation, chemistry check, video chat, meet people, singles, dating app',
+  description: 'Meetopia introduces adults through shared interests. Build a Chemistry Passport, both agree before video, then meet in an interactive Vibe Room. 18+ only.',
+  keywords: 'video dating, chemistry passport, vibe room, consent-based introductions, shared activities, meaningful connections, 18+',
   authors: [{ name: 'Meetopia Team' }],
   robots: 'index, follow',
   manifest: '/manifest.json',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Meetopia — Talk First. Vibe After.',
-    description: 'Live video Chemistry Checks for adults. Talk first, then Vibe or move on. 18+ only.',
+    description: 'Consent-first introductions for adults: a Chemistry Passport, a mutual yes, then an interactive Vibe Room. 18+ only.',
     type: 'website',
     locale: 'en_US',
     siteName: 'Meetopia',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Meetopia — Talk First. Vibe After.',
-    description: 'Live video Chemistry Checks for adults. Talk first, then Vibe or move on. 18+ only.',
+    description: 'Consent-first introductions for adults: a Chemistry Passport, a mutual yes, then an interactive Vibe Room. 18+ only.',
     images: ['/og-image.png']
   }
 }

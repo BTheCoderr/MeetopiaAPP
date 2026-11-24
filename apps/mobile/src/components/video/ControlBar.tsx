@@ -60,7 +60,7 @@ export default function ControlBar({
         {!hasPeer ? (
           <TouchableOpacity
             style={[layout.controlBtn, layout.controlBtnPrimary, !canStart && styles.disabled]}
-            accessibilityRole="button" accessibilityLabel="Start live Chemistry Check"
+            accessibilityRole="button" accessibilityLabel="Find an introduction"
             onPress={onStart}
             disabled={!isSocketConnected || isSearching || !canStart}
           >
@@ -76,7 +76,7 @@ export default function ControlBar({
             >
               <Text style={styles.icon}>{myVibeSent ? '💚' : '✨'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next person" style={layout.controlBtn} onPress={onNext}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Keep Exploring" style={layout.controlBtn} onPress={onNext}>
               <Text style={styles.icon}>⏭</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report person" style={layout.controlBtn} onPress={onReport}>
@@ -85,7 +85,7 @@ export default function ControlBar({
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Block person" style={layout.controlBtn} onPress={onBlock}>
               <Text style={styles.icon}>⛔</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Leave Chemistry Check" style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to Base" style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
               <Text style={styles.icon}>✕</Text>
             </TouchableOpacity>
           </>

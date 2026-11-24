@@ -152,7 +152,7 @@ export default function ControlBar({
             onClick={isSearching ? onCancelSearch : onStartChat}
             disabled={!isSocketConnected || (!isSearching && buttonCooldown)}
             primary
-            label={isSearching ? 'Cancel Search' : 'Make a Connection'}
+            label={isSearching ? 'Cancel search' : 'Find an introduction'}
           >
             {isSearching ? (
               <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">

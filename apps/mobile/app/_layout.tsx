@@ -49,7 +49,7 @@ export default function RootLayout() {
         if (invite.inviteId === latestInvite.current) return
         if (typeof invite.expiresAt === 'number' && invite.expiresAt <= Date.now()) return
         latestInvite.current = invite.inviteId
-        Alert.alert('Incoming Chemistry Check',
+        Alert.alert('Incoming Connection call',
           `${invite.callerDisplayName || 'Your Connection'} wants to video chat.`, [
             { text: 'Decline', style: 'cancel', onPress: () => socket.emit('decline-connection-call', { inviteId: invite.inviteId }) },
             { text: 'Answer', onPress: () => router.push({ pathname: '/chat/video', params: {

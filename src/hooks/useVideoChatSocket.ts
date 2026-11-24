@@ -228,7 +228,7 @@ export function useVideoChatSocket({
       newSocket.on('match-error', ({ code, message }: { code?: string; message?: string }) => {
         console.warn(LOG, 'match-error', code, message)
         setIsSearching(false)
-        setError(message || 'Unable to start a Chemistry Check. Please try again.')
+        setError(message || 'Unable to find an introduction right now. Please try again.')
         if (code === 'AUTH_REQUIRED') {
           router.push('/auth/signin?next=/start')
         } else if (code === 'ADULT_CONFIRMATION_REQUIRED') {
@@ -757,7 +757,7 @@ export function useVideoChatSocket({
       if (requestId !== searchGenerationRef.current) return
       if (!supported || !socket.connected || !readyPcRef.current) {
         setIsSearching(false)
-        setError('The Vibe Room signaling server must be updated before starting a Chemistry Check.')
+        setError('Meetopia is finishing an update. Please try again in a few minutes.')
         return
       }
       socket.emit('find-user', { themeId })

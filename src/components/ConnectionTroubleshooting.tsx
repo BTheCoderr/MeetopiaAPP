@@ -20,8 +20,8 @@ const TROUBLESHOOTING_SECTIONS = [
   {
     title: 'Cannot connect to another user',
     items: [
-      'Make sure both users clicked "Make a Connection" and the signaling server is running.',
-      'Try clicking "Next person" to find a new match.',
+      'Make sure both people accepted the introduction. Video starts only after you both say yes.',
+      'Select "Keep Exploring" to look for a different introduction.',
       'Disable VPN or proxy temporarily — they can block WebRTC connections.',
     ],
   },

@@ -38,7 +38,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
     void getAuthenticatedSocket().then((sock) => {
       if (disposed) return; setSocket(sock); setConnected(sock.connected)
       const onConnect = () => { setConnected(true); setError(null) }, onDisconnect = () => { setConnected(false); clearPeer(); setError('Connection lost. Attempting to reconnect…') }
-      const onMatchError = ({ message }: { message?: string }) => { setSearching(false); setError(message || 'Unable to start a Chemistry Check.') }
+      const onMatchError = ({ message }: { message?: string }) => { setSearching(false); setError(message || 'Unable to find an introduction right now.') }
       const onMutual = async ({ partnerUserId, partnerDisplayName, connectionProof }: { partnerUserId?: string; partnerDisplayName?: string; connectionProof?: string }) => {
         setHasVibed(true)
         if (!connectionProof) return setMutualVibe({ partnerUserId: partnerUserId || null, partnerDisplayName: partnerDisplayName || null, connectionId: null, saved: false, error: 'Mutual Vibe confirmed, but this Connection could not be saved.' })
@@ -166,7 +166,7 @@ export function useCurrentMeetopiaSignaling({ stream, peerConnection, restartCon
       if (requestId !== searchGeneration.current) return
       if (!supported || !socket.connected) {
         setSearching(false)
-        setError('The Vibe Room server needs to be updated before you can start a Chemistry Check.')
+        setError('Meetopia is finishing an update. Please try again in a few minutes.')
         return
       }
       socket.emit('find-user', { themeId })

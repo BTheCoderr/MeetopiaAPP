@@ -74,7 +74,7 @@ export default function CommunityGuidelinesPage() {
                 <strong>Block</strong> — stop matching with that person on your device.
               </li>
               <li>
-                <strong>Leave</strong> — exit any Chemistry Check at any time.
+                <strong>Leave</strong> — exit any Vibe Room at any time.
               </li>
             </ul>
           ),

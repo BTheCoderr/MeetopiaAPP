@@ -338,7 +338,7 @@ export function useMobileVideoChatSocket({
   }, [restartConnection, resetPeerState, socket, signalingProfile, enabled])
 
   const handleLeaveChat = useCallback(() => {
-    Alert.alert('Leave Chemistry Check?', 'You will return to the home screen.', [
+    Alert.alert('Leave this Vibe Room?', 'You will return to the home screen.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Leave',

@@ -33,7 +33,7 @@ export default function SignInScreen() {
   return <Screen center scroll>
     <View style={styles.brand}><Brandmark size={72} /></View>
     <Text style={styles.title}>Sign in to Meetopia</Text>
-    <Text style={styles.subtitle}>Real Chemistry Checks require an account. Your Connections stay with you across devices.</Text>
+    <Text style={styles.subtitle}>Introductions and Vibe Rooms require an account. Your Connections stay with you across devices.</Text>
     <TextInput value={identifier} onChangeText={setIdentifier} placeholder="Email or username" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} autoComplete="username" style={styles.input} accessibilityLabel="Email or username" />
     <TextInput value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.textMuted} secureTextEntry autoComplete="current-password" style={styles.input} accessibilityLabel="Password" onSubmitEditing={() => void signIn()} />
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}

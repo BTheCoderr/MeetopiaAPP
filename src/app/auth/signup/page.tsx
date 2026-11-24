@@ -37,7 +37,7 @@ export default function SignUpPage() {
         throw new Error(data.error || 'Failed to sign up')
       }
 
-      setSuccess(`Account created successfully for ${username}! Let’s get you into a Chemistry Check...`)
+      setSuccess(`Account created successfully for ${username}! Next, set up your Chemistry Passport.`)
       
       // Wait 2 seconds before redirecting
       setTimeout(() => {

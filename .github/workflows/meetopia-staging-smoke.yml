@@ -49,6 +49,8 @@ jobs:
         run: npm ci --no-fund
       - name: Validate staging environment cannot reference production
         run: node --test scripts/staging-config.test.cjs
+      - name: Verify signaling authorization, Encore privacy and shared-creation security
+        run: node --test scripts/signaling-access.test.cjs scripts/encore-privacy.test.cjs scripts/shared-creation-security.test.cjs
       - name: Bootstrap temporary Supabase roles on disposable Postgres
         run: node scripts/prepare-disposable-db.cjs
       - name: Apply migrations only to disposable Postgres
@@ -57,6 +59,8 @@ jobs:
         run: node scripts/disposable-db-smoke.cjs
       - name: Install standalone Socket.IO signaling dependencies
         run: cd server && npm ci --no-fund
+      - name: Verify paired relays, consent introductions and Vibe Room sessions
+        run: cd server && node --test activePeerRelay.test.cjs consentIntroductions.test.cjs vibeRoomSessions.test.cjs
       - name: Verify web production dependency audit
         run: npm audit --omit=dev --audit-level=high
       - name: Verify signaling production dependency audit

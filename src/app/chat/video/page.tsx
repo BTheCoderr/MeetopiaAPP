@@ -189,8 +189,9 @@ export default function VideoChatPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault()
-        if (chat.currentPeer) handleNextPerson()
-        else chat.handleStartChat()
+        // Space never skips someone mid-session: leaving a shared Vibe Room
+        // should always be a deliberate button press, not a stray keystroke.
+        if (!chat.currentPeer) chat.handleStartChat()
       }
       if (e.code === 'Escape' && !e.repeat) {
         e.preventDefault()

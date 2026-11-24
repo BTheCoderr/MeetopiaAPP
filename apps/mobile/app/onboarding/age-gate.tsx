@@ -34,7 +34,7 @@ export default function AgeGateScreen() {
   return <Screen center scroll>
     <View style={styles.hero}><Brandmark size={72} /></View>
     <Text style={styles.title}>Meetopia is for adults 18+</Text>
-    <Text style={styles.subtitle}>Meetopia connects adults for live video Chemistry Checks. Please confirm you are 18 or older before meeting anyone.</Text>
+    <Text style={styles.subtitle}>Meetopia introduces adults through shared interests and live video Vibe Rooms. Please confirm you are 18 or older before meeting anyone.</Text>
     <View style={styles.card}>
       <Pressable style={styles.row} onPress={() => setConfirmed(v => !v)}>
         <Switch value={confirmed} onValueChange={setConfirmed} trackColor={{ true: colors.brandPurple, false: 'rgba(255,255,255,0.2)' }} thumbColor="#fff" />

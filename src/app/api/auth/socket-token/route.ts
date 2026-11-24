@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Socket token error:', error)
     return NextResponse.json(
-      { error: 'Could not authenticate the Chemistry Check.' },
+      { error: 'Could not verify your Meetopia session for video. Please sign in again.' },
       { status: 500 },
     )
   }

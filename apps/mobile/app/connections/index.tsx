@@ -82,7 +82,7 @@ export default function ConnectionsScreen() {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
           contentContainerStyle={items.length ? styles.list : styles.emptyList}
-          ListEmptyComponent={<Text style={styles.empty}>{error || 'No connections yet. Start a Chemistry Check and see who vibes back.'}</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{error || 'No Connections yet. Set up your Chemistry Passport and meet someone in a Vibe Room.'}</Text>}
           renderItem={({ item }) => {
             const name = item.person.displayName || item.person.username || 'Connection'
             return (

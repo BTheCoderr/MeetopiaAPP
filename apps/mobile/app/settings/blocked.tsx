@@ -47,7 +47,7 @@ export default function BlockedUsersScreen() {
     <BackLink label="Settings" onPress={() => router.replace('/settings')} />
     <Text style={styles.kicker}>Safety</Text>
     <Text style={styles.title}>Blocked users</Text>
-    <Text style={styles.copy}>Blocked people cannot appear in future Chemistry Checks, and their saved Connection is removed.</Text>
+    <Text style={styles.copy}>Blocked people will never be introduced to you again, and their saved Connection is removed.</Text>
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.brandPurple} style={styles.loader} /> : blocks.length === 0 ? (
       <View style={styles.empty}><Text style={styles.emptyTitle}>Nobody blocked</Text><Text style={styles.copy}>People you block will appear here so you can manage them later.</Text></View>

@@ -25,11 +25,11 @@ export default function SafetyPage() {
           body: (
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong>Report</strong> — choose a category and submit during a live Chemistry Check.
+                <strong>Report</strong> — choose a category and submit during a live Vibe Room.
               </li>
               <li>
                 <strong>Block</strong> — immediately end the relationship, remove the saved Connection
-                and private messages, and prevent future Chemistry Check matching.
+                and private messages, and prevent future introductions.
               </li>
               <li>
                 <strong>Leave</strong> — exit any call at any time.
@@ -67,7 +67,7 @@ export default function SafetyPage() {
             <p>
               Blocks are tied to your authenticated Meetopia account. Blocking removes the saved
               Connection and conversation between the two accounts and keeps that person out of your
-              future Chemistry Check matching. You can review and unblock people later from Profile
+              future introductions. You can review and unblock people later from Profile
               → Blocked users.
             </p>
           ),
