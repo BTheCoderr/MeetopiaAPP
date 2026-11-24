@@ -82,6 +82,8 @@ export function useVideoChatSocket({
   const socketRef = useRef<Socket | null>(null)
   const currentPeerRef = useRef<string | null>(null)
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([])
+  const remoteReadyRef = useRef(false)
+  const receivedStreamRef = useRef<MediaStream | null>(null)
   const isCallerRef = useRef(false)
   const readyPcRef = useRef<RTCPeerConnection | null>(null)
   const pendingNextRef = useRef<{ requestId: number; themeId: VibeThemeId } | null>(null)
@@ -97,6 +99,8 @@ export function useVideoChatSocket({
     readyPcRef.current = null
     currentPeerRef.current = null
     pendingIceCandidatesRef.current = []
+    remoteReadyRef.current = false
+    receivedStreamRef.current = null
     isCallerRef.current = false
     setCurrentPeer(null)
     setCurrentPeerUserId(null)
@@ -363,8 +367,6 @@ export function useVideoChatSocket({
     const pc = peerConnection
     const sock = socket
     if (!pc || !sock || !stream || !isPeerConnectionUsable(pc)) return
-    let remoteReady = false
-    let receivedStream: MediaStream | null = null
     const isCurrent = (peerId: string) => readyPcRef.current === pc &&
       currentPeerRef.current === peerId && socketRef.current === sock &&
       sock.connected && isPeerConnectionUsable(pc)
@@ -387,12 +389,12 @@ export function useVideoChatSocket({
         console.log(LOG, 'draining queued ICE candidates', pending.length)
         for (const candidate of pending) await addCandidate(candidate, peerId)
       }
-      if (isCurrent(peerId)) remoteReady = true
+      if (isCurrent(peerId)) remoteReadyRef.current = true
     }
 
     const queueOrAddIceCandidate = (candidate: RTCIceCandidateInit, peerId: string) => {
       if (!isCurrent(peerId)) return
-      if (remoteReady && pc.remoteDescription) {
+      if (remoteReadyRef.current && pc.remoteDescription) {
         void addCandidate(candidate, peerId)
       } else {
         console.log(LOG, 'ICE candidate received → queued (no remoteDescription yet)')
@@ -403,9 +405,9 @@ export function useVideoChatSocket({
     const onTrack = (event: RTCTrackEvent) => {
       const peerId = currentPeerRef.current
       if (!peerId || !isCurrent(peerId)) return
-      const mediaStream = event.streams[0] ?? receivedStream ?? new MediaStream()
+      const mediaStream = event.streams[0] ?? receivedStreamRef.current ?? new MediaStream()
       if (!mediaStream.getTracks().some(track => track.id === event.track.id)) mediaStream.addTrack(event.track)
-      receivedStream = mediaStream
+      receivedStreamRef.current = mediaStream
       console.log(LOG, 'ontrack fired', {
         trackKind: event.track.kind,
         streamId: mediaStream?.id,
@@ -469,8 +471,8 @@ export function useVideoChatSocket({
       }
 
       if (currentPeerRef.current) return
-      remoteReady = false
-      receivedStream = null
+      remoteReadyRef.current = false
+      receivedStreamRef.current = null
       console.log(LOG, 'matched peer ID', partnerId, '| my ID', sock.id)
       currentPeerRef.current = partnerId
       setIntroduction(null)

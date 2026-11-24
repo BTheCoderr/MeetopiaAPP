@@ -31,7 +31,6 @@ jobs:
       DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/meetopia
       MEETOPIA_DISPOSABLE_DB: 'yes'
       MEETOPIA_DEPLOY_ENV: ci
-      SOCKET_AUTH_SECRET: 'ci-only-Meetopia-CoCreate-full-stack-integration-secret-not-for-hosted-use'
       WEB_APP_URL: http://127.0.0.1:3100
       CORS_ORIGINS: http://127.0.0.1:3100
       NEXT_PUBLIC_SOCKET_URL: http://127.0.0.1:3103
@@ -40,8 +39,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
+      - name: Generate disposable signaling secret
+        shell: bash
+        run: |
+          value="$(openssl rand -hex 32)"
+          echo "::add-mask::$value"
+          printf 'SOCKET_AUTH_SECRET=%s\n' "$value" >> "$GITHUB_ENV"
       - name: Install web dependencies and generate Prisma client
-        run: npm install --no-fund
+        run: npm ci --no-fund
       - name: Validate staging environment cannot reference production
         run: node --test scripts/staging-config.test.cjs
       - name: Bootstrap temporary Supabase roles on disposable Postgres
@@ -52,6 +57,16 @@ jobs:
         run: node scripts/disposable-db-smoke.cjs
       - name: Install standalone Socket.IO signaling dependencies
         run: cd server && npm ci --no-fund
+      - name: Verify web production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify signaling production dependency audit
+        run: npm --prefix server audit --omit=dev --audit-level=high
+      - name: Check signaling syntax
+        run: node --check server/index.js
+      - name: Build web production bundle
+        run: npm run build
+      - name: Check web TypeScript
+        run: npx tsc --noEmit
       - name: Start real Next.js and real Socket.IO for ephemeral integration
         run: |
           nohup npm run dev:next -- --hostname 127.0.0.1 --port 3100 > /tmp/meetopia-ci-next.log 2>&1 &

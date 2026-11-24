@@ -16,19 +16,19 @@ const STUN_SERVERS: RTCIceServer[] = [
 export function getIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [...STUN_SERVERS];
 
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+  const turnUrls = (process.env.NEXT_PUBLIC_TURN_URL ?? '').split(',').map(url => url.trim()).filter(url => /^turns?:/i.test(url));
   const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
   const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
 
-  if (turnUrl && turnUser && turnCred) {
+  if (turnUrls.length && turnUser && turnCred) {
     servers.push({
-      urls: turnUrl,
+      urls: turnUrls,
       username: turnUser,
       credential: turnCred,
     });
   }
 
-  if (process.env.NODE_ENV === 'production' && !(turnUrl && turnUser && turnCred)) {
+  if (process.env.NODE_ENV === 'production' && !(turnUrls.length && turnUser && turnCred)) {
     console.warn('[WebRTC:ICE] TURN not configured; restricted networks may fail')
   }
   return servers;
