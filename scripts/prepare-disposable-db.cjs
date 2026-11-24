@@ -17,6 +17,9 @@ async function main() {
   try {
     await db.$executeRawUnsafe('CREATE ROLE anon NOLOGIN')
     await db.$executeRawUnsafe('CREATE ROLE authenticated NOLOGIN')
+    // Mirror Supabase: tables created later in public are granted to the API roles
+    // by default. This makes the smoke test catch any table a migration forgets to lock.
+    await db.$executeRawUnsafe('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated')
     console.log('Created synthetic Supabase anon/authenticated roles in disposable PostgreSQL only.')
   } finally {
     await db.$disconnect()

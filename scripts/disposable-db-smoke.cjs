@@ -35,6 +35,18 @@ async function main() {
       if (i === 0) a = user
       else b = user
     }
+    // Every application table must be server-only: RLS on and no Data API grants.
+    const exposed = await prisma.$queryRawUnsafe(`
+      SELECT c.relname AS table_name, c.relrowsecurity AS rls,
+        has_table_privilege('anon', c.oid, 'SELECT') AS anon_select,
+        has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated_select
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+        AND (NOT c.relrowsecurity
+          OR has_table_privilege('anon', c.oid, 'SELECT')
+          OR has_table_privilege('authenticated', c.oid, 'SELECT'))`)
+    assert.deepEqual(exposed, [], `Tables exposed to the Supabase Data API: ${JSON.stringify(exposed)}`)
+
     assert.deepEqual(a.chemistryInterests, ['music', 'travel'])
     assert.equal(b.chemistryIntent, 'relationship')
 
