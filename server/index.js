@@ -1,3 +1,4 @@
+require('../scripts/render-staging-guard.cjs').assertRenderStagingSignaling(process.env);
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -17,7 +18,7 @@ const {
 
 // Staging must never pair with live web APIs, real accounts, or production
 // signaling. Validate environment before starting the Socket.IO listener.
-if (process.env.MEETOPIA_DEPLOY_ENV === 'staging') {
+if (process.env.MEETOPIA_DEPLOY_ENV === 'staging' && process.env.MEETOPIA_STAGING_DB_PROVIDER !== 'render') {
   const api = process.env.WEB_APP_URL || '';
   const origin = process.env.CORS_ORIGINS || '';
   const secret = process.env.SOCKET_AUTH_SECRET || '';

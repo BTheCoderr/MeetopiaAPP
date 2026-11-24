@@ -8,6 +8,10 @@ function parseHost(url: string, label: string) {
 
 export function assertStagingDatabaseConfig(env: NodeJS.ProcessEnv) {
   if (env.MEETOPIA_DEPLOY_ENV !== 'staging') return
+  if (env.MEETOPIA_STAGING_DB_PROVIDER === 'render') {
+    require('../../scripts/render-staging-guard.cjs').assertRenderStagingDatabase(env)
+    return
+  }
   const ref = env.MEETOPIA_STAGING_DB_REF
   if (!ref || !/^[a-z0-9]{20}$/.test(ref)) {
     throw new Error('Staging requires a separate Supabase project reference (MEETOPIA_STAGING_DB_REF).')

@@ -1,6 +1,9 @@
+// The temporary Render hosting branch is not a production release branch.
+require('./scripts/render-staging-guard.cjs').assertRenderStagingWeb(process.env)
+
 // Fail at build time if a preview Netlify project would accidentally use the
 // live Meetopia database or live signaling server.
-if (process.env.MEETOPIA_DEPLOY_ENV === 'staging') {
+if (process.env.MEETOPIA_DEPLOY_ENV === 'staging' && process.env.MEETOPIA_STAGING_DB_PROVIDER !== 'render') {
   const ref = process.env.MEETOPIA_STAGING_DB_REF;
   const stagingSocket = process.env.NEXT_PUBLIC_SOCKET_URL;
   const stagingWeb = process.env.MEETOPIA_STAGING_WEB_URL;
@@ -52,6 +55,7 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          ...(process.env.MEETOPIA_DEPLOY_ENV === 'staging' ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] : []),
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {

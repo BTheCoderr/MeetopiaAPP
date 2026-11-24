@@ -2,7 +2,7 @@ name: Meetopia ephemeral full-stack staging smoke
 
 on:
   push:
-    branches: [meetopia-staging-preflight]
+    branches: [meetopia-staging-preflight, meetopia-render-staging]
   workflow_dispatch:
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
       - name: Install web dependencies and generate Prisma client
         run: npm ci --no-fund
       - name: Validate staging environment cannot reference production
-        run: node --test scripts/staging-config.test.cjs
+        run: node --test scripts/staging-config.test.cjs scripts/render-staging-guard.test.cjs
       - name: Verify signaling authorization, Encore privacy and shared-creation security
         run: node --test scripts/signaling-access.test.cjs scripts/encore-privacy.test.cjs scripts/shared-creation-security.test.cjs
       - name: Bootstrap temporary Supabase roles on disposable Postgres

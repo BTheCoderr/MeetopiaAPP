@@ -1,0 +1,79 @@
+# Separate temporary Blueprint; never sync the production render.yaml here.
+previews:
+  generation: off
+envVarGroups:
+  - name: meetopia-stage-only
+    envVars:
+      - key: MEETOPIA_DEPLOY_ENV
+        value: staging
+      - key: MEETOPIA_STAGING_DB_PROVIDER
+        value: render
+      - key: SOCKET_AUTH_SECRET
+        generateValue: true
+services:
+  - type: web
+    name: meetopia-stage-web
+    runtime: node
+    plan: free
+    region: virginia
+    branch: meetopia-render-staging
+    autoDeployTrigger: off
+    buildCommand: npm ci --no-fund && npm run build
+    startCommand: node scripts/prepare-render-staging-db.cjs && npx prisma migrate deploy && npm run start -- --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - fromGroup: meetopia-stage-only
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meetopia-staging-db
+          property: connectionString
+      - key: DATABASE_URL_UNPOOLED
+        fromDatabase:
+          name: meetopia-staging-db
+          property: connectionString
+      - key: MEETOPIA_STAGING_WEB_URL
+        fromService:
+          name: meetopia-stage-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          name: meetopia-stage-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXT_PUBLIC_SITE_URL
+        fromService:
+          name: meetopia-stage-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXT_PUBLIC_SOCKET_URL
+        fromService:
+          name: meetopia-stage-signal
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+  - type: web
+    name: meetopia-stage-signal
+    runtime: node
+    plan: free
+    region: virginia
+    branch: meetopia-render-staging
+    autoDeployTrigger: off
+    buildCommand: npm --prefix server ci --no-fund
+    startCommand: npm --prefix server start
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: meetopia-stage-only
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: WEB_APP_URL
+        fromService:
+          name: meetopia-stage-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ORIGINS
+        fromService:
+          name: meetopia-stage-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
