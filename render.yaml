@@ -14,7 +14,7 @@ services:
       - key: PORT
         value: 3003
       - key: CORS_ORIGINS
-        value: https://meetopia-live.netlify.app
+        value: https://meetopia-live.netlify.app,https://meeetopia.vercel.app
       - key: WEB_APP_URL
         value: https://meetopia-live.netlify.app
       - key: SUPABASE_URL

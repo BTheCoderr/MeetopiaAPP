@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getSocketUrl } from '@/lib/socketUrl'
 import { io, Socket } from 'socket.io-client'
 
 type MessagePayload = {
@@ -48,6 +49,11 @@ export function useConnectionThreadRealtime({
     let presenceInterval: number | null = null
 
     const connect = async () => {
+      const socketUrl = getSocketUrl()
+      if (!socketUrl) {
+        console.error('[Meetopia:Signaling] NEXT_PUBLIC_SOCKET_URL is not configured')
+        return
+      }
       const tokenResponse = await fetch('/api/auth/socket-token', {
         cache: 'no-store',
         credentials: 'same-origin',
@@ -58,7 +64,7 @@ export function useConnectionThreadRealtime({
       const data = await tokenResponse.json().catch(() => null)
       if (!data?.token || disposed) return
 
-      liveSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003', {
+      liveSocket = io(socketUrl, {
         transports: ['polling', 'websocket'],
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,

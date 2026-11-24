@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { getSocketUrl } from '@/lib/socketUrl'
 import { io } from 'socket.io-client'
 
 type ConnectionProof = {
@@ -24,6 +25,11 @@ export function useConnectionPresence(connections: ConnectionProof[]) {
     let interval: number | null = null
 
     const connect = async () => {
+      const socketUrl = getSocketUrl()
+      if (!socketUrl) {
+        console.error('[Meetopia:Signaling] NEXT_PUBLIC_SOCKET_URL is not configured')
+        return
+      }
       const response = await fetch('/api/auth/socket-token', {
         cache: 'no-store',
         credentials: 'same-origin',
@@ -33,7 +39,7 @@ export function useConnectionPresence(connections: ConnectionProof[]) {
       const data = await response.json().catch(() => null)
       if (!data?.token || disposed) return
 
-      liveSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003', {
+      liveSocket = io(socketUrl, {
         transports: ['polling', 'websocket'],
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
