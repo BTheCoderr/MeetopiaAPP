@@ -82,8 +82,8 @@ export default function VideoStage({
   const showStatusOverlay = mode === 'searching' || mode === 'connecting'
   const overlayMessage =
     mode === 'connecting'
-      ? 'Starting your Chemistry Check…'
-      : 'Finding someone to talk to…'
+      ? 'Opening your Vibe Room…'
+      : 'Looking for someone who shares your common ground…'
 
   useEffect(() => {
     const el = localVideoRef.current

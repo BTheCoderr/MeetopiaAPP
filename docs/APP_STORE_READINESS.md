@@ -1,3 +1,8 @@
+> ⚠️ **ARCHIVED MVP CHECKLIST — NOT RELEASE AUTHORIZATION.**
+> This document covers the obsolete local-profile and simulated match build. Its native commands, data-storage claims, sign-in flow, screenshots and age-rating assumptions must not be used for the current EAS-only release.
+> The source of truth is [apps/mobile/README.md](../apps/mobile/README.md), [MEETOPIA_STAGING_TWO_DEVICE_QA.md](./MEETOPIA_STAGING_TWO_DEVICE_QA.md), [APP_REVIEW_426_CODE_PROVENANCE.md](./APP_REVIEW_426_CODE_PROVENANCE.md), and the actual inspected iOS binary.
+> No production deployment, EAS build or Apple submission has been authorized by these documents.
+
 # Meetopia — App Store Readiness
 
 Meetopia is a **profile-based, video-first dating app** for real chemistry. Users create a profile, choose an intent, browse suggested matches, and request a Chemistry Check; video starts only after a profile-based match accepts. This document tracks what is required before TestFlight and App Store submission.

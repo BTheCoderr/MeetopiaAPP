@@ -156,7 +156,7 @@ export default function ConnectionsPage() {
               )}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
-              Your post-Chemistry Check inbox. Messages arrive live, unread messages stay counted, and you can see when a Connection is available.
+              People you both chose to Vibe with. Messages arrive live, unread messages stay counted, and you can see when a Connection is available.
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
@@ -176,7 +176,7 @@ export default function ConnectionsPage() {
               href="/start"
               className="rounded-2xl bg-gray-950 px-5 py-3.5 text-center font-bold text-white hover:bg-gray-800"
             >
-              New Chemistry Check
+              Find a new introduction
             </Link>
           </div>
         </div>

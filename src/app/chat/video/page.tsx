@@ -13,11 +13,16 @@ import VideoChatHeader from '@/components/video-chat/VideoChatHeader'
 import ControlBar from '@/components/video-chat/ControlBar'
 import VideoStage from '@/components/video-chat/VideoStage'
 import ChatPanel from '@/components/video-chat/ChatPanel'
+import VibeRounds from '@/components/video-chat/VibeRounds'
 import VideoChatModals from '@/components/video-chat/VideoChatModals'
 import { videoChatLayout } from '@/components/video-chat/videoChatLayout'
+import { isVibeThemeId, type VibeThemeId } from '@/lib/vibeThemes'
+import { useRouter } from 'next/navigation'
 
 export default function VideoChatPage() {
+  const router = useRouter()
   const state = useVideoChatState()
+  const [themeId, setThemeId] = useState<VibeThemeId | null>(null)
   const [directConnectionId, setDirectConnectionId] = useState<string | null>(null)
   const [incomingCallId, setIncomingCallId] = useState<string | null>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -31,7 +36,10 @@ export default function VideoChatPage() {
     const params = new URLSearchParams(window.location.search)
     setDirectConnectionId(params.get('connection'))
     setIncomingCallId(params.get('incomingCall'))
-  }, [])
+    const value = params.get('themeId')
+    if (isVibeThemeId(value)) setThemeId(value)
+    else if (!params.get('connection') && !params.get('incomingCall')) router.replace('/sessions')
+  }, [router])
 
   const chat = useVideoChatSocket({
     stream,
@@ -45,6 +53,7 @@ export default function VideoChatPage() {
     isAdaptiveQuality: state.isAdaptiveQuality,
     directConnectionId,
     incomingCallId,
+    themeId,
   })
 
   const media = useMediaControls({
@@ -180,8 +189,9 @@ export default function VideoChatPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault()
-        if (chat.currentPeer) handleNextPerson()
-        else chat.handleStartChat()
+        // Space never skips someone mid-session: leaving a shared Vibe Room
+        // should always be a deliberate button press, not a stray keystroke.
+        if (!chat.currentPeer) chat.handleStartChat()
       }
       if (e.code === 'Escape' && !e.repeat) {
         e.preventDefault()
@@ -234,6 +244,7 @@ export default function VideoChatPage() {
         buttonCooldown={state.buttonCooldown}
         hasPeer={Boolean(chat.currentPeer)}
         hasVibed={chat.hasVibed}
+        canVibe={chat.room?.completed === true}
         isMuted={media.isMuted}
         isCameraOff={media.isCameraOff}
         isScreenSharing={media.isScreenSharing}
@@ -254,6 +265,22 @@ export default function VideoChatPage() {
         onControlsActivity={chat.currentPeer ? state.showControlsTemporarily : state.showControls}
       />
 
+      <VibeRounds room={chat.room} onAnswer={chat.answerRound} onNext={chat.nextRound} onContribute={chat.contribute} onApprove={chat.approveCreation} />
+      {chat.introduction && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#090718]/95 p-5 text-white">
+          <div className="w-full max-w-md rounded-[32px] border border-violet-400/40 bg-[#191332] p-8 shadow-2xl">
+            <p className="text-xs font-black tracking-[0.24em] text-violet-300">MEETOPIA / THE INTRODUCTION</p>
+            <h2 className="mt-4 text-3xl font-black">Common ground. Real chemistry.</h2>
+            <p className="mt-6 text-lg text-white/90">{chat.introduction.themeTitle}: Meet {chat.introduction.person.displayName}</p>
+            <p className="mt-4 text-sm text-white/60">You share these interests:</p>
+            <div className="mt-3 flex flex-wrap gap-2">{chat.introduction.person.sharedInterests.map(interest => <span key={interest} className="rounded-full border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-sm font-semibold capitalize">{interest}</span>)}</div>
+            <p className="mt-5 text-sm text-white/70">Their conversation style: {chat.introduction.person.conversationStyle}.</p>
+            <p className="mt-5 text-sm text-white/50">Your camera will only connect after you both agree to meet. Either person may decline.</p>
+            <button type="button" disabled={chat.introduction.accepted} onClick={chat.acceptIntroduction} className="mt-7 w-full rounded-2xl bg-violet-500 p-4 font-bold disabled:opacity-50">{chat.introduction.accepted ? 'Accepted · waiting for them…' : 'Meet in the Vibe Room'}</button>
+            <button type="button" onClick={chat.declineIntroduction} className="mt-3 w-full rounded-2xl border border-white/15 p-4 font-semibold">Not this introduction</button>
+          </div>
+        </div>
+      )}
       {chat.callStatus && !state.error && (
         <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top))] left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4">
           <div className="rounded-2xl bg-black/65 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-md">

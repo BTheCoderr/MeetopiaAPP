@@ -17,6 +17,9 @@ model User {
   displayName String?
   bio         String?
   interests   String[]  @default([])
+  chemistryIntent String?
+  chemistryStyle String?
+  chemistryInterests String[] @default([])
   adultConfirmedAt        DateTime?
   resetPasswordTokenHash   String?   @unique
   resetPasswordExpiresAt   DateTime?
@@ -135,8 +138,36 @@ model Connection {
   userA User @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB User @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
 
+  encore Encore?
+  sharedCreation SharedCreation?
+
   @@unique([userAId, userBId])
   @@index([userBId])
+}
+
+// Both participants explicitly share a follow-up idea before a Spark Card
+// is shown. No private Curveball answers or call recordings are stored.
+model Encore {
+  connectionId String @id
+  userAChoice String?
+  userBChoice String?
+  userAShared Boolean @default(false)
+  userBShared Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+}
+
+// Only both-participant-approved final creations, never private answers.
+model SharedCreation {
+  connectionId String @id
+  themeId String
+  activity String
+  setting String
+  createdAt DateTime @default(now())
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 }
 
 model Block {
@@ -150,4 +181,11 @@ model Block {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+// Two fixed server-only counters; no user identifiers stored.
+model PasswordResetBudget {
+  bucket String @id
+  windowStart DateTime
+  count Int
 }

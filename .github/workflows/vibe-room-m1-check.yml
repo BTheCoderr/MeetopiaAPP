@@ -1,0 +1,53 @@
+name: Meetopia Chemistry Passport milestone CI
+
+on:
+  push:
+    branches: [meetopia-vibe-room-m1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-and-signaling:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetopia
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/meetopia
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:3003
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Test consent policy and existing WebRTC authorization
+        run: node --test server/consentIntroductions.test.cjs server/activePeerRelay.test.cjs
+      - name: Install web dependencies
+        run: npm install --no-fund
+      - name: Build Next.js application with Prisma client
+        run: npm run build
+      - name: Exercise socket server integration and revocation tests
+        run: node --test scripts/signaling-access.test.cjs
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install locked Expo dependencies
+        run: npm ci --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Expo iOS JavaScript export (not an EAS build)
+        run: npx expo export --platform ios --output-dir dist-ios
+      - name: Validate Expo/EAS configuration
+        run: node scripts/check-eas-config.cjs

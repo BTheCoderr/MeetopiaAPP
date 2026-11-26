@@ -37,9 +37,19 @@ export default function StartPage() {
     void load()
   }, [router])
 
+  const enterIntroductions = async () => {
+    const res = await fetch('/api/chemistry/passport', { credentials: 'same-origin', cache: 'no-store' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'Could not verify your Chemistry Passport.')
+    router.push(data.complete ? '/sessions' : '/chemistry/passport')
+  }
+
   const begin = async () => {
     if (alreadyConfirmed) {
-      router.push('/chat/video')
+      setIsSaving(true); setError(null)
+      try { await enterIntroductions() }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not begin.') }
+      finally { setIsSaving(false) }
       return
     }
 
@@ -60,7 +70,7 @@ export default function StartPage() {
       if (!response.ok) {
         throw new Error(data?.error || `Could not save confirmation (HTTP ${response.status}).`)
       }
-      window.location.assign('/chat/video')
+      await enterIntroductions()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Could not save confirmation.')
     } finally {
@@ -78,7 +88,7 @@ export default function StartPage() {
         <p className="text-sm font-bold uppercase tracking-[0.22em] text-blue-400">Meetopia</p>
         <h1 className="mt-2 text-3xl font-black">Talk first.</h1>
         <p className="mt-3 text-white/65">
-          No swiping through bios. No compatibility score. No fake partner. Meetopia puts two real people on video and lets the conversation decide.
+          No endless swiping or stranger roulette. Create a Chemistry Passport, discover common ground, and both agree before a video introduction begins.
         </p>
 
         {error && (
@@ -106,7 +116,7 @@ export default function StartPage() {
           disabled={isSaving}
           className="mt-6 w-full rounded-2xl bg-white py-4 font-black text-black disabled:opacity-50"
         >
-          {alreadyConfirmed ? 'Start Chemistry Check' : isSaving ? 'Starting…' : 'I’m 18+ — Start Chemistry Check'}
+          {alreadyConfirmed ? 'Continue to Chemistry Passport' : isSaving ? 'Starting…' : 'I’m 18+ — Continue'}
         </button>
 
         <div className="mt-5 flex justify-center gap-4 text-xs text-white/50">

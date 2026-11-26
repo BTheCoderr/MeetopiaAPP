@@ -11,7 +11,9 @@ interface Props {
   onLeave: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
+  onFlipCamera: () => void
   onVibe: () => void
+  canVibe: boolean
   onReport: () => void
   onBlock: () => void
   isMuted: boolean
@@ -30,7 +32,9 @@ export default function ControlBar({
   onLeave,
   onToggleMute,
   onToggleCamera,
+  onFlipCamera,
   onVibe,
+  canVibe,
   onReport,
   onBlock,
   isMuted,
@@ -41,18 +45,22 @@ export default function ControlBar({
   return (
     <View style={layout.controls} pointerEvents="box-none">
       {mutualVibe && (
-        <Text style={styles.vibeBanner}>Chat unlocked — say hi 👋</Text>
+        <Text style={styles.vibeBanner}>Connection saved — you can keep talking</Text>
       )}
       <View style={layout.controlRow}>
-        <TouchableOpacity style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'} style={[layout.controlBtn, isMuted && styles.active]} onPress={onToggleMute}>
           <Text style={styles.icon}>{isMuted ? '🔇' : '🎤'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[layout.controlBtn, isCameraOff && styles.active]} onPress={onToggleCamera}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isCameraOff ? 'Turn on camera' : 'Turn off camera'} style={[layout.controlBtn, isCameraOff && styles.active]} onPress={onToggleCamera}>
           <Text style={styles.icon}>{isCameraOff ? '🚫' : '📹'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Flip camera" style={layout.controlBtn} onPress={onFlipCamera} disabled={isCameraOff}>
+          <Text style={styles.icon}>↻</Text>
         </TouchableOpacity>
         {!hasPeer ? (
           <TouchableOpacity
             style={[layout.controlBtn, layout.controlBtnPrimary, !canStart && styles.disabled]}
+            accessibilityRole="button" accessibilityLabel="Find an introduction"
             onPress={onStart}
             disabled={!isSocketConnected || isSearching || !canStart}
           >
@@ -62,21 +70,22 @@ export default function ControlBar({
           <>
             <TouchableOpacity
               style={[layout.controlBtn, myVibeSent && styles.vibeActive]}
+              accessibilityRole="button" accessibilityLabel={canVibe ? "Choose Vibe" : "Complete the Vibe Room first"}
               onPress={onVibe}
-              disabled={myVibeSent}
+              disabled={myVibeSent || !canVibe}
             >
               <Text style={styles.icon}>{myVibeSent ? '💚' : '✨'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onNext}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Keep Exploring" style={layout.controlBtn} onPress={onNext}>
               <Text style={styles.icon}>⏭</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onReport}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report person" style={layout.controlBtn} onPress={onReport}>
               <Text style={styles.icon}>🚩</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={layout.controlBtn} onPress={onBlock}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Block person" style={layout.controlBtn} onPress={onBlock}>
               <Text style={styles.icon}>⛔</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to Base" style={[layout.controlBtn, layout.controlBtnDanger]} onPress={onLeave}>
               <Text style={styles.icon}>✕</Text>
             </TouchableOpacity>
           </>

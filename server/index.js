@@ -3,6 +3,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { validateConnection } = require('./connectionAccess');
+const { isActivePeerRelay } = require('./activePeerRelay');
+const { validatePassport, comparePassports, createConsentIntroductions } = require('./consentIntroductions');
+const { createVibeRoomSessions } = require('./vibeRoomSessions');
 const { randomUUID, timingSafeEqual } = require('crypto');
 const { saveReport, readRecentReports, sessionIdFor, getReportBackendStatus } = require('./reportsStore');
 const {
@@ -12,10 +15,28 @@ const {
   verifyConnectionRealtimeProof,
 } = require('./socketAuth');
 
+// Staging must never pair with live web APIs, real accounts, or production
+// signaling. Validate environment before starting the Socket.IO listener.
+if (process.env.MEETOPIA_DEPLOY_ENV === 'staging') {
+  const api = process.env.WEB_APP_URL || '';
+  const origin = process.env.CORS_ORIGINS || '';
+  const secret = process.env.SOCKET_AUTH_SECRET || '';
+  const ref = process.env.MEETOPIA_STAGING_DB_REF || '';
+  const stagingUrl = /^https:\/\/[a-z0-9.-]+$/i.test(api) &&
+    api !== 'https://meetopia-live.netlify.app';
+  if (!stagingUrl || !origin.split(',').includes(api) || secret.length < 32 || !/^[a-z0-9]{20}$/.test(ref)) {
+    throw new Error('Staging signaling requires a separate HTTPS web host, explicit CORS, DB ref and 32+ character auth secret.');
+  }
+  const supabaseUrl = process.env.SUPABASE_URL || '';
+  if (supabaseUrl && new URL(supabaseUrl).hostname !== `${ref}.supabase.co`) {
+    throw new Error('Refusing staging signaling configuration tied to a different Supabase project.');
+  }
+}
+
 const normalizeOrigin = (origin) =>
   origin ? origin.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '') : origin;
 
-const productionOrigins = [
+const productionOrigins = process.env.MEETOPIA_DEPLOY_ENV === 'staging' ? [] : [
   'https://meetopia-live.netlify.app',
 ];
 
@@ -29,6 +50,7 @@ const allowedOrigins = [...new Set([...configuredOrigins, ...productionOrigins])
 
 const isMeetopiaPreviewOrigin = (origin) =>
   typeof origin === 'string' &&
+  process.env.MEETOPIA_DEPLOY_ENV !== 'staging' &&
   /^https:\/\/deploy-preview-\d+--meetopia-live\.netlify\.app$/.test(origin);
 
 const corsOriginCheck = (origin, callback) => {
@@ -58,6 +80,8 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
+    environment: process.env.MEETOPIA_DEPLOY_ENV === 'staging' ? 'staging' : 'normal',
+    protocol: VIBE_ROOM_PROTOCOL,
     nodeEnv: process.env.NODE_ENV,
     allowedOrigins,
     reports: getReportBackendStatus(),
@@ -119,8 +143,7 @@ io.engine.on('headers', (headers, req) => {
   }
 });
 
-const waitingUsers = new Set();
-// Active 1:1 video chat pairs for /chat/video random matching (socketId -> partnerId)
+// Active 1:1 video pairs (socketId -> partnerId), authorized only after both accept or a valid direct Connection call.
 const activePairs = new Map();
 const vibeTargets = new Map();
 const activeDatingSocketsByUser = new Map();
@@ -229,6 +252,7 @@ function pairUsers(userIdA, userIdB) {
 }
 
 function clearActivePair(socketId, notifyPeer = true) {
+  vibeRooms.cancel(socketId);
   const peerId = activePairs.get(socketId);
   if (!peerId) return null;
   activePairs.delete(socketId);
@@ -243,7 +267,7 @@ function clearActivePair(socketId, notifyPeer = true) {
 }
 
 function removeFromMatchQueues(socketId) {
-  waitingUsers.delete(socketId);
+  introductions.cancel(socketId);
 }
 
 function clearPendingConnectionCall(inviteId, callerEvent, targetEvent) {
@@ -307,56 +331,52 @@ function leaveCurrentRoom(socket, { notifyVideoPeer = false } = {}) {
   removeFromMatchQueues(socket.id);
 }
 
-function runFindUser(socket) {
-  if (activePairs.has(socket.id)) {
-    console.log(`User ${socket.id} already paired, skipping match queue`);
-    return;
-  }
+// Server-owned round state exists only for mutually approved introductions.
+// Direct calls between existing Connections do not instantiate a new Vibe Room.
+const vibeRooms = createVibeRoomSessions({
+  canContinue: (a, b) =>
+    isActivePeerRelay(activePairs, a.id, b.id) &&
+    Boolean(a.data.adultConfirmed && b.data.adultConfirmed) &&
+    !isBlockedBetween(a.id, b.id),
+});
 
-  if (!socket.data.userId) {
-    removeFromMatchQueues(socket.id);
-    socket.emit('match-error', {
-      code: 'AUTH_REQUIRED',
-      message: 'Sign in before starting a Chemistry Check.',
-    });
-    return;
-  }
-
-  if (!socket.data.adultConfirmed) {
-    removeFromMatchQueues(socket.id);
-    socket.emit('match-error', {
-      code: 'ADULT_CONFIRMATION_REQUIRED',
-      message: 'Confirm you are 18 or older before starting a Chemistry Check.',
-    });
-    return;
-  }
-
-  if (waitingUsers.size > 0) {
-    const partnerId = [...waitingUsers].find(
-      (id) => id !== socket.id && !activePairs.has(id) && canPair(socket.id, id)
-    );
-
-    if (partnerId) {
-      const partnerSocket = io.sockets.sockets.get(partnerId);
-      waitingUsers.delete(partnerId);
-
-      socket.emit('user-found', {
-        partnerId,
-        partnerUserId: partnerSocket?.data.userId || null,
-      });
-      io.to(partnerId).emit('user-found', {
-        partnerId: socket.id,
-        partnerUserId: socket.data.userId,
-      });
-
-      pairUsers(socket.id, partnerId);
-      console.log(`[Signaling] Chemistry Check matched: ${socket.id} <-> ${partnerId}`);
-      return;
+// Invitations do NOT create a media pair. The server grants WebRTC relay access
+// only after two independently authenticated, adult participants both accept.
+const introductions = createConsentIntroductions({
+  canIntroduce: (a, b) => (
+    Boolean(a.connected && b.connected && a.data.adultConfirmed && b.data.adultConfirmed) &&
+    Boolean(a.data.userId && b.data.userId && a.data.userId !== b.data.userId) &&
+    !activePairs.has(a.id) && !activePairs.has(b.id) &&
+    !isBlockedBetween(a.id, b.id) &&
+    !hasRecentPeer(a.id, b.id) && !hasRecentPeer(b.id, a.id) &&
+    Boolean(comparePassports(a.data.passport, b.data.passport))
+  ),
+  onApproved: (a, b, { themeId }) => {
+    // pairUsers is the ONLY granting operation for peer media and chat relays.
+    pairUsers(a.id, b.id);
+    vibeRooms.start(a, b, themeId);
+    for (const [me, other] of [[a, b], [b, a]]) {
+      me.emit('introduction-approved', { partnerDisplayName: other.data.displayName || 'Meetopia member' });
+      me.emit('user-found', { partnerId: other.id, partnerUserId: other.data.userId });
     }
-  }
+  },
+});
 
-  waitingUsers.add(socket.id);
-  console.log(`User ${socket.id} is waiting for a Chemistry Check`);
+// Protocol compatibility is an operational guard, not a security credential.
+// Existing Connection messaging/calls keep working for older clients, but
+// legacy clients cannot accidentally enter the new consent-only matchmaking.
+const VIBE_ROOM_PROTOCOL = 3;
+function requireVibeRoomProtocol(socket) {
+  if (socket.handshake?.auth?.meetopiaProtocol === VIBE_ROOM_PROTOCOL) return true;
+  socket.emit('match-error', {
+    code: 'CLIENT_UPDATE_REQUIRED',
+    message: 'Update Meetopia to join themed Co-Create sessions.',
+  });
+  return false;
+}
+function runFindUser(socket, themeId) {
+  if (!requireVibeRoomProtocol(socket) || activePairs.has(socket.id)) return;
+  introductions.start(socket, themeId);
 }
 
 io.use((socket, next) => {
@@ -370,6 +390,7 @@ io.use((socket, next) => {
   socket.data.displayName = payload.displayName || null;
   socket.data.adultConfirmed = payload.adultConfirmed === true;
   socket.data.blockedUserIds = new Set(Array.isArray(payload.blocked) ? payload.blocked : []);
+  socket.data.passport = validatePassport(payload.passport);
   next();
 });
 
@@ -379,13 +400,62 @@ io.on('connection', (socket) => {
     addActiveSocket(socket.data.userId, socket.id);
   }
 
-  socket.on('find-user', () => {
+  socket.on('vibe-room-hello', ({ version, token } = {}, ack) => {
+    if (typeof ack !== 'function') return;
+    if (version !== VIBE_ROOM_PROTOCOL || !requireVibeRoomProtocol(socket)) {
+      ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'update-required' });
+      return;
+    }
+    // The token was JUST issued by the authenticated account API; checking it
+    // on every new search prevents a long-lived socket from matching somebody
+    // using stale blocks, age confirmation or Chemistry Passport settings.
+    const current = verifySocketToken(token);
+    if (!current || current.sub !== socket.data.userId) {
+      ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'reauthenticate' });
+      return;
+    }
+    socket.data.adultConfirmed = current.adultConfirmed === true;
+    socket.data.blockedUserIds = new Set(Array.isArray(current.blocked) ? current.blocked : []);
+    socket.data.passport = validatePassport(current.passport);
+    ack({ protocol: VIBE_ROOM_PROTOCOL, status: 'ready' });
+  });
+
+  socket.on('find-user', ({ themeId } = {}) => {
+    if (!requireVibeRoomProtocol(socket)) return;
     if (activePairs.has(socket.id)) {
       console.log(`User ${socket.id} already paired, ignoring duplicate find-user`);
       return;
     }
-    leaveCurrentRoom(socket, { notifyVideoPeer: false });
-    runFindUser(socket);
+    leaveCurrentRoom(socket, { notifyVideoPeer: true });
+    runFindUser(socket, themeId);
+  });
+
+  socket.on('introduction-response', ({ invitationId, accept } = {}) => {
+    if (!requireVibeRoomProtocol(socket)) return;
+    introductions.respond(socket, invitationId, accept === true);
+  });
+
+  socket.on('vibe-room-answer', (payload = {}) => {
+    if (!vibeRooms.answer(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'This answer is no longer available.' });
+    }
+  });
+
+  socket.on('vibe-room-next', (payload = {}) => {
+    if (!vibeRooms.next(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Wait for both participants to complete this round.' });
+    }
+  });
+
+  socket.on('vibe-room-contribute', (payload = {}) => {
+    if (!vibeRooms.contribute(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Your contribution could not be saved to this session.' });
+    }
+  });
+  socket.on('vibe-room-approve', (payload = {}) => {
+    if (!vibeRooms.approve(socket, payload)) {
+      socket.emit('vibe-room-error', { message: 'Both people must approve the current shared creation.' });
+    }
   });
 
   socket.on('call-connection', async ({ proof } = {}) => {
@@ -417,6 +487,7 @@ io.on('connection', (socket) => {
       !targetSocket ||
       !targetSocket.data.adultConfirmed ||
       activePairs.has(socket.id) ||
+      introductions.hasPending(socket.id) ||
       isUserBusy(payload.calleeId) ||
       isBlockedBetween(socket.id, targetSocket.id)
     ) {
@@ -501,6 +572,8 @@ io.on('connection', (socket) => {
       !socket.data.adultConfirmed ||
       activePairs.has(callerSocket.id) ||
       activePairs.has(socket.id) ||
+      introductions.hasPending(callerSocket.id) ||
+      introductions.hasPending(socket.id) ||
       isBlockedBetween(callerSocket.id, socket.id)
     ) {
       clearPendingConnectionCall(inviteId, 'direct-call-unavailable', null);
@@ -616,10 +689,11 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('find-next-user', () => {
+  socket.on('find-next-user', ({ themeId } = {}) => {
+    if (!requireVibeRoomProtocol(socket)) return;
     clearActivePair(socket.id, true);
     removeFromMatchQueues(socket.id);
-    runFindUser(socket);
+    runFindUser(socket, themeId);
   });
 
   socket.on('cancel-search', () => {
@@ -636,7 +710,8 @@ io.on('connection', (socket) => {
     removeActiveSocket(socket.data.userId, socket.id);
   });
 
-  socket.on('call-user', ({ offer, to }) => {
+  socket.on('call-user', ({ offer, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to) || !offer) return;
     console.log(`[Signaling] call-user ${socket.id} -> ${to}`);
     socket.to(to).emit('call-made', {
       offer,
@@ -644,7 +719,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('make-answer', ({ answer, to }) => {
+  socket.on('make-answer', ({ answer, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to) || !answer) return;
     console.log(`[Signaling] make-answer ${socket.id} -> ${to}`);
     socket.to(to).emit('answer-made', {
       answer,
@@ -652,23 +728,29 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('ice-candidate', ({ candidate, to }) => {
+  socket.on('ice-candidate', ({ candidate, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to) || !candidate) return;
     socket.to(to).emit('ice-candidate', {
       candidate,
       from: socket.id
     });
   });
 
-  socket.on('chat-message', ({ id, text, to, from, timestamp }) => {
+  socket.on('chat-message', ({ id, text, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
+    if (typeof id !== 'string' || !id || id.length > 128) return;
+    if (typeof text !== 'string' || !text.trim() || text.length > 2000) return;
     socket.to(to).emit('chat-message', {
       id,
-      text,
-      from,
-      timestamp
+      text: text.trim(),
+      from: socket.id,
+      timestamp: Date.now(),
     });
   });
 
-  socket.on('stream-state-change', ({ type, state, to }) => {
+  socket.on('stream-state-change', ({ type, state, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
+    if (!['audio', 'video'].includes(type) || typeof state !== 'boolean') return;
     socket.to(to).emit('stream-state-change', {
       type,
       state
@@ -688,18 +770,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('typing-start', ({ to }) => {
+  socket.on('typing-start', ({ to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
     socket.to(to).emit('typing-start', { from: socket.id });
     console.log(`User ${socket.id} started typing (to ${to})`);
   });
 
-  socket.on('typing-stop', ({ to }) => {
+  socket.on('typing-stop', ({ to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
     socket.to(to).emit('typing-stop', { from: socket.id });
     console.log(`User ${socket.id} stopped typing (to ${to})`);
   });
 
-  socket.on('mark-messages-read', ({ messageIds, to }) => {
-    if (!Array.isArray(messageIds) || messageIds.length === 0) return;
+  socket.on('mark-messages-read', ({ messageIds, to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
+    if (!Array.isArray(messageIds) || messageIds.length === 0 || messageIds.length > 100) return;
 
     socket.to(to).emit('message-read', {
       messageIds,
@@ -708,8 +793,14 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} marked messages as read: ${messageIds.length} messages`);
   });
 
-  socket.on('vibe-tap', ({ to }) => {
-    if (!to || activePairs.get(socket.id) !== to) return;
+  socket.on('vibe-tap', ({ to } = {}) => {
+    if (!to || !isActivePeerRelay(activePairs, socket.id, to)) return;
+    // An existing Connection call does not need new Vibe confirmation.
+    // A new introduction must complete all three rounds on the server.
+    if (!vibeRooms.canVibe(socket.id, to)) {
+      socket.emit('vibe-room-error', { message: 'Complete The Bridge and approve your shared creation together before choosing Vibe.' });
+      return;
+    }
 
     vibeTargets.set(socket.id, to);
     socket.to(to).emit('vibe-received', { from: socket.id });
@@ -720,7 +811,8 @@ io.on('connection', (socket) => {
     const peerSocket = io.sockets.sockets.get(to);
     const userId = socket.data.userId;
     const peerUserId = peerSocket?.data.userId || null;
-    const proof = userId && peerUserId ? createConnectionProof(userId, peerUserId) : null;
+    const creation = vibeRooms.approvedOutcome(socket.id, to);
+    const proof = userId && peerUserId && creation ? createConnectionProof(userId, peerUserId, creation) : null;
 
     socket.emit('mutual-vibe', {
       partnerUserId: peerUserId,
@@ -746,7 +838,7 @@ io.on('connection', (socket) => {
 
   socket.on('report-user', (payload = {}) => {
     const reportedSocketId = payload.reportedUserId || payload.reportedSocketId;
-    if (!reportedSocketId) {
+    if (!isActivePeerRelay(activePairs, socket.id, reportedSocketId)) {
       console.warn('[Signaling] report-user missing reported user id');
       return;
     }
@@ -766,12 +858,14 @@ io.on('connection', (socket) => {
       .catch((err) => console.error('[Reports] save failed', err));
   });
 
-  socket.on('reconnect-attempt', ({ to }) => {
+  socket.on('reconnect-attempt', ({ to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
     socket.to(to).emit('peer-reconnecting', { from: socket.id });
     console.log(`User ${socket.id} is attempting to reconnect with ${to}`);
   });
 
-  socket.on('reconnect-success', ({ to }) => {
+  socket.on('reconnect-success', ({ to } = {}) => {
+    if (!isActivePeerRelay(activePairs, socket.id, to)) return;
     socket.to(to).emit('peer-reconnected', { from: socket.id });
     console.log(`User ${socket.id} has successfully reconnected with ${to}`);
   });

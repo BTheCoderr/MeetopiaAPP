@@ -1,5 +1,5 @@
 import { View, Text, Image, StyleSheet } from 'react-native'
-import { colors, radius } from '@/theme/theme'
+import { colors } from '@/theme/theme'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ICON = require('../../../assets/icon.png')

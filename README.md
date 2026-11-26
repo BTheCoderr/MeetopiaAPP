@@ -1,5 +1,7 @@
 # Meetopia
 
+> **Draft branch notice (App Review):** This README's older queue-based matching walkthrough describes the earlier public version, not the unmerged Vibe Room release. The current draft adds Chemistry Passports, two-sided introduction consent, synchronized conversation rounds, Encore and dual-consent Spark Cards. These features remain unshipped and unverified on physical iPhones. See [code provenance](docs/APP_REVIEW_426_CODE_PROVENANCE.md), [App Store originality audit](docs/APPLE_DIFFERENTIATION_AUDIT_2026-11-17.md), and [two-device QA](docs/MEETOPIA_STAGING_TWO_DEVICE_QA.md). Do not present this repository README as evidence that a specific App Store binary has those features.
+
 <!-- repo-intro:start -->
 **Project snapshot:** Meetopia is a conversation-first adult social/dating product built around live video Chemistry Checks. People talk first, then save a connection only when both choose to Vibe.
 

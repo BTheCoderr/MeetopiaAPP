@@ -8,28 +8,34 @@ interface Props {
   onExpire?: () => void
 }
 
+/**
+ * Mount the timer only when a real peer session is connected.
+ * Unmounting resets it naturally without synchronously setting state in an effect.
+ */
 export default function ChemistryTimer({ active, onExpire }: Props) {
+  if (!active) return null
+  return <ActiveChemistryTimer onExpire={onExpire} />
+}
+
+function ActiveChemistryTimer({ onExpire }: Pick<Props, 'onExpire'>) {
   const [remaining, setRemaining] = useState(CHEMISTRY_SECONDS)
 
   useEffect(() => {
-    if (!active) {
-      setRemaining(CHEMISTRY_SECONDS)
-      return
-    }
     const id = setInterval(() => {
-      setRemaining(r => {
-        if (r <= 1) {
+      setRemaining(previous => {
+        if (previous <= 1) {
           clearInterval(id)
-          onExpire?.()
           return 0
         }
-        return r - 1
+        return previous - 1
       })
     }, 1000)
     return () => clearInterval(id)
-  }, [active, onExpire])
+  }, [])
 
-  if (!active) return null
+  useEffect(() => {
+    if (remaining === 0) onExpire?.()
+  }, [remaining, onExpire])
 
   const m = Math.floor(remaining / 60)
   const s = remaining % 60

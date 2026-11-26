@@ -80,7 +80,7 @@ export default function BlockedUsersPage() {
           <p className="text-xs font-black uppercase tracking-[0.22em] text-red-600">Safety</p>
           <h1 className="mt-1 text-3xl font-black text-gray-950">Blocked users</h1>
           <p className="mt-3 text-sm leading-6 text-gray-600">
-            Blocked people cannot appear in your future Chemistry Check matching and their saved Connection is removed.
+            Blocked people will never be introduced to you again, and their saved Connection is removed.
           </p>
         </div>
 

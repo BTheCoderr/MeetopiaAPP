@@ -12,6 +12,7 @@ interface MainLayoutProps {
 const navItems = [
   { href: '/', label: 'Home' },
   { href: '/start', label: 'Start' },
+  { href: '/sessions', label: 'Vibe Sessions' },
   { href: '/connections', label: 'Connections' },
   { href: '/notifications', label: 'Alerts' },
   { href: '/profile', label: 'Profile' },

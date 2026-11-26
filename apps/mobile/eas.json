@@ -7,20 +7,35 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "22.23.3",
       "ios": {
         "simulator": false,
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "image": "sdk-58"
       }
     },
     "preview": {
       "distribution": "internal",
+      "node": "22.23.3",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "image": "sdk-58"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "channel": "staging",
+      "node": "22.23.3",
+      "env": {
+        "MEETOPIA_DEPLOY_ENV": "staging",
+        "EXPO_PUBLIC_STAGING": "true"
+      },
+      "ios": {
+        "image": "sdk-58"
       }
     },
     "production": {
+      "node": "22.23.3",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "image": "sdk-58"
       }
     }
   },

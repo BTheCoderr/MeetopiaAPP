@@ -1,4 +1,5 @@
 const { createHmac, timingSafeEqual } = require('crypto');
+const { validateCreation } = require('./themeCatalog');
 
 function getSecret() {
   return process.env.SOCKET_AUTH_SECRET || '';
@@ -35,12 +36,13 @@ function verifySocketToken(token) {
   return payload;
 }
 
-function createConnectionProof(userIdA, userIdB) {
+function createConnectionProof(userIdA, userIdB, creation) {
   if (!getSecret()) return null;
   const users = [userIdA, userIdB].sort();
   const payload = {
     type: 'connection',
     users,
+    creation: validateCreation(creation),
     exp: Date.now() + 2 * 60 * 1000,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');

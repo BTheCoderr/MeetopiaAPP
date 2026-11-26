@@ -100,6 +100,8 @@ function profileSummary(profile) {
 }
 
 async function notifyReportEmail(record) {
+  // Never send notifications to real recipients from staging test reports.
+  if (process.env.MEETOPIA_DEPLOY_ENV === 'staging') return;
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.REPORT_NOTIFY_EMAIL;
   const from = process.env.REPORT_FROM_EMAIL || 'Meetopia Reports <onboarding@resend.dev>';

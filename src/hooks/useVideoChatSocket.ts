@@ -2,9 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import type { VibeRoomState } from '@/lib/vibeRoom'
+import { VIBE_ROOM_PROTOCOL, confirmVibeRoomServer } from '@/lib/vibeRoomProtocol'
+import type { VibeThemeId } from '@/lib/vibeThemes'
 import { useRouter } from 'next/navigation'
+import { getSocketUrl } from '@/lib/socketUrl'
 
 const LOG = '[WebRTC:Signaling]'
+
+interface IntroductionState {
+  themeId: string
+  themeTitle: string
+  invitationId: string
+  expiresAt: number
+  accepted: boolean
+  person: { displayName: string; conversationStyle: string; sharedInterests: string[] }
+}
 
 interface MutualVibeState {
   partnerUserId: string | null
@@ -26,6 +39,7 @@ interface UseVideoChatSocketOptions {
   isAdaptiveQuality: boolean
   directConnectionId?: string | null
   incomingCallId?: string | null
+  themeId?: VibeThemeId | null
 }
 
 function serializeCandidate(candidate: RTCIceCandidate): RTCIceCandidateInit {
@@ -48,6 +62,7 @@ export function useVideoChatSocket({
   isAdaptiveQuality,
   directConnectionId = null,
   incomingCallId = null,
+  themeId = null,
 }: UseVideoChatSocketOptions) {
   const router = useRouter()
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -61,33 +76,56 @@ export function useVideoChatSocket({
   const [hasVibed, setHasVibed] = useState(false)
   const [mutualVibe, setMutualVibe] = useState<MutualVibeState | null>(null)
   const [callStatus, setCallStatus] = useState<string | null>(null)
+  const [introduction, setIntroduction] = useState<IntroductionState | null>(null)
+  const [room, setRoom] = useState<VibeRoomState | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const currentPeerRef = useRef<string | null>(null)
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([])
+  const remoteReadyRef = useRef(false)
+  const receivedStreamRef = useRef<MediaStream | null>(null)
   const isCallerRef = useRef(false)
+  const readyPcRef = useRef<RTCPeerConnection | null>(null)
+  const pendingNextRef = useRef<{ requestId: number; themeId: VibeThemeId } | null>(null)
   const directCallAttemptedRef = useRef<string | null>(null)
   const incomingCallAcceptedRef = useRef<string | null>(null)
+  const searchGenerationRef = useRef(0)
 
   useEffect(() => {
     socketRef.current = socket
   }, [socket])
 
-  useEffect(() => {
-    peerConnectionRef.current = peerConnection
-  }, [peerConnection])
-
-  useEffect(() => {
-    currentPeerRef.current = currentPeer
-  }, [currentPeer])
+  const resetCall = useCallback(() => {
+    readyPcRef.current = null
+    currentPeerRef.current = null
+    pendingIceCandidatesRef.current = []
+    remoteReadyRef.current = false
+    receivedStreamRef.current = null
+    isCallerRef.current = false
+    setCurrentPeer(null)
+    setCurrentPeerUserId(null)
+    setRemoteStream(null)
+    setIsPeerConnected(false)
+    setIsRemoteCameraOff(false)
+    setIsRemoteAudioOff(false)
+    setHasVibed(false)
+    setMutualVibe(null)
+    setCallStatus(null)
+    setIntroduction(null)
+    setRoom(null)
+    restartConnection()
+  }, [restartConnection])
 
   useEffect(() => {
     let disposed = false
     let newSocket: Socket | null = null
 
     const connect = async () => {
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3003'
+      const socketUrl = getSocketUrl()
+      if (!socketUrl) {
+        setError('Meetopia video is not configured. Please contact support.')
+        return
+      }
       console.log(LOG, 'socket URL', socketUrl)
 
       let token: string | undefined
@@ -120,12 +158,38 @@ export function useVideoChatSocket({
 
       if (disposed) return
 
+      let firstToken = token
       newSocket = io(socketUrl, {
         transports: ['polling', 'websocket'],
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        auth: token ? { token } : {},
+        auth: (callback) => {
+          if (firstToken) {
+            const value = firstToken
+            firstToken = undefined
+            callback({ token: value, meetopiaProtocol: VIBE_ROOM_PROTOCOL })
+            return
+          }
+          void (async () => {
+            try {
+              const response = await fetch('/api/auth/socket-token', {
+                cache: 'no-store', credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+              })
+              const data = await response.json().catch(() => null)
+              if (disposed) return
+              if (!response.ok || !data?.token) {
+                setError('Meetopia video authentication is unavailable. Please sign in again.')
+                callback({ meetopiaProtocol: VIBE_ROOM_PROTOCOL })
+                return
+              }
+              callback({ token: data.token, meetopiaProtocol: VIBE_ROOM_PROTOCOL })
+            } catch {
+              if (!disposed) callback({ meetopiaProtocol: VIBE_ROOM_PROTOCOL })
+            }
+          })()
+        },
       })
       setSocket(newSocket)
       socketRef.current = newSocket
@@ -144,36 +208,62 @@ export function useVideoChatSocket({
 
       newSocket.on('connect_error', (err) => {
         console.error(LOG, 'connect_error', err.message)
-        setError('Unable to connect to Meetopia right now. Please try again.')
+        setIsSocketConnected(false)
+        setIsSearching(false)
+        setError(err.message === 'AUTH_REQUIRED'
+          ? 'Meetopia video authentication was rejected. Please sign in again or contact support.'
+          : 'Unable to connect to Meetopia right now. Please try again.')
       })
 
       newSocket.on('disconnect', () => {
+        searchGenerationRef.current += 1
         console.log(LOG, 'socket disconnected')
         setIsSocketConnected(false)
-        setCurrentPeer(null)
-        setCurrentPeerUserId(null)
-        currentPeerRef.current = null
-        setRemoteStream(null)
+        pendingNextRef.current = null
+        resetCall()
         setIsSearching(false)
-        setHasVibed(false)
-        setMutualVibe(null)
         setError('Connection lost. Attempting to reconnect...')
       })
 
       newSocket.on('match-error', ({ code, message }: { code?: string; message?: string }) => {
         console.warn(LOG, 'match-error', code, message)
         setIsSearching(false)
-        setError(message || 'Unable to start a Chemistry Check. Please try again.')
+        setError(message || 'Unable to find an introduction right now. Please try again.')
         if (code === 'AUTH_REQUIRED') {
           router.push('/auth/signin?next=/start')
         } else if (code === 'ADULT_CONFIRMATION_REQUIRED') {
           router.push('/start')
+        } else if (code === 'PASSPORT_REQUIRED') {
+          router.push('/chemistry/passport')
         }
       })
 
       newSocket.on('search-cancelled', () => {
+        setIsSearching(false); setIntroduction(null); setError(null)
+      })
+      newSocket.on('introduction-searching', () => {
+        setIsSearching(true); setIntroduction(null); setError(null)
+      })
+      newSocket.on('introduction-offered', (invite: Omit<IntroductionState, 'accepted'>) => {
+        setIntroduction({ ...invite, accepted: false })
         setIsSearching(false)
         setError(null)
+      })
+      newSocket.on('introduction-response-recorded', ({ invitationId }: { invitationId: string }) => {
+        setIntroduction(current => current?.invitationId === invitationId ? { ...current, accepted: true } : current)
+      })
+      const ended = ({ reason }: { reason?: string }) => {
+        setIntroduction(null); setIsSearching(false)
+        if (reason) setError(reason)
+      }
+      newSocket.on('introduction-declined', ended)
+      newSocket.on('introduction-expired', ended)
+      newSocket.on('introduction-cancelled', ended)
+      newSocket.on('introduction-approved', () => { setIntroduction(null); setError(null) })
+      newSocket.on('vibe-room-state', (next: VibeRoomState) => setRoom(next))
+      newSocket.on('vibe-room-ended', () => setRoom(null))
+      newSocket.on('vibe-room-error', ({ message }: { message?: string }) => {
+        setError(message || 'Unable to advance the Vibe Room.')
       })
 
       newSocket.on(
@@ -270,32 +360,42 @@ export function useVideoChatSocket({
       newSocket?.disconnect()
       socketRef.current = null
     }
-  }, [router, setError, setIsSearching])
+  }, [router, setError, setIsSearching, resetCall])
 
   // WebRTC handlers on the current peer connection (stable refs for ICE peer id)
   useEffect(() => {
     const pc = peerConnection
-    if (!pc) return
+    const sock = socket
+    if (!pc || !sock || !stream || !isPeerConnectionUsable(pc)) return
+    const isCurrent = (peerId: string) => readyPcRef.current === pc &&
+      currentPeerRef.current === peerId && socketRef.current === sock &&
+      sock.connected && isPeerConnectionUsable(pc)
 
-    const drainIceCandidates = () => {
-      if (!pc.remoteDescription) return
-      const pending = pendingIceCandidatesRef.current.splice(0)
-      if (pending.length > 0) {
-        console.log(LOG, 'draining queued ICE candidates', pending.length)
+    const addCandidate = async (candidate: RTCIceCandidateInit, peerId: string) => {
+      if (!isCurrent(peerId)) return
+      try {
+        await pc.addIceCandidate(candidate)
+      } catch (err) {
+        if (!isCurrent(peerId)) return
+        console.error(LOG, 'addIceCandidate failed:', err)
+        setError('A video network candidate failed. Select Next if the connection does not recover.')
       }
-      pending.forEach(candidate => {
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(err => {
-          console.error(LOG, 'addIceCandidate (drain) failed:', err)
-        })
-      })
     }
 
-    const queueOrAddIceCandidate = (candidate: RTCIceCandidateInit) => {
-      if (pc.remoteDescription) {
-        console.log(LOG, 'ICE candidate received → add immediately')
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(err => {
-          console.error(LOG, 'addIceCandidate failed:', err)
-        })
+    const drainIceCandidates = async (peerId: string) => {
+      if (!isCurrent(peerId) || !pc.remoteDescription) return
+      while (isCurrent(peerId) && pendingIceCandidatesRef.current.length) {
+        const pending = pendingIceCandidatesRef.current.splice(0)
+        console.log(LOG, 'draining queued ICE candidates', pending.length)
+        for (const candidate of pending) await addCandidate(candidate, peerId)
+      }
+      if (isCurrent(peerId)) remoteReadyRef.current = true
+    }
+
+    const queueOrAddIceCandidate = (candidate: RTCIceCandidateInit, peerId: string) => {
+      if (!isCurrent(peerId)) return
+      if (remoteReadyRef.current && pc.remoteDescription) {
+        void addCandidate(candidate, peerId)
       } else {
         console.log(LOG, 'ICE candidate received → queued (no remoteDescription yet)')
         pendingIceCandidatesRef.current.push(candidate)
@@ -303,7 +403,11 @@ export function useVideoChatSocket({
     }
 
     const onTrack = (event: RTCTrackEvent) => {
-      const mediaStream = event.streams[0]
+      const peerId = currentPeerRef.current
+      if (!peerId || !isCurrent(peerId)) return
+      const mediaStream = event.streams[0] ?? receivedStreamRef.current ?? new MediaStream()
+      if (!mediaStream.getTracks().some(track => track.id === event.track.id)) mediaStream.addTrack(event.track)
+      receivedStreamRef.current = mediaStream
       console.log(LOG, 'ontrack fired', {
         trackKind: event.track.kind,
         streamId: mediaStream?.id,
@@ -320,7 +424,7 @@ export function useVideoChatSocket({
       if (!event.candidate) return
       const peerId = currentPeerRef.current
       const sock = socketRef.current
-      if (!peerId || !sock) {
+      if (!peerId || !sock || !isCurrent(peerId)) {
         console.log(LOG, 'ICE candidate generated but peer/socket not ready — skipped')
         return
       }
@@ -330,6 +434,8 @@ export function useVideoChatSocket({
     }
 
     const onConnectionStateChange = () => {
+      const peerId = currentPeerRef.current
+      if (!peerId || !isCurrent(peerId)) return
       const state = pc.connectionState
       console.log(LOG, 'connectionState (signaling hook)', state)
       if (state === 'connected') {
@@ -342,6 +448,7 @@ export function useVideoChatSocket({
         setRemoteStream(null)
         setIsRemoteCameraOff(false)
         setIsRemoteAudioOff(false)
+        if (state === 'failed') setError('Video connection failed. Check your network or select Next.')
       }
     }
 
@@ -356,16 +463,19 @@ export function useVideoChatSocket({
       partnerId: string
       partnerUserId?: string | null
     }) => {
-      const sock = socketRef.current
-      const activePc = peerConnectionRef.current
-      if (!sock?.id || !activePc || !isPeerConnectionUsable(activePc)) {
+      const activePc = pc
+      if (!sock.id || readyPcRef.current !== pc || !isPeerConnectionUsable(pc)) {
         console.error(LOG, 'user-found but peer connection not ready')
         setError('Failed to establish video connection. Please try again.')
         return
       }
 
+      if (currentPeerRef.current) return
+      remoteReadyRef.current = false
+      receivedStreamRef.current = null
       console.log(LOG, 'matched peer ID', partnerId, '| my ID', sock.id)
       currentPeerRef.current = partnerId
+      setIntroduction(null)
       setCurrentPeer(partnerId)
       setIsSearching(false)
       setCallStatus(null)
@@ -382,87 +492,59 @@ export function useVideoChatSocket({
       if (!shouldOffer) return
 
       try {
-        if (activePc.signalingState !== 'stable') {
-          console.warn(LOG, 'offer skipped — signalingState', activePc.signalingState)
-          return
-        }
-
+        if (activePc.signalingState !== 'stable') throw new Error('Peer connection not stable')
         const offer = await activePc.createOffer()
+        if (!isCurrent(partnerId)) return
         await activePc.setLocalDescription(offer)
+        if (!isCurrent(partnerId)) return
         console.log(LOG, 'created offer → call-user', partnerId)
-
         sock.emit('call-user', { offer, to: partnerId })
-        setError(null)
       } catch (err) {
-        console.error(LOG, 'createOffer failed (retrying):', err)
-        await new Promise(resolve => setTimeout(resolve, 300))
-        try {
-          const pc = peerConnectionRef.current
-          if (!pc || !isPeerConnectionUsable(pc) || pc.signalingState !== 'stable') {
-            throw new Error('Peer connection not stable for retry')
-          }
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          console.log(LOG, 'created offer (retry) → call-user', partnerId)
-          sock.emit('call-user', { offer, to: partnerId })
-          setError(null)
-        } catch (retryErr) {
-          console.error(LOG, 'createOffer failed after retry:', retryErr)
-          setError('Failed to establish video connection. Please try again.')
-        }
+        if (!isCurrent(partnerId)) return
+        console.error(LOG, 'createOffer failed:', err)
+        setError('Failed to establish video connection. Please select Next.')
       }
     }
 
     const handleCallMade = async ({ offer, from }: { offer: RTCSessionDescriptionInit; from: string }) => {
-      const sock = socketRef.current
-      const activePc = peerConnectionRef.current
-      if (!sock || !activePc || !isPeerConnectionUsable(activePc)) {
-        console.error(LOG, 'call-made but peer connection not ready')
-        setError('Failed to establish video connection. Please try again.')
-        return
-      }
-
+      const activePc = pc
+      if (!isCurrent(from) || isCallerRef.current || activePc.signalingState !== 'stable') return
       console.log(LOG, 'received offer from', from)
-      currentPeerRef.current = from
-      setCurrentPeer(from)
-      isCallerRef.current = false
 
       try {
-        await activePc.setRemoteDescription(new RTCSessionDescription(offer))
+        await activePc.setRemoteDescription(offer)
+        if (!isCurrent(from)) return
         console.log(LOG, 'remoteDescription set (offer)')
-        drainIceCandidates()
+        await drainIceCandidates(from)
+        if (!isCurrent(from)) return
 
         const answer = await activePc.createAnswer()
+        if (!isCurrent(from)) return
         await activePc.setLocalDescription(answer)
+        if (!isCurrent(from)) return
         console.log(LOG, 'created answer → make-answer', from)
         sock.emit('make-answer', { answer, to: from })
         setError(null)
       } catch (err) {
+        if (!isCurrent(from)) return
         console.error(LOG, 'handleCallMade failed:', err)
         setError('Failed to establish video connection. Please try again.')
       }
     }
 
     const handleAnswerMade = async ({ answer, from }: { answer: RTCSessionDescriptionInit; from: string }) => {
-      const activePc = peerConnectionRef.current
-      if (!activePc || !isPeerConnectionUsable(activePc)) {
-        console.error(LOG, 'answer-made but peer connection not ready')
-        setError('Failed to establish video connection. Please try again.')
-        return
-      }
+      const activePc = pc
+      if (!isCurrent(from) || !isCallerRef.current || activePc.signalingState !== 'have-local-offer') return
 
       console.log(LOG, 'received answer from', from)
 
       try {
-        if (activePc.signalingState === 'stable' && activePc.remoteDescription) {
-          console.log(LOG, 'answer ignored — already stable with remote description')
-          return
-        }
-        await activePc.setRemoteDescription(new RTCSessionDescription(answer))
+        await activePc.setRemoteDescription(answer)
+        if (!isCurrent(from)) return
         console.log(LOG, 'remoteDescription set (answer)')
-        drainIceCandidates()
-        setError(null)
+        await drainIceCandidates(from)
       } catch (err) {
+        if (!isCurrent(from)) return
         console.error(LOG, 'handleAnswerMade failed:', err)
         setError('Failed to establish video connection. Please try again.')
       }
@@ -470,35 +552,43 @@ export function useVideoChatSocket({
 
     const handleIceCandidate = ({ candidate, from }: { candidate: RTCIceCandidateInit; from: string }) => {
       console.log(LOG, 'ICE candidate received ←', from)
-      queueOrAddIceCandidate(candidate)
+      queueOrAddIceCandidate(candidate, from)
     }
 
     const handlePeerLeft = () => {
       console.log(LOG, 'peer-left')
-      currentPeerRef.current = null
-      setCurrentPeer(null)
-      setCurrentPeerUserId(null)
-      setRemoteStream(null)
-      setHasVibed(false)
-      setMutualVibe(null)
-      setIsPeerConnected(false)
-      setIsRemoteCameraOff(false)
-      setIsRemoteAudioOff(false)
+      if (!currentPeerRef.current) return
+      pendingNextRef.current = null
+      searchGenerationRef.current += 1
+      resetCall()
       setIsSearching(false)
-      pendingIceCandidatesRef.current = []
-      isCallerRef.current = false
     }
-
-    const sock = socketRef.current
-    if (!sock) return
 
     sock.on('user-found', handleUserFound)
     sock.on('call-made', handleCallMade)
     sock.on('answer-made', handleAnswerMade)
     sock.on('ice-candidate', handleIceCandidate)
     sock.on('peer-left', handlePeerLeft)
+    readyPcRef.current = pc
+    const pendingNext = pendingNextRef.current
+    if (pendingNext && sock.connected) {
+      void confirmVibeRoomServer(sock).then(supported => {
+        if (pendingNextRef.current !== pendingNext ||
+          pendingNext.requestId !== searchGenerationRef.current ||
+          readyPcRef.current !== pc) return
+        pendingNextRef.current = null
+        if (!supported || !sock.connected) {
+          setIsSearching(false)
+          setError('The Vibe Room signaling server must be updated before another introduction.')
+          return
+        }
+        sock.emit('find-next-user', { themeId: pendingNext.themeId })
+        startCooldown()
+      })
+    }
 
     return () => {
+      if (readyPcRef.current === pc) readyPcRef.current = null
       pc.removeEventListener('track', onTrack)
       pc.removeEventListener('icecandidate', onIceCandidate)
       pc.removeEventListener('connectionstatechange', onConnectionStateChange)
@@ -514,14 +604,27 @@ export function useVideoChatSocket({
     socket,
     setIsSearching,
     setError,
+    resetCall,
+    startCooldown,
   ])
+
+  useEffect(() => {
+    if (!currentPeer || isPeerConnected) return
+    const timer = window.setTimeout(() => {
+      if (currentPeerRef.current === currentPeer) setError('Video connection timed out. Check your network or select Next.')
+    }, 25_000)
+    return () => window.clearTimeout(timer)
+  }, [currentPeer, isPeerConnected, setError])
 
   useEffect(() => {
     if (
       !directConnectionId ||
       incomingCallId ||
+      !isSocketConnected ||
       !socket?.connected ||
+      !stream ||
       !peerConnection ||
+      readyPcRef.current !== peerConnection ||
       directCallAttemptedRef.current === directConnectionId
     ) {
       return
@@ -564,6 +667,8 @@ export function useVideoChatSocket({
     directConnectionId,
     incomingCallId,
     socket,
+    isSocketConnected,
+    stream,
     peerConnection,
     setIsSearching,
     setError,
@@ -572,8 +677,11 @@ export function useVideoChatSocket({
   useEffect(() => {
     if (
       !incomingCallId ||
+      !isSocketConnected ||
       !socket?.connected ||
+      !stream ||
       !peerConnection ||
+      readyPcRef.current !== peerConnection ||
       incomingCallAcceptedRef.current === incomingCallId
     ) {
       return
@@ -587,6 +695,8 @@ export function useVideoChatSocket({
   }, [
     incomingCallId,
     socket,
+    isSocketConnected,
+    stream,
     peerConnection,
     setIsSearching,
     setError,
@@ -634,48 +744,91 @@ export function useVideoChatSocket({
   }, [remoteStream, peerConnection, isAdaptiveQuality, setBandwidthQuality])
 
   const handleStartChat = useCallback(() => {
-    if (!socket?.connected || !stream || buttonCooldown) return
-    console.log(LOG, 'find-user')
+    if (buttonCooldown || !themeId) return
+    if (!socket?.connected || !stream || !readyPcRef.current) {
+      setError('Video is not ready yet. Check your camera and connection and try again.')
+      return
+    }
+    const requestId = ++searchGenerationRef.current
     setIsSearching(true)
     setError(null)
-    socket.emit('find-user')
-    startCooldown()
-  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown])
+    setIntroduction(null)
+    void confirmVibeRoomServer(socket).then(supported => {
+      if (requestId !== searchGenerationRef.current) return
+      if (!supported || !socket.connected || !readyPcRef.current) {
+        setIsSearching(false)
+        setError('Meetopia is finishing an update. Please try again in a few minutes.')
+        return
+      }
+      socket.emit('find-user', { themeId })
+      startCooldown()
+    })
+  }, [socket, stream, buttonCooldown, setIsSearching, setError, startCooldown, themeId])
 
   const handleCancelSearch = useCallback(() => {
+    searchGenerationRef.current += 1
+    const pendingNext = pendingNextRef.current
+    pendingNextRef.current = null
     if (!socket?.connected) return
+    if (pendingNext) socket.emit('leave-chat')
     socket.emit('cancel-search')
     setIsSearching(false)
+    setIntroduction(null)
     setError(null)
   }, [socket, setIsSearching, setError])
 
   const handleNextPerson = useCallback(() => {
-    console.log(LOG, 'find-next-user')
-    pendingIceCandidatesRef.current = []
-    if (currentPeer) {
-      restartConnection()
-    }
-    setIsPeerConnected(false)
-    currentPeerRef.current = null
-    setCurrentPeer(null)
-    setCurrentPeerUserId(null)
-    setHasVibed(false)
-    setMutualVibe(null)
-    setRemoteStream(null)
+    if (!socket?.connected || !stream || buttonCooldown || !themeId) return
+    const requestId = ++searchGenerationRef.current
+    pendingNextRef.current = { requestId, themeId }
+    resetCall()
     setIsSearching(true)
     setError(null)
-    window.setTimeout(() => {
-      socket?.emit('find-next-user')
-    }, 350)
-    startCooldown()
     return 'next' as const
-  }, [currentPeer, restartConnection, socket, startCooldown, setError])
+  }, [socket, stream, buttonCooldown, themeId, resetCall, setIsSearching, setError])
+
+  const acceptIntroduction = useCallback(() => {
+    if (socket?.connected && introduction && !introduction.accepted) {
+      socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: true })
+    }
+  }, [socket, introduction])
+
+  const declineIntroduction = useCallback(() => {
+    if (socket?.connected && introduction) {
+      socket.emit('introduction-response', { invitationId: introduction.invitationId, accept: false })
+    }
+    setIntroduction(null); setIsSearching(false)
+  }, [socket, introduction, setIsSearching])
+
+  const answerRound = useCallback((choice: string) => {
+    if (socket?.connected && room && !room.completed && room.index === 1 && !room.myChoice) {
+      socket.emit('vibe-room-answer', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+
+  const contribute = useCallback((choice: string) => {
+    if (socket?.connected && room && room.index === 3 && !room.completed) {
+      socket.emit('vibe-room-contribute', { sessionId: room.sessionId, choice })
+    }
+  }, [socket, room])
+
+  const approveCreation = useCallback(() => {
+    if (socket?.connected && room?.index === 3 && !room.completed && room.bridge?.proposal && !room.bridge.approved) {
+      socket.emit('vibe-room-approve', { sessionId: room.sessionId, revision: room.bridge.revision, share: true })
+    }
+  }, [socket, room])
+
+  const nextRound = useCallback(() => {
+    if (socket?.connected && room && !room.completed && !room.ready && room.index < 3) {
+      socket.emit('vibe-room-next', { sessionId: room.sessionId })
+    }
+  }, [socket, room])
 
   const handleVibe = useCallback(() => {
-    if (!socket?.connected || !currentPeer || hasVibed) return
+    if (!socket?.connected || !currentPeer || !room?.completed || hasVibed) return
     socket.emit('vibe-tap', { to: currentPeer })
     setHasVibed(true)
-  }, [socket, currentPeer, hasVibed])
+  }, [socket, currentPeer, room, hasVibed])
 
   const handleBlock = useCallback(async () => {
     if (!socket?.connected || !currentPeer) return false
@@ -699,30 +852,24 @@ export function useVideoChatSocket({
     }
 
     socket.emit('block-user', { to: currentPeer })
-    currentPeerRef.current = null
-    setCurrentPeer(null)
-    setCurrentPeerUserId(null)
-    setRemoteStream(null)
-    setHasVibed(false)
-    setMutualVibe(null)
+    searchGenerationRef.current += 1
+    pendingNextRef.current = null
+    resetCall()
     setIsSearching(false)
     return true
-  }, [socket, currentPeer, currentPeerUserId, setError, setIsSearching])
+  }, [socket, currentPeer, currentPeerUserId, setError, setIsSearching, resetCall])
 
   const handleLeaveChat = useCallback(() => {
     const confirmLeave = window.confirm('Are you sure you want to leave the chat?')
     if (!confirmLeave) return false
+    searchGenerationRef.current += 1
     socket?.emit('leave-chat')
-    currentPeerRef.current = null
-    setCurrentPeer(null)
-    setCurrentPeerUserId(null)
-    setHasVibed(false)
-    setMutualVibe(null)
-    setRemoteStream(null)
+    pendingNextRef.current = null
+    resetCall()
     setIsSearching(false)
     router.push('/')
     return true
-  }, [socket, router])
+  }, [socket, router, resetCall, setIsSearching])
 
   const reportExplicitContent = useCallback(() => {
     socket?.emit('report-explicit-content', { timestamp: new Date().toISOString() })
@@ -731,6 +878,14 @@ export function useVideoChatSocket({
   return {
     socket,
     isSocketConnected,
+    introduction,
+    room,
+    answerRound,
+    nextRound,
+    contribute,
+    approveCreation,
+    acceptIntroduction,
+    declineIntroduction,
     currentPeer,
     currentPeerUserId,
     remoteStream,

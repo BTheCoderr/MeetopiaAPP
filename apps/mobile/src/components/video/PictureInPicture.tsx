@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
   hidden: { opacity: 0 },
   paused: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1c1c1e',

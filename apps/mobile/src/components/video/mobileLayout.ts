@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native'
 /** Mirrors web videoChatLayout.ts — same hierarchy, RN StyleSheet. */
 export const layout = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000', overflow: 'hidden' },
-  mainVideo: { ...StyleSheet.absoluteFillObject },
+  mainVideo: { ...StyleSheet.absoluteFill },
   header: {
     position: 'absolute',
     top: 0,

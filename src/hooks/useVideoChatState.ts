@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { BandwidthQuality, KeyboardShortcut } from '@/types/videoChat'
+import { TUTORIAL_STORAGE_KEY } from '@/components/OnboardingTutorial'
+
+function readTutorialCompleted(): boolean {
+  try {
+    return localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 export function useVideoChatState() {
   const [showTutorial, setShowTutorial] = useState(false)
@@ -31,8 +40,8 @@ export function useVideoChatState() {
   const [blurRemoteVideo, setBlurRemoteVideo] = useState(false)
 
   const keyboardShortcuts: KeyboardShortcut[] = [
-    { key: 'Space', action: 'Start chat or skip to next person' },
-    { key: 'Escape', action: 'Leave current chat' },
+    { key: 'Space', action: 'Find an introduction (outside a Vibe Room)' },
+    { key: 'Escape', action: 'Go Back to Base (leave the Vibe Room)' },
     { key: 'M', action: 'Toggle microphone mute' },
     { key: 'V', action: 'Toggle camera' },
     { key: 'C', action: 'Focus chat input' },
@@ -95,7 +104,7 @@ export function useVideoChatState() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const hasCompletedTutorial = localStorage.getItem('meetopia_tutorial_completed') === 'true'
+    const hasCompletedTutorial = readTutorialCompleted()
     const hasAcceptedSafety = localStorage.getItem('meetopia_safety_accepted') === 'true'
     if (!hasCompletedTutorial) setShowTutorial(true)
     else if (!hasAcceptedSafety) setShowSafetyGuidelines(true)

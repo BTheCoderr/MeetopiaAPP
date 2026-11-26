@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Support — Meetopia',
-  description: 'Get help with Meetopia video dating, Chemistry Checks, and safety.',
+  description: 'Get help with Meetopia introductions, Vibe Rooms, and safety.',
 }
 
 export default function SupportPage() {
@@ -34,7 +34,7 @@ export default function SupportPage() {
           body: (
             <p>
               For in-app harassment or inappropriate behavior, use <strong>Report</strong> during a
-              Chemistry Check. For urgent danger, contact local emergency services first. Learn
+              Vibe Room. For urgent danger, contact local emergency services first. Learn
               more on our{' '}
               <Link href="/safety" className="text-blue-600 hover:underline">
                 Safety &amp; Reporting
@@ -49,7 +49,7 @@ export default function SupportPage() {
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 <strong>Why does Meetopia need camera and microphone?</strong> For live video
-                Chemistry Checks with other members. See our{' '}
+                Vibe Rooms with other members. See our{' '}
                 <Link href="/privacy" className="text-blue-600 hover:underline">
                   Privacy Policy
                 </Link>

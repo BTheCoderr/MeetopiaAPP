@@ -71,7 +71,7 @@ const SafetyGuidelines: React.FC<SafetyGuidelinesProps> = ({
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-green-500">✓</span>
-                <span>Press ESC or click "Next Person" to leave a chat anytime</span>
+                <span>Press ESC or select "Back to Base" to leave a Vibe Room at any time</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-red-500">✗</span>

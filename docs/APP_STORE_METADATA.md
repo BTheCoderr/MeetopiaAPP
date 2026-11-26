@@ -1,3 +1,9 @@
+> ⚠️ **HISTORICAL MVP DRAFT — NOT CURRENT APP STORE SUBMISSION COPY.**
+> This file describes an obsolete suggested-profile/local-only beta and contains claims that are not valid for the current account-backed Meetopia draft.
+> **Do not copy any description, demo/profile claim, age-verification claim, screenshot storyboard or data-retention statement from here into App Store Connect.**
+> For source provenance and the current review prerequisites, see [APP_REVIEW_426_CODE_PROVENANCE.md](./APP_REVIEW_426_CODE_PROVENANCE.md) and [MEETOPIA_STAGING_TWO_DEVICE_QA.md](./MEETOPIA_STAGING_TWO_DEVICE_QA.md).
+> The current product is on an unmerged review branch and MUST be tested on physical iPhones before generating final marketing claims.
+
 # Meetopia — App Store Metadata (Draft)
 
 ## App name
