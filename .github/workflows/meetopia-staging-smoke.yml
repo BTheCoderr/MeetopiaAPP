@@ -47,6 +47,8 @@ jobs:
           printf 'SOCKET_AUTH_SECRET=%s\n' "$value" >> "$GITHUB_ENV"
       - name: Install web dependencies and generate Prisma client
         run: npm ci --no-fund
+      - name: Test password recovery provider configuration and mocked delivery
+        run: node --test scripts/password-reset-email.test.cjs
       - name: Validate staging environment cannot reference production
         run: node --test scripts/staging-config.test.cjs scripts/render-staging-guard.test.cjs
       - name: Verify signaling authorization, Encore privacy and shared-creation security
